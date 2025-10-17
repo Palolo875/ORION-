@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Plus, Send } from "lucide-react";
+import { Plus, Send, Mic } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { UploadPopover } from "./UploadPopover";
+import { toast } from "@/hooks/use-toast";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -27,9 +28,16 @@ export const ChatInput = ({ onSend, placeholder = "Comment puis-je vous aider ?"
     }
   };
 
+  const handleMicClick = () => {
+    toast({
+      title: "Reconnaissance vocale",
+      description: "Cette fonctionnalité sera bientôt disponible",
+    });
+  };
+
   return (
     <div className="w-full max-w-3xl mx-auto px-4 pb-8">
-      <div className="glass rounded-[2rem] p-2 flex items-end gap-2 glass-hover">
+      <div className="glass rounded-full p-2 flex items-end gap-2 glass-hover shadow-2xl border border-[hsl(var(--glass-border))]">
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -54,9 +62,18 @@ export const ChatInput = ({ onSend, placeholder = "Comment puis-je vous aider ?"
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="min-h-[44px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
+          className="min-h-[44px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base px-2"
           rows={1}
         />
+
+        <Button
+          onClick={handleMicClick}
+          variant="ghost"
+          size="icon"
+          className="shrink-0 rounded-full hover:bg-accent/50 transition-colors"
+        >
+          <Mic className="h-5 w-5" />
+        </Button>
 
         <Button
           onClick={handleSend}
