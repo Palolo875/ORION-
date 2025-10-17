@@ -36,16 +36,16 @@ export const ChatInput = ({ onSend, placeholder = "Comment puis-je vous aider ?"
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 pb-8">
-      <div className="glass rounded-full p-2 flex items-end gap-2 glass-hover shadow-2xl border border-[hsl(var(--glass-border))]">
+    <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8">
+      <div className="glass rounded-full p-1.5 sm:p-2 flex items-end gap-1 sm:gap-2 glass-hover shadow-2xl border border-[hsl(var(--glass-border))]">
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="shrink-0 rounded-full hover:bg-accent/50 transition-colors"
+              className="shrink-0 rounded-full hover:bg-accent/50 transition-colors h-8 w-8 sm:h-10 sm:w-10"
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -62,7 +62,7 @@ export const ChatInput = ({ onSend, placeholder = "Comment puis-je vous aider ?"
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="min-h-[44px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base px-2"
+          className="min-h-[36px] sm:min-h-[44px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm sm:text-base px-1 sm:px-2"
           rows={1}
         />
 
@@ -70,18 +70,18 @@ export const ChatInput = ({ onSend, placeholder = "Comment puis-je vous aider ?"
           onClick={handleMicClick}
           variant="ghost"
           size="icon"
-          className="shrink-0 rounded-full hover:bg-accent/50 transition-colors"
+          className="shrink-0 rounded-full hover:bg-accent/50 transition-colors h-8 w-8 sm:h-10 sm:w-10"
         >
-          <Mic className="h-5 w-5" />
+          <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
         </Button>
 
         <Button
           onClick={handleSend}
           disabled={!message.trim()}
           size="icon"
-          className="shrink-0 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 transition-all"
+          className="shrink-0 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 transition-all h-8 w-8 sm:h-10 sm:w-10"
         >
-          <Send className="h-5 w-5" />
+          <Send className="h-4 w-4 sm:h-5 sm:w-5" />
         </Button>
       </div>
     </div>

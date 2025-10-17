@@ -119,4 +119,27 @@ All colors MUST be HSL.
   .glass-hover {
     @apply transition-all duration-300 hover:shadow-lg hover:shadow-primary/10;
   }
+
+  .glass-subtle {
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      hsl(var(--background) / 0.5) 50%,
+      hsl(var(--background) / 0.9) 100%
+    );
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Mobile safe area */
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  /* Touch interactions */
+  @media (hover: none) {
+    .glass-hover:active {
+      transform: scale(0.98);
+    }
+  }
 }

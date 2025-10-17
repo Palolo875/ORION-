@@ -30,16 +30,16 @@ const suggestions = [
 
 export const SuggestionChips = ({ onSelect }: SuggestionChipsProps) => {
   return (
-    <div className="flex flex-wrap gap-2 justify-center px-4 mb-6">
+    <div className="flex flex-wrap gap-2 justify-center px-2 sm:px-4 mb-4 sm:mb-6">
       {suggestions.map((suggestion) => (
         <Button
           key={suggestion.label}
           variant="outline"
           onClick={() => onSelect(suggestion.prompt)}
-          className="glass rounded-full gap-2 glass-hover border-[hsl(var(--glass-border))] hover:bg-accent/30"
+          className="glass rounded-full gap-1.5 sm:gap-2 glass-hover border-[hsl(var(--glass-border))] hover:bg-accent/30 h-8 sm:h-10 px-3 sm:px-4"
         >
-          <suggestion.icon className="h-4 w-4" />
-          <span className="text-sm font-medium">{suggestion.label}</span>
+          <suggestion.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="text-xs sm:text-sm font-medium">{suggestion.label}</span>
         </Button>
       ))}
     </div>

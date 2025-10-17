@@ -56,35 +56,35 @@ export const UploadPopover = () => {
     <div className="flex flex-col gap-1">
       <Button
         variant="ghost"
-        className="w-full justify-start gap-3 rounded-2xl hover:bg-accent/50 transition-colors"
+        className="w-full justify-start gap-2 sm:gap-3 rounded-xl sm:rounded-2xl hover:bg-accent/50 transition-colors py-2 sm:py-3 h-auto"
         onClick={handleImageUpload}
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-          <Image className="h-4 w-4 text-primary" />
+        <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-primary/10">
+          <Image className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
         </div>
-        <span className="text-sm font-medium">Ajouter une image</span>
+        <span className="text-xs sm:text-sm font-medium">Ajouter une image</span>
       </Button>
 
       <Button
         variant="ghost"
-        className="w-full justify-start gap-3 rounded-2xl hover:bg-accent/50 transition-colors"
+        className="w-full justify-start gap-2 sm:gap-3 rounded-xl sm:rounded-2xl hover:bg-accent/50 transition-colors py-2 sm:py-3 h-auto"
         onClick={handleFileUpload}
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-          <FileText className="h-4 w-4 text-primary" />
+        <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-primary/10">
+          <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
         </div>
-        <span className="text-sm font-medium">Ajouter un fichier</span>
+        <span className="text-xs sm:text-sm font-medium">Ajouter un fichier</span>
       </Button>
 
       <Button
         variant="ghost"
-        className="w-full justify-start gap-3 rounded-2xl hover:bg-accent/50 transition-colors"
+        className="w-full justify-start gap-2 sm:gap-3 rounded-xl sm:rounded-2xl hover:bg-accent/50 transition-colors py-2 sm:py-3 h-auto"
         onClick={handleClipboard}
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-          <Clipboard className="h-4 w-4 text-primary" />
+        <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-primary/10">
+          <Clipboard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
         </div>
-        <span className="text-sm font-medium">Coller du presse-papiers</span>
+        <span className="text-xs sm:text-sm font-medium">Coller du presse-papiers</span>
       </Button>
     </div>
   );

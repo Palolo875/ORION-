@@ -47,15 +47,15 @@ const Index = () => {
     <div className="min-h-screen flex flex-col relative">
       {/* Header */}
       <header className="sticky top-0 z-30 glass border-b border-[hsl(var(--glass-border))]">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <h1 className="text-xl font-semibold">EIAM</h1>
+        <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between">
+          <h1 className="text-lg sm:text-xl font-semibold">EIAM</h1>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsSettingsOpen(true)}
-            className="rounded-full hover:bg-accent/50"
+            className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
           >
-            <Settings className="h-5 w-5" />
+            <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
         </div>
       </header>
@@ -63,22 +63,22 @@ const Index = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
         {showWelcome ? (
-          <div className="flex-1 flex flex-col items-center justify-center px-4">
-            <div className="text-center space-y-8 mb-12 max-w-2xl">
-              <h2 className="text-4xl md:text-5xl font-light tracking-tight">
+          <div className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4">
+            <div className="text-center space-y-4 sm:space-y-8 mb-8 sm:mb-12 max-w-2xl">
+              <h2 className="text-2xl sm:text-4xl md:text-5xl font-light tracking-tight">
                 Comment puis-je vous aider ?
               </h2>
-              <p className="text-lg text-muted-foreground font-light">
+              <p className="text-sm sm:text-lg text-muted-foreground font-light">
                 Posez une question ou choisissez une suggestion ci-dessous
               </p>
             </div>
-            <div className="w-full max-w-4xl mb-8">
+            <div className="w-full max-w-4xl mb-6 sm:mb-8">
               <SuggestionChips onSelect={handleSuggestionSelect} />
             </div>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
-            <div className="container mx-auto px-4 py-8 max-w-4xl">
+            <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl">
               {messages.map((message) => (
                 <ChatMessage key={message.id} role={message.role} content={message.content} />
               ))}
@@ -87,10 +87,10 @@ const Index = () => {
         )}
 
         {/* Chat Input - Fixed at bottom */}
-        <div className="sticky bottom-0 pt-4 pb-safe glass-subtle">
+        <div className="sticky bottom-0 pt-2 sm:pt-4 pb-safe glass-subtle">
           <ChatInput onSend={handleSendMessage} />
           {!showWelcome && messages.length < 3 && (
-            <div className="mt-4">
+            <div className="mt-2 sm:mt-4">
               <SuggestionChips onSelect={handleSuggestionSelect} />
             </div>
           )}
