@@ -7,6 +7,7 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Sidebar } from "@/components/Sidebar";
 import { WorkerMessage, QueryPayload, FinalResponsePayload } from "@/types";
+import { detectDeviceProfile, DeviceProfile } from "@/utils/deviceProfiler";
 
 interface Message {
   id: string;
@@ -41,6 +42,7 @@ const Index = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [deviceProfile, setDeviceProfile] = useState<DeviceProfile | null>(null);
   
   // Référence au worker orchestrateur
   const orchestratorWorker = useRef<Worker | null>(null);
@@ -53,6 +55,16 @@ const Index = () => {
   useEffect(() => {
     currentConversationIdRef.current = currentConversationId;
   }, [currentConversationId]);
+
+  // Détecter le profil de l'appareil au chargement
+  useEffect(() => {
+    async function initialize() {
+      // Détecter le profil
+      const profile = await detectDeviceProfile();
+      setDeviceProfile(profile);
+    }
+    initialize();
+  }, []);
 
   // Initialiser le worker au chargement
   useEffect(() => {
@@ -189,7 +201,7 @@ const Index = () => {
     const queryPayload: QueryPayload = {
       query: content,
       conversationHistory,
-      deviceProfile: 'full', // Par défaut 'full' pour l'instant
+      deviceProfile: deviceProfile || 'micro', // 'micro' par défaut si la détection n'est pas finie
     };
     
     const message: WorkerMessage<QueryPayload> = {
@@ -351,7 +363,14 @@ const Index = () => {
               >
                 <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <h1 className="text-lg sm:text-xl font-semibold">ORION</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-semibold">ORION</h1>
+                {deviceProfile && (
+                  <span className="device-profile text-xs px-2 py-1 rounded-full bg-accent/30 text-accent-foreground">
+                    {deviceProfile}
+                  </span>
+                )}
+              </div>
             </div>
             <Button
               variant="ghost"
