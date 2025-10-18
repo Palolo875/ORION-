@@ -82,3 +82,19 @@ export interface StoreResult {
   success: boolean;
   id?: string;
 }
+
+/**
+ * La structure d'une proposition faite par un agent de raisonnement.
+ */
+export interface AgentProposal {
+  agentName: string;
+  proposalText: string;
+  confidence: number; // La confiance de l'agent dans sa propre proposition (0 à 1)
+}
+
+/**
+ * Le résultat complet d'un round de débat.
+ */
+export interface DebateRoundResult {
+  proposals: AgentProposal[];
+}
