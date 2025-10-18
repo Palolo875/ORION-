@@ -11,9 +11,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/t
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { OrionLogo } from "./OrionLogo";
-import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 import { getTTSInstance, isTTSSupported } from "@/utils/textToSpeech";
+import { SafeMessage } from "./SafeMessage";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -197,9 +197,11 @@ export const ChatMessage = ({
     return (
       <motion.div {...animationProps} className="w-full flex justify-end mb-6 sm:mb-8">
         <div className="max-w-[85%] sm:max-w-[70%] px-4 sm:px-6 py-3 sm:py-4 rounded-3xl bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-lg">
-          <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap break-words">
-            {content}
-          </p>
+          <SafeMessage 
+            content={content} 
+            sender="user"
+            allowMarkdown={false}
+          />
           {timestamp && (
             <div className="mt-2 text-right">
               <span className="text-xs opacity-80">
@@ -232,9 +234,11 @@ export const ChatMessage = ({
           </div>
         ) : (
           <>
-            <div className="prose prose-sm sm:prose-base prose-slate dark:prose-invert max-w-none">
-              <ReactMarkdown>{content}</ReactMarkdown>
-            </div>
+            <SafeMessage 
+              content={content} 
+              sender="assistant"
+              allowMarkdown={true}
+            />
 
             {/* Actions du message */}
             <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
