@@ -29,6 +29,7 @@ interface ControlPanelProps {
   onExportMemory?: () => void;
   onImportMemory?: (file: File) => void;
   onExportConversation?: () => void;
+  onImportConversation?: (file: File) => void;
   onProfileChange?: (profile: 'full' | 'lite' | 'micro') => void;
   currentProfile?: 'full' | 'lite' | 'micro';
   memoryStats?: {
@@ -47,6 +48,7 @@ export const ControlPanel = ({
   onExportMemory,
   onImportMemory,
   onExportConversation,
+  onImportConversation,
   onProfileChange,
   currentProfile = 'micro',
   memoryStats
@@ -108,6 +110,18 @@ export const ControlPanel = ({
       toast({
         title: "Import réussi",
         description: `Le fichier "${file.name}" a été importé avec succès`,
+      });
+    }
+  };
+
+  const handleImportConversation = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      onImportConversation?.(file);
+      addAuditLog("Conversation importée", "success");
+      toast({
+        title: "Import réussi",
+        description: `La conversation "${file.name}" a été importée avec succès`,
       });
     }
   };
@@ -340,6 +354,27 @@ export const ControlPanel = ({
                       <FileJson className="h-4 w-4" />
                       Exporter la Conversation
                     </Button>
+
+                    {/* Import Conversation */}
+                    <div>
+                      <input
+                        type="file"
+                        id="import-conversation"
+                        accept=".json"
+                        className="hidden"
+                        onChange={handleImportConversation}
+                      />
+                      <Button 
+                        variant="outline" 
+                        className="w-full rounded-xl justify-start gap-2"
+                        onClick={() => document.getElementById('import-conversation')?.click()}
+                      >
+                        <Upload className="h-4 w-4" />
+                        Importer une Conversation
+                      </Button>
+                    </div>
+
+                    <Separator />
 
                     {/* Export Memory */}
                     <Button 

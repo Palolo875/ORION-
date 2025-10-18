@@ -14,6 +14,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from "@/types";
 import { detectDeviceProfile, DeviceProfile } from "@/utils/deviceProfiler";
 import { MODELS, DEFAULT_MODEL } from "@/config/models";
+import { BrowserCompatibilityBanner } from "@/components/BrowserCompatibilityBanner";
+import { ProcessedFile } from "@/utils/fileProcessor";
 
 interface Message {
   id: string;
@@ -22,6 +24,7 @@ interface Message {
   timestamp: Date;
   isTyping?: boolean;
   confidence?: number;
+  attachments?: ProcessedFile[];
   provenance?: {
     fromAgents?: string[];
     memoryHits?: string[];
@@ -246,11 +249,25 @@ const Index = () => {
     }
   }, [conversations.length]);
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = (content: string, attachments?: ProcessedFile[]) => {
     // Vérifier que le worker est prêt
     if (!orchestratorWorker.current) {
       console.error('[UI] Worker non initialisé');
       return;
+    }
+
+    // Si des pièces jointes sont présentes, ajouter leur contexte au message
+    let enrichedContent = content;
+    if (attachments && attachments.length > 0) {
+      const attachmentContext = attachments.map(file => {
+        if (file.preview) {
+          return `[Image jointe: ${file.name}, ${file.metadata?.width}x${file.metadata?.height}]`;
+        } else {
+          return `[Fichier joint: ${file.name}, contenu:\n${file.content.substring(0, 500)}${file.content.length > 500 ? '...' : ''}]`;
+        }
+      }).join('\n');
+      
+      enrichedContent = `${content}\n\n${attachmentContext}`;
     }
 
     const newMessage: Message = {
@@ -258,6 +275,7 @@ const Index = () => {
       role: "user",
       content,
       timestamp: new Date(),
+      attachments,
     };
 
     setMessages((prev) => [...prev, newMessage]);
@@ -293,7 +311,7 @@ const Index = () => {
 
     // Préparer et envoyer le message AU worker
     const queryPayload: QueryPayload = {
-      query: content,
+      query: enrichedContent, // Utiliser le contenu enrichi avec les pièces jointes
       conversationHistory,
       deviceProfile: deviceProfile || 'micro', // 'micro' par défaut si la détection n'est pas finie
     };
@@ -515,6 +533,79 @@ const Index = () => {
         }
       } catch (error) {
         console.error('[UI] Erreur lors de l\'import:', error);
+        toast({
+          title: "Erreur d'import",
+          description: "Le fichier n'est pas valide",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportConversation = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        
+        // Valider la structure du fichier
+        if (!data.conversation || !data.messages || !Array.isArray(data.messages)) {
+          throw new Error('Structure de fichier invalide');
+        }
+        
+        // Créer une nouvelle conversation avec les données importées
+        const importedConv: Conversation = {
+          id: Date.now().toString(),
+          title: data.conversation.title + ' (importée)',
+          lastMessage: data.messages[data.messages.length - 1]?.content || '',
+          timestamp: new Date(),
+          isActive: true,
+        };
+        
+        // Convertir les messages importés
+        interface ImportedMessage {
+          role: 'user' | 'assistant';
+          content: string;
+          timestamp: string;
+          confidence?: number;
+          provenance?: Message['provenance'];
+          debug?: Message['debug'];
+          attachments?: ProcessedFile[];
+        }
+        
+        const importedMessages: Message[] = data.messages.map((msg: ImportedMessage, index: number) => ({
+          id: `imported_${Date.now()}_${index}`,
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.timestamp),
+          confidence: msg.confidence,
+          provenance: msg.provenance,
+          debug: msg.debug,
+          attachments: msg.attachments,
+        }));
+        
+        // Désactiver toutes les conversations actuelles
+        setConversations(prev => 
+          prev.map(conv => ({ ...conv, isActive: false })).concat(importedConv)
+        );
+        
+        // Définir la conversation importée comme active
+        setCurrentConversationId(importedConv.id);
+        setMessages(importedMessages);
+        
+        toast({
+          title: "Import réussi",
+          description: `Conversation "${data.conversation.title}" importée avec ${data.messages.length} messages`,
+        });
+      } catch (error) {
+        console.error('[UI] Erreur lors de l\'import de conversation:', error);
+        toast({
+          title: "Erreur d'import",
+          description: error instanceof Error ? error.message : "Le fichier n'est pas valide",
+          variant: "destructive",
+        });
       }
     };
     reader.readAsText(file);
@@ -565,7 +656,8 @@ const Index = () => {
   
   // Afficher le sélecteur de modèle si aucun modèle n'est sélectionné
   if (!selectedModel) {
-    return <ModelSelector onSelect={handleModelSelect} defaultModel={DEFAULT_MODEL as 'demo' | 'standard' | 'advanced'} />;
+    type ModelType = 'demo' | 'standard' | 'advanced';
+    return <ModelSelector onSelect={handleModelSelect} defaultModel={DEFAULT_MODEL as ModelType} />;
   }
   
   // Afficher le loader pendant le chargement du modèle
@@ -584,6 +676,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex relative">
+      {/* Browser Compatibility Banner */}
+      <BrowserCompatibilityBanner />
+      
       {/* Sidebar */}
       <Sidebar
         conversations={conversations}
@@ -726,6 +821,7 @@ const Index = () => {
         onExportMemory={handleExportMemory}
         onExportConversation={handleExportConversation}
         onImportMemory={handleImportMemory}
+        onImportConversation={handleImportConversation}
         onProfileChange={handleProfileChange}
         currentProfile={deviceProfile || 'micro'}
         memoryStats={memoryStats}
