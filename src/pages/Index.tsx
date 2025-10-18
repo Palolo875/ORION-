@@ -256,9 +256,8 @@ const Index = () => {
         </main>
       </div>
 
-        {/* Settings Panel */}
-        <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-      </div>
+      {/* Settings Panel */}
+      <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 };
