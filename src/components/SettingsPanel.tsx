@@ -1,18 +1,30 @@
 import { X, User, Settings, BarChart3, Moon, Sun } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+const THEME_KEY = "eiam_theme";
+
 export const SettingsPanel = ({ isOpen, onClose }: SettingsPanelProps) => {
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
+  // Load theme from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === "dark" || stored === "light") {
+      setTheme(stored);
+      document.documentElement.classList.toggle("dark", stored === "dark");
+    }
+  }, []);
+
   const toggleTheme = (newTheme: "light" | "dark") => {
     setTheme(newTheme);
+    localStorage.setItem(THEME_KEY, newTheme);
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
