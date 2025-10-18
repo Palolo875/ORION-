@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Copy, Check, ThumbsUp, ThumbsDown, MoreHorizontal, RotateCcw, Wrench, Database, Brain, Target, Clock, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Copy, Check, ThumbsUp, ThumbsDown, MoreHorizontal, RotateCcw, Wrench, Database, Brain, Target, Clock, Users, Volume2, VolumeX, Pause } from "lucide-react";
 import { Button } from "./ui/button";
 import { 
   DropdownMenu, 
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { OrionLogo } from "./OrionLogo";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
+import { getTTSInstance, isTTSSupported } from "@/utils/textToSpeech";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -49,7 +50,10 @@ export const ChatMessage = ({
   const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState(false);
   const [disliked, setDisliked] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const isUser = role === "user";
+  const ttsSupported = isTTSSupported();
 
   const handleCopy = async () => {
     try {
@@ -80,6 +84,100 @@ export const ChatMessage = ({
     if (liked) setLiked(false);
     onDislike?.();
   };
+
+  const handleSpeak = () => {
+    if (!ttsSupported) {
+      toast({
+        title: "Non supporté",
+        description: "La synthèse vocale n'est pas disponible dans ce navigateur",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const tts = getTTSInstance();
+
+      if (isSpeaking && !isPaused) {
+        // Arrêter la lecture
+        tts.stop();
+        setIsSpeaking(false);
+        setIsPaused(false);
+      } else if (isPaused) {
+        // Reprendre la lecture
+        tts.resume();
+        setIsPaused(false);
+      } else {
+        // Démarrer la lecture
+        // Nettoyer le markdown pour obtenir le texte brut
+        const plainText = content
+          .replace(/```[\s\S]*?```/g, '') // Retirer les blocs de code
+          .replace(/`[^`]*`/g, '') // Retirer le code inline
+          .replace(/[*_~#]/g, '') // Retirer les marqueurs markdown
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Convertir les liens
+          .trim();
+
+        tts.speak(plainText, {
+          lang: 'fr-FR',
+          rate: 1.0,
+          pitch: 1.0,
+          volume: 1.0,
+        }, {
+          onStart: () => {
+            setIsSpeaking(true);
+            setIsPaused(false);
+          },
+          onEnd: () => {
+            setIsSpeaking(false);
+            setIsPaused(false);
+          },
+          onError: (error) => {
+            console.error('[TTS] Erreur:', error);
+            setIsSpeaking(false);
+            setIsPaused(false);
+            toast({
+              title: "Erreur TTS",
+              description: "Impossible de lire le texte",
+              variant: "destructive",
+            });
+          },
+        });
+      }
+    } catch (error) {
+      console.error('[TTS] Erreur:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'initialiser la synthèse vocale",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePauseTTS = () => {
+    if (!isSpeaking || isPaused) return;
+    
+    try {
+      const tts = getTTSInstance();
+      tts.pause();
+      setIsPaused(true);
+    } catch (error) {
+      console.error('[TTS] Erreur pause:', error);
+    }
+  };
+
+  // Cleanup TTS when component unmounts
+  useEffect(() => {
+    return () => {
+      if (isSpeaking) {
+        try {
+          const tts = getTTSInstance();
+          tts.stop();
+        } catch (error) {
+          console.error('[TTS] Erreur cleanup:', error);
+        }
+      }
+    };
+  }, [isSpeaking]);
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('fr-FR', { 
@@ -164,6 +262,39 @@ export const ChatMessage = ({
                     <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
                   )}
                 </Button>
+
+                {ttsSupported && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleSpeak}
+                      className={cn(
+                        "h-7 w-7 sm:h-8 sm:w-8 hover:bg-accent/50 rounded-full",
+                        isSpeaking && !isPaused && "text-primary"
+                      )}
+                      title={isSpeaking && !isPaused ? "Arrêter la lecture" : isPaused ? "Reprendre" : "Lire à voix haute"}
+                    >
+                      {isSpeaking && !isPaused ? (
+                        <VolumeX className="h-3 w-3 sm:h-4 sm:w-4" />
+                      ) : (
+                        <Volume2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                      )}
+                    </Button>
+                    
+                    {isSpeaking && !isPaused && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handlePauseTTS}
+                        className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-accent/50 rounded-full"
+                        title="Mettre en pause"
+                      >
+                        <Pause className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </Button>
+                    )}
+                  </>
+                )}
 
                 <Button
                   variant="ghost"

@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Send, Mic, Paperclip, X, Wand2, StopCircle } from "lucide-react";
+import { Plus, Send, Mic, Paperclip, X, Wand2, StopCircle, FileText, Image as ImageIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { UploadPopover } from "./UploadPopover";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { processFiles, formatFileSize, ProcessedFile } from "@/utils/fileProcessor";
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, attachments?: ProcessedFile[]) => void;
   placeholder?: string;
   isGenerating?: boolean;
   onStopGeneration?: () => void;
@@ -23,7 +24,8 @@ export const ChatInput = ({
   disabled = false
 }: ChatInputProps) => {
   const [message, setMessage] = useState("");
-  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachments, setAttachments] = useState<ProcessedFile[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -67,8 +69,8 @@ export const ChatInput = ({
   }
 
   const handleSend = () => {
-    if (message.trim() && !disabled && !isGenerating) {
-      onSend(message);
+    if ((message.trim() || attachments.length > 0) && !disabled && !isGenerating && !isProcessing) {
+      onSend(message, attachments.length > 0 ? attachments : undefined);
       setMessage("");
       setAttachments([]);
     }
@@ -232,14 +234,39 @@ export const ChatInput = ({
     }
   };
 
-  const handleFileUpload = (files: FileList | null) => {
-    if (files) {
-      const newFiles = Array.from(files);
-      setAttachments(prev => [...prev, ...newFiles]);
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      const fileArray = Array.from(files);
+      const { processed, errors } = await processFiles(fileArray);
+      
+      if (processed.length > 0) {
+        setAttachments(prev => [...prev, ...processed]);
+        
+        toast({
+          title: "Fichiers traités avec succès",
+          description: `${processed.length} fichier(s) ajouté(s)`,
+        });
+      }
+      
+      if (errors.length > 0) {
+        toast({
+          title: "Erreurs de traitement",
+          description: errors.map(e => `${e.file}: ${e.error}`).join('\n'),
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Fichiers ajoutés",
-        description: `${newFiles.length} fichier(s) ajouté(s)`,
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Erreur lors du traitement des fichiers",
+        variant: "destructive",
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -247,18 +274,48 @@ export const ChatInput = ({
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handlePaste = (e: React.ClipboardEvent) => {
+  const handlePaste = async (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
+    const files: File[] = [];
+    
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {
         const file = items[i].getAsFile();
         if (file) {
-          setAttachments(prev => [...prev, file]);
+          files.push(file);
+        }
+      }
+    }
+    
+    if (files.length > 0) {
+      setIsProcessing(true);
+      
+      try {
+        const { processed, errors } = await processFiles(files);
+        
+        if (processed.length > 0) {
+          setAttachments(prev => [...prev, ...processed]);
           toast({
-            title: "Image collée",
-            description: "L'image a été ajoutée aux pièces jointes",
+            title: "Image(s) collée(s)",
+            description: `${processed.length} image(s) ajoutée(s)`,
           });
         }
+        
+        if (errors.length > 0) {
+          toast({
+            title: "Erreur",
+            description: errors[0].error,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: "Erreur lors du traitement de l'image",
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessing(false);
       }
     }
   };
@@ -279,22 +336,61 @@ export const ChatInput = ({
           {attachments.map((file, index) => (
             <div
               key={index}
-              className="flex items-center gap-2 glass rounded-xl px-3 py-2 border border-[hsl(var(--glass-border))]"
+              className="group relative flex items-center gap-2 glass rounded-xl px-3 py-2 border border-[hsl(var(--glass-border))] hover:border-primary/50 transition-colors"
             >
-              <Paperclip className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium truncate max-w-32">
-                {file.name}
-              </span>
+              {file.preview ? (
+                <div className="flex items-center gap-2">
+                  <div className="relative w-10 h-10 rounded overflow-hidden">
+                    <img 
+                      src={file.preview} 
+                      alt={file.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium truncate max-w-32">
+                      {file.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatFileSize(file.size)}
+                      {file.metadata?.width && ` • ${file.metadata.width}x${file.metadata.height}`}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded bg-primary/10">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium truncate max-w-32">
+                      {file.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatFileSize(file.size)}
+                      {file.metadata?.wordCount && ` • ${file.metadata.wordCount} mots`}
+                    </span>
+                  </div>
+                </div>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => removeAttachment(index)}
-                className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
+                className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive ml-2"
               >
                 <X className="h-3 w-3" />
               </Button>
             </div>
           ))}
+        </div>
+      )}
+      
+      {/* Processing indicator */}
+      {isProcessing && (
+        <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+          <span>Traitement des fichiers...</span>
         </div>
       )}
 
@@ -388,7 +484,7 @@ export const ChatInput = ({
             ) : (
               <Button
                 onClick={handleSend}
-                disabled={!message.trim() || disabled}
+                disabled={(!message.trim() && attachments.length === 0) || disabled || isProcessing}
                 size="icon"
                 className="shrink-0 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-50 transition-all h-9 w-9"
               >
