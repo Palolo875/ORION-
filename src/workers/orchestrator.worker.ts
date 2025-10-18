@@ -41,18 +41,31 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
  * Traite une requête utilisateur
  */
 async function handleQuery(payload: QueryPayload): Promise<void> {
-  console.log('[Orchestrator] Processing query:', payload.query);
+  console.log('[Orchestrator] Requête reçue:', payload.query);
   
-  // TODO: Implémenter la logique d'orchestration
+  // TODO: Implémenter la logique d'orchestration complète
   // 1. Analyser la requête avec le reasoning worker
   // 2. Récupérer les informations pertinentes avec le memory worker
-  // 3. Générer la réponse finale
+  // 3. Générer la réponse finale via le débat du Neural Mesh
   
-  // Pour l'instant, réponse simple pour tester l'architecture
+  // Pour l'instant, réponse simple pour valider la communication
+  const response = `J'ai bien reçu votre message : "${payload.query}". 
+
+Je suis ORION, votre assistant IA fonctionnant avec une architecture de Neural Mesh. La communication entre l'interface et l'orchestrateur est maintenant établie avec succès !
+
+**Prochaines étapes :**
+- Coordination avec les agents Reasoning et Memory
+- Démarrage du débat du Neural Mesh
+- Génération de réponses contextuelles
+
+🎯 L'orchestrateur est opérationnel et prêt pour l'implémentation du système complet.`;
+
   sendResponse({
-    response: `Requête reçue : "${payload.query}". L'orchestrateur est opérationnel !`,
-    confidence: 0.8
+    response,
+    confidence: 0.9
   });
+  
+  console.log('[Orchestrator] Réponse envoyée à l\'UI');
 }
 
 /**

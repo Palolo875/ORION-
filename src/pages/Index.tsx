@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Settings, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ChatInput";
@@ -6,6 +6,7 @@ import { SuggestionChips } from "@/components/SuggestionChips";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Sidebar } from "@/components/Sidebar";
+import { WorkerMessage, QueryPayload, FinalResponsePayload } from "@/types";
 
 interface Message {
   id: string;
@@ -30,6 +31,66 @@ const Index = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Référence au worker orchestrateur
+  const orchestratorWorker = useRef<Worker | null>(null);
+  // Référence à l'ID de conversation actuel pour éviter les stale closures
+  const currentConversationIdRef = useRef<string | null>(currentConversationId);
+  
+  // Garder la ref à jour
+  useEffect(() => {
+    currentConversationIdRef.current = currentConversationId;
+  }, [currentConversationId]);
+
+  // Initialiser le worker au chargement
+  useEffect(() => {
+    // Le `type: 'module'` est crucial pour que le worker puisse utiliser la syntaxe import/export
+    orchestratorWorker.current = new Worker(
+      new URL('../workers/orchestrator.worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+
+    // Définir ce qu'il faut faire quand on reçoit un message DU worker
+    orchestratorWorker.current.onmessage = (event: MessageEvent<WorkerMessage<FinalResponsePayload>>) => {
+      const { type, payload } = event.data;
+
+      // Nous n'écoutons que les messages de type 'final_response'
+      if (type === 'final_response') {
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: payload.response,
+          timestamp: new Date(),
+        };
+        
+        setMessages((prev) => [...prev, aiMessage]);
+        setIsGenerating(false);
+
+        // Update conversation with AI response
+        setConversations(prev => 
+          prev.map(conv => 
+            conv.id === currentConversationIdRef.current 
+              ? { ...conv, lastMessage: aiMessage.content, timestamp: new Date() }
+              : conv
+          )
+        );
+      }
+    };
+
+    // Log en cas d'erreur du worker
+    orchestratorWorker.current.onerror = (error) => {
+      console.error('[UI] Erreur du worker:', error);
+      setIsGenerating(false);
+    };
+
+    console.log('[UI] Orchestrator Worker initialisé');
+
+    // Nettoyer en terminant le worker quand le composant est détruit
+    return () => {
+      orchestratorWorker.current?.terminate();
+      console.log('[UI] Orchestrator Worker terminé');
+    };
+  }, []); // Le tableau vide `[]` assure que cet effet ne s'exécute qu'une seule fois
 
   // Initialize with a default conversation
   useEffect(() => {
@@ -47,6 +108,12 @@ const Index = () => {
   }, [conversations.length]);
 
   const handleSendMessage = (content: string) => {
+    // Vérifier que le worker est prêt
+    if (!orchestratorWorker.current) {
+      console.error('[UI] Worker non initialisé');
+      return;
+    }
+
     const newMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -69,27 +136,25 @@ const Index = () => {
       );
     }
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content:
-          "Je suis votre assistant IA ORION. Cette interface moderne s'inspire des meilleures pratiques de ChatGPT, Claude et Manus. Comment puis-je vous aider aujourd'hui ?",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-      setIsGenerating(false);
+    // Convertir l'historique de messages au format attendu par le worker
+    const conversationHistory = messages.map(msg => ({
+      sender: msg.role === 'user' ? 'user' as const : 'orion' as const,
+      text: msg.content
+    }));
 
-      // Update conversation with AI response
-      setConversations(prev => 
-        prev.map(conv => 
-          conv.id === currentConversationId 
-            ? { ...conv, lastMessage: aiMessage.content, timestamp: new Date() }
-            : conv
-        )
-      );
-    }, 2000);
+    // Préparer et envoyer le message AU worker
+    const queryPayload: QueryPayload = {
+      query: content,
+      conversationHistory,
+    };
+    
+    const message: WorkerMessage<QueryPayload> = {
+      type: 'query',
+      payload: queryPayload,
+    };
+
+    orchestratorWorker.current.postMessage(message);
+    console.log('[UI] Message envoyé au worker:', content);
   };
 
   const handleNewConversation = () => {
