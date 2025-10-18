@@ -25,6 +25,10 @@ export interface FinalResponsePayload {
   response: string;
   // Nous ajouterons plus de métadonnées ici (confiance, sources, etc.)
   confidence: number;
+  provenance?: {
+    toolUsed?: string;
+    fromAgents?: string[];
+  };
 }
 
 /**
