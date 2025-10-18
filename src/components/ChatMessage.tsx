@@ -21,6 +21,16 @@ interface ChatMessageProps {
   onRegenerate?: () => void;
   onLike?: () => void;
   onDislike?: () => void;
+  confidence?: number;
+  debug?: {
+    totalRounds?: number;
+    inferenceTimeMs?: number;
+  };
+  provenance?: {
+    fromAgents?: string[];
+    memoryHits?: string[];
+    toolUsed?: string;
+  };
 }
 
 export const ChatMessage = ({ 
@@ -30,7 +40,10 @@ export const ChatMessage = ({
   isTyping = false,
   onRegenerate,
   onLike,
-  onDislike
+  onDislike,
+  confidence,
+  debug,
+  provenance
 }: ChatMessageProps) => {
   const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState(false);
@@ -205,13 +218,39 @@ export const ChatMessage = ({
               </div>
             </div>
 
-            {timestamp && (
-              <div className="mt-2">
-                <span className="text-xs text-muted-foreground">
+            {/* Métadonnées et informations de débogage */}
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              {timestamp && (
+                <span>
                   {formatTime(timestamp)}
                 </span>
-              </div>
-            )}
+              )}
+              {confidence !== undefined && (
+                <span className="message-meta-item">
+                  🎯 Confiance: {Math.round(confidence * 100)}%
+                </span>
+              )}
+              {debug?.inferenceTimeMs !== undefined && (
+                <span className="message-meta-item">
+                  ⏱️ Temps: {debug.inferenceTimeMs}ms
+                </span>
+              )}
+              {debug?.totalRounds !== undefined && debug.totalRounds > 0 && (
+                <span className="message-meta-item">
+                  🔄 Rounds: {debug.totalRounds}
+                </span>
+              )}
+              {provenance?.toolUsed && (
+                <span className="message-meta-item">
+                  🛠️ Outil: {provenance.toolUsed}
+                </span>
+              )}
+              {provenance?.fromAgents && provenance.fromAgents.length > 0 && (
+                <span className="message-meta-item">
+                  🤖 Agents: {provenance.fromAgents.join(', ')}
+                </span>
+              )}
+            </div>
           </>
         )}
       </div>

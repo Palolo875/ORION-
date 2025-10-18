@@ -27,24 +27,32 @@ const toolUserWorker = new Worker(new URL('./toolUser.worker.ts', import.meta.ur
 
 console.log("[Orchestrateur] Tous les workers ont été instanciés.");
 
-// Variable pour stocker la requête en cours
+// Variables pour stocker la requête en cours et le tracer
 let currentQueryContext: QueryPayload | null = null;
+let currentQueryMeta: WorkerMessage['meta'] | null = null;
+let startTime: number = 0;
 
 // --- Logique principale de l'Orchestrateur ---
 
 self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
-  const { type, payload } = event.data;
+  const { type, payload, meta } = event.data;
 
   try {
     if (type === 'query') {
-      console.log(`[Orchestrateur] Requête reçue: "${payload.query}"`);
+      console.log(`[Orchestrateur] Requête reçue (traceId: ${meta?.traceId}): "${payload.query}"`);
       
-      // Sauvegarder la requête courante
+      // Sauvegarder la requête courante et les métadonnées
       currentQueryContext = payload;
+      currentQueryMeta = meta || null;
+      startTime = performance.now(); // Démarrer le chronomètre
       
       // Étape 1 du ReAct: Essayer d'agir d'abord (vérifier si un outil peut répondre)
       console.log("[Orchestrateur] Interrogation du ToolUser Worker...");
-      toolUserWorker.postMessage({ type: 'find_and_execute_tool', payload: { query: payload.query } });
+      toolUserWorker.postMessage({ 
+        type: 'find_and_execute_tool', 
+        payload: { query: payload.query },
+        meta: currentQueryMeta 
+      });
     } else if (type === 'init') {
       console.log('[Orchestrateur] Initialized');
       // Initialiser tous les workers
@@ -74,17 +82,34 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
 
   if (type === 'tool_executed') {
     // L'outil a été trouvé et exécuté avec succès. On court-circuite le débat.
+    const endTime = performance.now();
+    const inferenceTimeMs = Math.round(endTime - startTime);
+    
     console.log(`[Orchestrateur] Outil '${payload.toolName}' exécuté. Réponse directe.`);
     const responsePayload: FinalResponsePayload = {
       response: payload.result,
       confidence: 1.0, // Confiance maximale pour un outil factuel
-      provenance: { toolUsed: payload.toolName }
+      provenance: { toolUsed: payload.toolName },
+      debug: {
+        totalRounds: 0, // Pas de débat pour un outil
+        inferenceTimeMs: inferenceTimeMs
+      }
     };
-    self.postMessage({ type: 'final_response', payload: responsePayload });
+    self.postMessage({ 
+      type: 'final_response', 
+      payload: responsePayload,
+      meta: currentQueryMeta || undefined
+    });
+    
+    console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${currentQueryMeta?.traceId}) en ${inferenceTimeMs}ms.`);
 
     // Sauvegarder la conversation
     const memoryToSave = `Q: ${currentQueryContext!.query} | A: ${payload.result}`;
-    memoryWorker.postMessage({ type: 'store', payload: { content: memoryToSave } });
+    memoryWorker.postMessage({ 
+      type: 'store', 
+      payload: { content: memoryToSave },
+      meta: currentQueryMeta || undefined
+    });
 
   } else if (type === 'no_tool_found' || type === 'tool_error') {
     // Aucun outil trouvé ou une erreur est survenue, on passe au raisonnement.
@@ -93,7 +118,11 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     }
     
     console.log("[Orchestrateur] Aucun outil applicable. Lancement du processus de mémoire et débat.");
-    memoryWorker.postMessage({ type: 'search', payload: { query: currentQueryContext!.query } });
+    memoryWorker.postMessage({ 
+      type: 'search', 
+      payload: { query: currentQueryContext!.query },
+      meta: currentQueryMeta || undefined
+    });
   } else if (type === 'init_complete') {
     console.log('[Orchestrateur] ToolUser Worker initialisé.');
   }
@@ -128,7 +157,11 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
     };
 
     // Lancer le premier round de débat
-    reasoningWorker.postMessage({ type: 'reason', payload: reasoningPayload });
+    reasoningWorker.postMessage({ 
+      type: 'reason', 
+      payload: reasoningPayload,
+      meta: currentQueryMeta || undefined
+    });
   } else if (type === 'store_complete') {
     console.log("[Orchestrateur] Mémoire sauvegardée.");
   } else if (type === 'init_complete') {
@@ -190,21 +223,36 @@ reasoningWorker.onmessage = (event: MessageEvent<WorkerMessage<DebateRoundResult
  * Finalise le débat et envoie la réponse finale
  */
 function finalizeDebate(): void {
+  const endTime = performance.now();
+  const inferenceTimeMs = Math.round(endTime - startTime);
   const agentNames = ['Logical', 'Creative']; // À rendre dynamique si plus d'agents
   
   const finalPayload: FinalResponsePayload = {
     response: `${debateState.bestResponse.response}\n\n---\n\n**💡 Conclusion du Neural Mesh :**\nLes agents ont délibéré pendant ${debateState.round} round(s) pour produire cette réponse nuancée. Confiance finale: ${Math.round(debateState.bestResponse.confidence * 100)}%`,
     confidence: debateState.bestResponse.confidence,
     provenance: { fromAgents: agentNames },
+    debug: {
+      totalRounds: debateState.round,
+      inferenceTimeMs: inferenceTimeMs
+    }
   };
 
-  self.postMessage({ type: 'final_response', payload: finalPayload });
-  console.log("[Orchestrateur] Réponse finale du débat envoyée à l'UI.");
+  self.postMessage({ 
+    type: 'final_response', 
+    payload: finalPayload,
+    meta: currentQueryMeta || undefined
+  });
+  
+  console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${currentQueryMeta?.traceId}) en ${inferenceTimeMs}ms.`);
 
   // Sauvegarder la conversation
   if (currentQueryContext) {
     const memoryToSave = `Q: ${currentQueryContext.query} | A: ${debateState.bestResponse.response}`;
-    memoryWorker.postMessage({ type: 'store', payload: { content: memoryToSave } });
+    memoryWorker.postMessage({ 
+      type: 'store', 
+      payload: { content: memoryToSave },
+      meta: currentQueryMeta || undefined
+    });
   }
 
   // Réinitialiser l'état du débat pour la prochaine requête
@@ -214,6 +262,7 @@ function finalizeDebate(): void {
     lastConfidence: 0 
   };
   currentQueryContext = null;
+  currentQueryMeta = null;
 }
 
 /**

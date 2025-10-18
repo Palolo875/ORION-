@@ -192,4 +192,18 @@ All colors MUST be HSL.
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: hsl(var(--foreground));
   }
+
+  /* Message metadata styling */
+  .message-meta-item {
+    @apply px-2 py-1 rounded-md bg-muted/30 border border-border/30;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: all 0.2s ease;
+  }
+
+  .message-meta-item:hover {
+    @apply bg-muted/50 border-border/50;
+  }
 }

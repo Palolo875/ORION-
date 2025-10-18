@@ -3,10 +3,15 @@
 /**
  * Le format de message standard échangé entre l'UI et les workers,
  * ou entre les workers eux-mêmes.
+ * Maintenant enrichi avec des métadonnées pour le suivi et la traçabilité.
  */
 export interface WorkerMessage<T = unknown> {
   type: string; // Décrit l'intention du message, ex: 'query', 'final_response'
   payload: T;   // Les données transportées
+  meta?: { 
+    traceId: string; // Un ID unique pour suivre une requête à travers tout le système
+    timestamp: number; // Horodatage du message
+  };
 }
 
 /**
@@ -14,20 +19,27 @@ export interface WorkerMessage<T = unknown> {
  */
 export interface QueryPayload {
   query: string;
-  // Nous ajouterons l'historique de la conversation ici plus tard pour le contexte
-  conversationHistory: { sender: 'user' | 'orion'; text: string }[];
+  conversationHistory: { sender: 'user' | 'orion'; text: string; id?: string }[];
+  deviceProfile?: 'full' | 'lite' | 'micro'; // Pour l'adaptation future
 }
 
 /**
  * La structure de la réponse finale envoyée par l'orchestrateur à l'UI.
+ * Enrichie avec des informations de provenance et de débogage.
  */
 export interface FinalResponsePayload {
   response: string;
-  // Nous ajouterons plus de métadonnées ici (confiance, sources, etc.)
   confidence: number;
-  provenance?: {
+  // D'où vient cette réponse ?
+  provenance: { 
+    fromAgents?: string[]; 
+    memoryHits?: string[];
     toolUsed?: string;
-    fromAgents?: string[];
+  };
+  // Informations de débogage pour la transparence
+  debug: { 
+    totalRounds?: number; 
+    inferenceTimeMs?: number;
   };
 }
 
