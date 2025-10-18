@@ -1,93 +1,160 @@
 // src/workers/memory.worker.ts
 
 /**
- * Memory Worker
+ * Memory Worker - Mémoire Sémantique d'ORION
  * 
- * Ce worker gère la mémoire vectorielle et le stockage des connaissances.
- * Il utilise hnswlib-wasm pour la recherche vectorielle rapide
+ * Ce worker gère la mémoire sémantique persistante avec embeddings.
+ * Il utilise @xenova/transformers pour créer des embeddings sémantiques
  * et idb-keyval pour le stockage persistant dans IndexedDB.
  */
 
-import type { WorkerMessage } from '../types';
+import { get, set, keys } from 'idb-keyval';
+import { WorkerMessage } from '../types';
+import { pipeline, env } from '@xenova/transformers';
 
-// Écouteur principal pour les messages
-self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
-  const { type, payload } = event.data;
+// Configuration de Transformers.js pour une performance optimale dans le navigateur
+env.allowLocalModels = false; // N'utilise pas de modèles locaux du système de fichiers
+env.useBrowserCache = true;  // Met en cache les modèles dans le cache du navigateur
+
+// --- Singleton pour le pipeline d'embedding ---
+// Cette classe garantit que le modèle d'IA n'est chargé qu'une seule fois.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PipelineInstance = any;
+
+class EmbeddingPipeline {
+  static task = 'feature-extraction';
+  // 'all-MiniLM-L6-v2' est un excellent modèle, petit et performant.
+  static model = 'Xenova/all-MiniLM-L6-v2';
+  static instance: PipelineInstance = null;
+
+  static async getInstance(): Promise<PipelineInstance> {
+    if (this.instance === null) {
+      console.log("[Memory] Initialisation du modèle d'embedding... (peut prendre du temps la première fois)");
+      this.instance = await pipeline(this.task, this.model);
+      console.log("[Memory] Modèle d'embedding prêt.");
+    }
+    return this.instance;
+  }
+}
+
+// --- Fonctions de la Mémoire ---
+
+async function createSemanticEmbedding(text: string): Promise<number[]> {
+  const extractor = await EmbeddingPipeline.getInstance();
+  // L'option { pooling: 'mean', normalize: true } est standard pour obtenir un bon embedding de phrase.
+  const result = await extractor(text, { pooling: 'mean', normalize: true });
+  return Array.from(result.data);
+}
+
+function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+async function addMemory(text: string, traceId: string) {
+  const id = `memory_${Date.now()}`;
+  const embedding = await createSemanticEmbedding(text);
+  const memoryItem = { id, text, embedding, timestamp: Date.now() };
+  
+  await set(id, memoryItem);
+  console.log(`[Memory] (traceId: ${traceId}) Souvenir ajouté avec embedding sémantique.`);
+}
+
+interface MemoryItem {
+  id: string;
+  text: string;
+  embedding: number[];
+  timestamp: number;
+  similarity?: number;
+}
+
+async function searchMemory(query: string, traceId: string): Promise<string[]> {
+  const queryEmbedding = await createSemanticEmbedding(query);
+  const memoryKeys = await keys();
+  const allMemories: MemoryItem[] = [];
+
+  for (const key of memoryKeys) {
+    if (typeof key === 'string' && key.startsWith('memory_')) {
+      const item = await get(key);
+      if (item && item.embedding) {
+        allMemories.push(item as MemoryItem);
+      }
+    }
+  }
+
+  if (allMemories.length === 0) return [];
+
+  allMemories.forEach(item => {
+    item.similarity = cosineSimilarity(item.embedding, queryEmbedding);
+  });
+
+  allMemories.sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
+
+  console.log(`[Memory] (traceId: ${traceId}) Recherche sémantique effectuée. Trouvé ${allMemories.length} souvenirs.`);
+  
+  // On ne retourne que les souvenirs ayant une pertinence suffisante.
+  return allMemories.filter(item => (item.similarity || 0) > 0.6).slice(0, 2).map(item => item.text);
+}
+
+// --- Le worker principal ---
+
+self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
+  const { type, payload, meta } = event.data;
+  const traceId = meta?.traceId || 'unknown';
 
   try {
-    switch (type) {
-      case 'search':
-        await handleSearch(payload);
-        break;
-      
-      case 'store':
-        await handleStore(payload);
-        break;
-      
-      case 'init':
-        await initializeMemory();
-        break;
-      
-      default:
-        console.warn(`[Memory] Unknown message type: ${type}`);
+    if (type === 'init') {
+      // Initialisation - pré-charger le modèle en arrière-plan
+      console.log('[Memory] Initialisation du système de mémoire...');
+      // On lance l'initialisation en arrière-plan sans bloquer
+      EmbeddingPipeline.getInstance().then(() => {
+        console.log('[Memory] Système de mémoire prêt.');
+        self.postMessage({ type: 'init_complete', payload: { success: true }, meta });
+      }).catch(error => {
+        console.error('[Memory] Erreur lors de l\'initialisation:', error);
+        self.postMessage({ type: 'init_error', payload: { error: error.message }, meta });
+      });
+    }
+    else if (type === 'store') {
+      // Ajouter un souvenir
+      await addMemory(payload.content, traceId);
+      self.postMessage({ type: 'store_complete', payload: { success: true }, meta });
+    } 
+    else if (type === 'search') {
+      // Rechercher dans les souvenirs
+      const results = await searchMemory(payload.query, traceId);
+      self.postMessage({ 
+        type: 'search_result', 
+        payload: { 
+          results: results.map(content => ({ content })),
+          count: results.length 
+        }, 
+        meta 
+      });
+    }
+    // Gérer le feedback
+    else if (type === 'add_feedback') {
+      await set(`feedback_${payload.messageId}`, payload.feedback);
+      console.log(`[Memory] (traceId: ${traceId}) Feedback '${payload.feedback}' sauvegardé.`);
+      self.postMessage({ type: 'feedback_saved', payload: { success: true }, meta });
+    }
+    else {
+      console.warn(`[Memory] Type de message inconnu: ${type}`);
     }
   } catch (error) {
-    console.error('[Memory] Error processing message:', error);
+    console.error(`[Memory] Erreur dans le worker:`, error);
+    self.postMessage({ 
+      type: 'memory_error', 
+      payload: { error: (error as Error).message }, 
+      meta 
+    });
   }
-});
-
-/**
- * Initialise le système de mémoire
- */
-async function initializeMemory(): Promise<void> {
-  console.log('[Memory] Initializing memory system...');
-  
-  // TODO: Initialiser hnswlib-wasm et idb-keyval
-  // 1. Charger l'index vectoriel existant depuis IndexedDB
-  // 2. Initialiser la structure HNSW
-  // 3. Confirmer l'initialisation
-  
-  console.log('[Memory] Memory system initialized');
-  
-  self.postMessage({
-    type: 'init_complete',
-    payload: { success: true }
-  });
-}
-
-/**
- * Recherche dans la mémoire vectorielle
- */
-async function handleSearch(payload: { query: string; limit?: number }): Promise<void> {
-  console.log('[Memory] Searching for:', payload);
-  
-  // TODO: Implémenter la recherche vectorielle
-  // 1. Convertir la requête en vecteur
-  // 2. Effectuer une recherche KNN avec hnswlib
-  // 3. Retourner les résultats les plus pertinents
-  
-  self.postMessage({
-    type: 'search_result',
-    payload: {
-      results: [],
-      count: 0
-    }
-  });
-}
-
-/**
- * Stocke une nouvelle information en mémoire
- */
-async function handleStore(payload: { content: string; metadata?: Record<string, unknown> }): Promise<void> {
-  console.log('[Memory] Storing:', payload);
-  
-  // TODO: Implémenter le stockage
-  // 1. Convertir l'information en vecteur
-  // 2. Ajouter à l'index HNSW
-  // 3. Persister dans IndexedDB
-  
-  self.postMessage({
-    type: 'store_complete',
-    payload: { success: true }
-  });
-}
+};
