@@ -14,6 +14,16 @@ interface Message {
   content: string;
   timestamp: Date;
   isTyping?: boolean;
+  confidence?: number;
+  provenance?: {
+    fromAgents?: string[];
+    memoryHits?: string[];
+    toolUsed?: string;
+  };
+  debug?: {
+    totalRounds?: number;
+    inferenceTimeMs?: number;
+  };
 }
 
 interface Conversation {
@@ -52,15 +62,20 @@ const Index = () => {
 
     // Définir ce qu'il faut faire quand on reçoit un message DU worker
     orchestratorWorker.current.onmessage = (event: MessageEvent<WorkerMessage<FinalResponsePayload>>) => {
-      const { type, payload } = event.data;
+      const { type, payload, meta } = event.data;
 
       // Nous n'écoutons que les messages de type 'final_response'
       if (type === 'final_response') {
+        console.log(`[UI] Réponse reçue (traceId: ${meta?.traceId})`);
+        
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content: payload.response,
           timestamp: new Date(),
+          confidence: payload.confidence,
+          provenance: payload.provenance,
+          debug: payload.debug,
         };
         
         setMessages((prev) => [...prev, aiMessage]);
@@ -136,25 +151,34 @@ const Index = () => {
       );
     }
 
+    // Créer un ID de suivi unique pour cette requête
+    const traceId = `trace_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
     // Convertir l'historique de messages au format attendu par le worker
     const conversationHistory = messages.map(msg => ({
       sender: msg.role === 'user' ? 'user' as const : 'orion' as const,
-      text: msg.content
+      text: msg.content,
+      id: msg.id
     }));
 
     // Préparer et envoyer le message AU worker
     const queryPayload: QueryPayload = {
       query: content,
       conversationHistory,
+      deviceProfile: 'full', // Par défaut 'full' pour l'instant
     };
     
     const message: WorkerMessage<QueryPayload> = {
       type: 'query',
       payload: queryPayload,
+      meta: {
+        traceId,
+        timestamp: Date.now(),
+      },
     };
 
+    console.log(`[UI] Envoi de la requête avec traceId: ${traceId}`);
     orchestratorWorker.current.postMessage(message);
-    console.log('[UI] Message envoyé au worker:', content);
   };
 
   const handleNewConversation = () => {
@@ -291,6 +315,9 @@ const Index = () => {
                     timestamp={message.timestamp}
                     isTyping={message.isTyping}
                     onRegenerate={message.role === "assistant" ? handleRegenerate : undefined}
+                    confidence={message.confidence}
+                    debug={message.debug}
+                    provenance={message.provenance}
                   />
                 ))}
                 {isGenerating && (
