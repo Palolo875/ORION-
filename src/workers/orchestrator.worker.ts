@@ -8,12 +8,12 @@
  * et retourne la réponse finale synthétisée après un débat multi-agents.
  */
 
-import type { WorkerMessage, QueryPayload, FinalResponsePayload, AgentProposal, DebateRoundResult } from '../types';
+import type { WorkerMessage, QueryPayload, FinalResponsePayload } from '../types';
 
 console.log("Orchestrator Worker (Secure) chargé et prêt.");
 
 // Instancier tous les workers
-const reasoningWorker = new Worker(new URL('./reasoning.worker.ts', import.meta.url), {
+const llmWorker = new Worker(new URL('./llm.worker.ts', import.meta.url), {
   type: 'module',
 });
 
@@ -57,7 +57,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
     } else if (type === 'init') {
       console.log('[Orchestrateur] Initialized');
       // Initialiser tous les workers
-      reasoningWorker.postMessage({ type: 'init' });
+      llmWorker.postMessage({ type: 'init' });
       memoryWorker.postMessage({ type: 'init' });
       toolUserWorker.postMessage({ type: 'init' });
     } else if (type === 'feedback') {
@@ -136,21 +136,8 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   }
 };
 
-// --- État de la boucle de débat ---
-const MAX_ROUNDS = 3;
-const MIN_IMPROVEMENT_DELTA = 0.05;
-
-interface DebateState {
-  round: number;
-  bestResponse: { response: string; confidence: number };
-  lastConfidence: number;
-}
-
-let debateState: DebateState = {
-  round: 0,
-  bestResponse: { response: "Le débat n'a pas abouti.", confidence: 0.1 },
-  lastConfidence: 0,
-};
+// --- État pour le LLM ---
+// Plus besoin de l'état de débat, le LLM génère directement la réponse
 
 // Écouter les réponses du MemoryWorker
 memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ content?: string }> }>>) => {
@@ -171,15 +158,16 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
       console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Aucun souvenir pertinent trouvé.`);
     }
     
-    const reasoningPayload = {
+    console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Lancement de l'inférence LLM.`);
+    const llmPayload = {
       ...currentQueryContext!,
-      context: currentMemoryHits.join('\n'),
+      context: currentMemoryHits,
     };
 
-    // Lancer le premier round de débat
-    reasoningWorker.postMessage({ 
-      type: 'reason', 
-      payload: reasoningPayload,
+    // Appeler le LLM Worker
+    llmWorker.postMessage({ 
+      type: 'generate_response', 
+      payload: llmPayload,
       meta: currentQueryMeta || undefined
     });
   } else if (type === 'store_complete') {
@@ -189,113 +177,86 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
   }
 };
 
-// NOUVELLE LOGIQUE DE DÉBAT ITÉRATIF
-reasoningWorker.onmessage = (event: MessageEvent<WorkerMessage<DebateRoundResult>>) => {
-  const { type, payload } = event.data;
+// Écouteur pour le LLM Worker
+llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
+  const { type, payload, meta } = event.data;
 
-  if (type === 'reasoning_round_complete') {
-    debateState.round++;
-    console.log(`[Orchestrateur] Fin du Round ${debateState.round}. Propositions reçues:`, payload.proposals);
-
-    // --- Agent de Synthèse et Juge ---
-    // 1. Agréger les propositions. Pour l'instant, on les concatène.
-    const combinedText = payload.proposals
-      .map(p => `- **${p.agentName}** (confiance: ${Math.round(p.confidence * 100)}%): ${p.proposalText}`)
-      .join('\n');
-    
-    // 2. Calculer une confiance globale (moyenne pondérée par la confiance de chaque agent)
-    const totalConfidence = payload.proposals.reduce((acc, p) => acc + p.confidence * p.confidence, 0);
-    const totalWeights = payload.proposals.reduce((acc, p) => acc + p.confidence, 0);
-    const overallConfidence = totalWeights > 0 ? totalConfidence / totalWeights : 0;
-    
-    console.log(`[Orchestrateur] Confiance du round: ${overallConfidence.toFixed(2)}`);
-
-    // 3. Mettre à jour la meilleure réponse si le score est meilleur
-    if (overallConfidence > debateState.lastConfidence) {
-      debateState.bestResponse = {
-        response: `## 🧠 Résultat du Débat Multi-Agents (Round ${debateState.round})\n\n${combinedText}`,
-        confidence: overallConfidence,
-      };
-      debateState.lastConfidence = overallConfidence;
-    }
-
-    // --- Conditions d'Arrêt ---
-    const improvement = overallConfidence - debateState.lastConfidence;
-
-    if (debateState.round >= MAX_ROUNDS) {
-      console.log("[Orchestrateur] Limite de rounds atteinte. Fin du débat.");
-      finalizeDebate();
-    } else if (improvement < MIN_IMPROVEMENT_DELTA && debateState.round > 1) {
-      console.log("[Orchestrateur] Convergence atteinte (amélioration minimale non atteinte). Fin du débat.");
-      finalizeDebate();
-    } else {
-      // Pour un vrai débat itératif, on relancerait un round avec les objections.
-      // Ici, on simule la fin car nos agents ne sont pas encore itératifs.
-      console.log("[Orchestrateur] Simulation de fin de débat après 1 round.");
-      finalizeDebate();
-    }
-  } else if (type === 'init_complete') {
-    console.log('[Orchestrateur] Reasoning Worker initialisé.');
+  // On vérifie que la réponse correspond à la requête en cours
+  if (meta?.traceId !== currentQueryMeta?.traceId && type !== 'init_complete' && type !== 'llm_load_progress') {
+    return;
   }
-};
 
-/**
- * Finalise le débat et envoie la réponse finale
- */
-function finalizeDebate(): void {
-  const endTime = performance.now();
-  const inferenceTimeMs = Math.round(endTime - startTime);
-  const agentNames = ['Logical', 'Creative']; // À rendre dynamique si plus d'agents
-  
-  // Construire le message de réponse avec contexte de mémoire si disponible
-  let responseText = debateState.bestResponse.response;
-  if (currentMemoryHits.length > 0) {
-    const memoryContext = currentMemoryHits.map((hit, idx) => `${idx + 1}. ${hit}`).join('\n');
-    responseText = `**📚 Contexte de la mémoire:**\n${memoryContext}\n\n---\n\n${responseText}`;
-  }
-  
-  const finalPayload: FinalResponsePayload = {
-    response: `${responseText}\n\n---\n\n**💡 Conclusion ORION Neural Mesh :**\nLes agents ont délibéré pendant ${debateState.round} round(s) pour produire cette réponse nuancée. Confiance finale: ${Math.round(debateState.bestResponse.confidence * 100)}%`,
-    confidence: debateState.bestResponse.confidence,
-    provenance: { 
-      fromAgents: agentNames,
-      memoryHits: currentMemoryHits,
-      toolUsed: undefined
-    },
-    debug: {
-      totalRounds: debateState.round,
-      inferenceTimeMs: inferenceTimeMs
-    }
-  };
+  if (type === 'llm_response_complete') {
+    const endTime = performance.now();
+    const inferenceTimeMs = Math.round(endTime - startTime);
+    console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Réponse du LLM reçue en ${inferenceTimeMs}ms.`);
 
-  self.postMessage({ 
-    type: 'final_response', 
-    payload: finalPayload,
-    meta: currentQueryMeta || undefined
-  });
-  
-  console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${currentQueryMeta?.traceId}) en ${inferenceTimeMs}ms.`);
+    const finalPayload: FinalResponsePayload = {
+      response: payload.response,
+      confidence: 0.9, // À affiner plus tard avec une analyse du LLM
+      provenance: {
+        fromAgents: ['LLMAgent'],
+        memoryHits: currentMemoryHits,
+      },
+      debug: {
+        inferenceTimeMs: inferenceTimeMs,
+      }
+    };
 
-  // Sauvegarder la conversation
-  if (currentQueryContext) {
-    const memoryToSave = `Q: ${currentQueryContext.query} | A: ${debateState.bestResponse.response}`;
-    memoryWorker.postMessage({ 
-      type: 'store', 
-      payload: { content: memoryToSave },
+    self.postMessage({ 
+      type: 'final_response', 
+      payload: finalPayload, 
       meta: currentQueryMeta || undefined
     });
-  }
 
-  // Réinitialiser l'état du débat pour la prochaine requête
-  debateState = { 
-    round: 0, 
-    bestResponse: { response: "Le débat n'a pas abouti.", confidence: 0.1 }, 
-    lastConfidence: 0 
-  };
-  currentQueryContext = null;
-  currentQueryMeta = null;
-  currentMemoryHits = [];
-}
+    console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${meta?.traceId}) en ${inferenceTimeMs}ms.`);
+
+    // Sauvegarder la conversation
+    if (currentQueryContext) {
+      const memoryToSave = `Q: ${currentQueryContext.query} | A: ${payload.response}`;
+      memoryWorker.postMessage({ 
+        type: 'store', 
+        payload: { content: memoryToSave }, 
+        meta: currentQueryMeta || undefined
+      });
+    }
+
+    // Réinitialiser
+    currentMemoryHits = [];
+    currentQueryContext = null;
+    currentQueryMeta = null;
+
+  } else if (type === 'llm_error') {
+    // Gérer l'erreur du LLM
+    console.error(`[Orchestrateur] Erreur LLM: ${payload.error}`);
+    const errorPayload: FinalResponsePayload = {
+      response: `Désolé, une erreur est survenue lors de la génération de la réponse: ${payload.error}`,
+      confidence: 0,
+      provenance: {},
+      debug: {}
+    };
+    self.postMessage({ 
+      type: 'final_response', 
+      payload: errorPayload, 
+      meta: currentQueryMeta || undefined
+    });
+
+    // Réinitialiser
+    currentMemoryHits = [];
+    currentQueryContext = null;
+    currentQueryMeta = null;
+
+  } else if (type === 'llm_load_progress') {
+    // Relayer la progression du chargement à l'UI
+    self.postMessage({
+      type: 'llm_load_progress',
+      payload: payload,
+      meta: meta
+    });
+  } else if (type === 'init_complete') {
+    console.log('[Orchestrateur] LLM Worker initialisé.');
+  }
+};
 
 /**
  * Envoie une réponse au thread principal
