@@ -8,7 +8,7 @@
  * et retourne la réponse finale synthétisée après un débat multi-agents.
  */
 
-import type { WorkerMessage, QueryPayload, FinalResponsePayload } from '../types';
+import type { WorkerMessage, QueryPayload, FinalResponsePayload, AgentProposal, DebateRoundResult } from '../types';
 
 console.log("Orchestrator Worker (Secure) chargé et prêt.");
 
@@ -99,20 +99,36 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   }
 };
 
+// --- État de la boucle de débat ---
+const MAX_ROUNDS = 3;
+const MIN_IMPROVEMENT_DELTA = 0.05;
+
+interface DebateState {
+  round: number;
+  bestResponse: { response: string; confidence: number };
+  lastConfidence: number;
+}
+
+let debateState: DebateState = {
+  round: 0,
+  bestResponse: { response: "Le débat n'a pas abouti.", confidence: 0.1 },
+  lastConfidence: 0,
+};
+
 // Écouter les réponses du MemoryWorker
 memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ content?: string }> }>>) => {
   const { type, payload } = event.data;
 
   if (type === 'search_result') {
-    console.log("[Orchestrateur] Contexte reçu du Memory Worker:", payload.results);
+    console.log("[Orchestrateur] Contexte reçu du Memory Worker. Lancement du débat.");
     
     const reasoningPayload = {
       ...currentQueryContext!,
       context: payload.results.map((r) => r.content || '').join('\n'),
     };
 
+    // Lancer le premier round de débat
     reasoningWorker.postMessage({ type: 'reason', payload: reasoningPayload });
-    console.log("[Orchestrateur] Requête + contexte envoyés au Reasoning Worker.");
   } else if (type === 'store_complete') {
     console.log("[Orchestrateur] Mémoire sauvegardée.");
   } else if (type === 'init_complete') {
@@ -120,61 +136,84 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
   }
 };
 
-// Écouter la réponse du ReasoningWorker
-reasoningWorker.onmessage = (event: MessageEvent<WorkerMessage<{ logical: string, creative: string }>>) => {
+// NOUVELLE LOGIQUE DE DÉBAT ITÉRATIF
+reasoningWorker.onmessage = (event: MessageEvent<WorkerMessage<DebateRoundResult>>) => {
   const { type, payload } = event.data;
 
-  if (type === 'reasoning_complete') {
-    console.log("[Orchestrateur] Résultat du débat reçu du Reasoning Worker.");
-    console.log("[Orchestrateur] Perspectives:", payload);
+  if (type === 'reasoning_round_complete') {
+    debateState.round++;
+    console.log(`[Orchestrateur] Fin du Round ${debateState.round}. Propositions reçues:`, payload.proposals);
 
-    // Agent de Synthèse : combine les perspectives en une réponse cohérente
-    const finalResponseText = synthesizeDebate(payload.logical, payload.creative);
-
-    // Préparer la réponse finale pour l'UI
-    const responsePayload: FinalResponsePayload = {
-      response: finalResponseText,
-      confidence: 0.85, // Confiance élevée car basée sur deux perspectives
-      provenance: { fromAgents: ['Logical', 'Creative'] }
-    };
-
-    const responseMessage: WorkerMessage<FinalResponsePayload> = {
-      type: 'final_response',
-      payload: responsePayload,
-    };
-
-    // Envoyer la réponse finale à l'UI
-    self.postMessage(responseMessage);
-    console.log("[Orchestrateur] Réponse finale synthétisée et envoyée à l'UI.");
+    // --- Agent de Synthèse et Juge ---
+    // 1. Agréger les propositions. Pour l'instant, on les concatène.
+    const combinedText = payload.proposals
+      .map(p => `- **${p.agentName}** (confiance: ${Math.round(p.confidence * 100)}%): ${p.proposalText}`)
+      .join('\n');
     
-    // Sauvegarder la conversation
-    const memoryToSave = `Q: ${currentQueryContext!.query} | A: ${payload.logical}`;
-    memoryWorker.postMessage({ type: 'store', payload: { content: memoryToSave } });
+    // 2. Calculer une confiance globale (moyenne pondérée par la confiance de chaque agent)
+    const totalConfidence = payload.proposals.reduce((acc, p) => acc + p.confidence * p.confidence, 0);
+    const totalWeights = payload.proposals.reduce((acc, p) => acc + p.confidence, 0);
+    const overallConfidence = totalWeights > 0 ? totalConfidence / totalWeights : 0;
     
-    // Nettoyer la requête courante
-    currentQueryContext = null;
+    console.log(`[Orchestrateur] Confiance du round: ${overallConfidence.toFixed(2)}`);
+
+    // 3. Mettre à jour la meilleure réponse si le score est meilleur
+    if (overallConfidence > debateState.lastConfidence) {
+      debateState.bestResponse = {
+        response: `## 🧠 Résultat du Débat Multi-Agents (Round ${debateState.round})\n\n${combinedText}`,
+        confidence: overallConfidence,
+      };
+      debateState.lastConfidence = overallConfidence;
+    }
+
+    // --- Conditions d'Arrêt ---
+    const improvement = overallConfidence - debateState.lastConfidence;
+
+    if (debateState.round >= MAX_ROUNDS) {
+      console.log("[Orchestrateur] Limite de rounds atteinte. Fin du débat.");
+      finalizeDebate();
+    } else if (improvement < MIN_IMPROVEMENT_DELTA && debateState.round > 1) {
+      console.log("[Orchestrateur] Convergence atteinte (amélioration minimale non atteinte). Fin du débat.");
+      finalizeDebate();
+    } else {
+      // Pour un vrai débat itératif, on relancerait un round avec les objections.
+      // Ici, on simule la fin car nos agents ne sont pas encore itératifs.
+      console.log("[Orchestrateur] Simulation de fin de débat après 1 round.");
+      finalizeDebate();
+    }
   } else if (type === 'init_complete') {
     console.log('[Orchestrateur] Reasoning Worker initialisé.');
   }
 };
 
 /**
- * Synthétise les perspectives logique et créative en une réponse cohérente
+ * Finalise le débat et envoie la réponse finale
  */
-function synthesizeDebate(logical: string, creative: string): string {
-  // Format structuré pour présenter le débat multi-agents
-  return `## 🧠 Synthèse du Débat Multi-Agents
+function finalizeDebate(): void {
+  const agentNames = ['Logical', 'Creative']; // À rendre dynamique si plus d'agents
+  
+  const finalPayload: FinalResponsePayload = {
+    response: `${debateState.bestResponse.response}\n\n---\n\n**💡 Conclusion du Neural Mesh :**\nLes agents ont délibéré pendant ${debateState.round} round(s) pour produire cette réponse nuancée. Confiance finale: ${Math.round(debateState.bestResponse.confidence * 100)}%`,
+    confidence: debateState.bestResponse.confidence,
+    provenance: { fromAgents: agentNames },
+  };
 
-### 📊 Perspective Logique
-${logical}
+  self.postMessage({ type: 'final_response', payload: finalPayload });
+  console.log("[Orchestrateur] Réponse finale du débat envoyée à l'UI.");
 
-### 🎨 Perspective Créative
-${creative}
+  // Sauvegarder la conversation
+  if (currentQueryContext) {
+    const memoryToSave = `Q: ${currentQueryContext.query} | A: ${debateState.bestResponse.response}`;
+    memoryWorker.postMessage({ type: 'store', payload: { content: memoryToSave } });
+  }
 
----
-
-**💡 Conclusion du Neural Mesh :**
-Les deux agents s'accordent pour offrir une vision complète qui allie rigueur factuelle et inspiration. Cette approche multi-perspectives permet une compréhension plus nuancée et enrichie.`;
+  // Réinitialiser l'état du débat pour la prochaine requête
+  debateState = { 
+    round: 0, 
+    bestResponse: { response: "Le débat n'a pas abouti.", confidence: 0.1 }, 
+    lastConfidence: 0 
+  };
+  currentQueryContext = null;
 }
 
 /**
