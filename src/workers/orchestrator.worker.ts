@@ -31,6 +31,7 @@ console.log("[Orchestrateur] Tous les workers ont été instanciés.");
 let currentQueryContext: QueryPayload | null = null;
 let currentQueryMeta: WorkerMessage['meta'] | null = null;
 let startTime: number = 0;
+let currentMemoryHits: string[] = [];
 
 // --- Logique principale de l'Orchestrateur ---
 
@@ -89,7 +90,11 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     const responsePayload: FinalResponsePayload = {
       response: payload.result,
       confidence: 1.0, // Confiance maximale pour un outil factuel
-      provenance: { toolUsed: payload.toolName },
+      provenance: { 
+        toolUsed: payload.toolName,
+        memoryHits: [],
+        fromAgents: undefined
+      },
       debug: {
         totalRounds: 0, // Pas de débat pour un outil
         inferenceTimeMs: inferenceTimeMs
@@ -110,6 +115,9 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
       payload: { content: memoryToSave },
       meta: currentQueryMeta || undefined
     });
+    
+    // Réinitialiser pour la prochaine requête
+    currentMemoryHits = [];
 
   } else if (type === 'no_tool_found' || type === 'tool_error') {
     // Aucun outil trouvé ou une erreur est survenue, on passe au raisonnement.
@@ -146,14 +154,26 @@ let debateState: DebateState = {
 
 // Écouter les réponses du MemoryWorker
 memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ content?: string }> }>>) => {
-  const { type, payload } = event.data;
+  const { type, payload, meta } = event.data;
+
+  // On vérifie que la réponse correspond à la requête en cours
+  if (meta?.traceId !== currentQueryMeta?.traceId && type !== 'init_complete' && type !== 'store_complete') {
+    return;
+  }
 
   if (type === 'search_result') {
-    console.log("[Orchestrateur] Contexte reçu du Memory Worker. Lancement du débat.");
+    // Stocker les résultats de la mémoire
+    currentMemoryHits = payload.results.map((r) => r.content || '').filter(c => c.length > 0);
+    
+    if (currentMemoryHits.length > 0) {
+      console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Contexte reçu: ${currentMemoryHits.length} souvenir(s).`);
+    } else {
+      console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Aucun souvenir pertinent trouvé.`);
+    }
     
     const reasoningPayload = {
       ...currentQueryContext!,
-      context: payload.results.map((r) => r.content || '').join('\n'),
+      context: currentMemoryHits.join('\n'),
     };
 
     // Lancer le premier round de débat
@@ -227,10 +247,21 @@ function finalizeDebate(): void {
   const inferenceTimeMs = Math.round(endTime - startTime);
   const agentNames = ['Logical', 'Creative']; // À rendre dynamique si plus d'agents
   
+  // Construire le message de réponse avec contexte de mémoire si disponible
+  let responseText = debateState.bestResponse.response;
+  if (currentMemoryHits.length > 0) {
+    const memoryContext = currentMemoryHits.map((hit, idx) => `${idx + 1}. ${hit}`).join('\n');
+    responseText = `**📚 Contexte de la mémoire:**\n${memoryContext}\n\n---\n\n${responseText}`;
+  }
+  
   const finalPayload: FinalResponsePayload = {
-    response: `${debateState.bestResponse.response}\n\n---\n\n**💡 Conclusion du Neural Mesh :**\nLes agents ont délibéré pendant ${debateState.round} round(s) pour produire cette réponse nuancée. Confiance finale: ${Math.round(debateState.bestResponse.confidence * 100)}%`,
+    response: `${responseText}\n\n---\n\n**💡 Conclusion ORION Neural Mesh :**\nLes agents ont délibéré pendant ${debateState.round} round(s) pour produire cette réponse nuancée. Confiance finale: ${Math.round(debateState.bestResponse.confidence * 100)}%`,
     confidence: debateState.bestResponse.confidence,
-    provenance: { fromAgents: agentNames },
+    provenance: { 
+      fromAgents: agentNames,
+      memoryHits: currentMemoryHits,
+      toolUsed: undefined
+    },
     debug: {
       totalRounds: debateState.round,
       inferenceTimeMs: inferenceTimeMs
@@ -263,6 +294,7 @@ function finalizeDebate(): void {
   };
   currentQueryContext = null;
   currentQueryMeta = null;
+  currentMemoryHits = [];
 }
 
 /**
