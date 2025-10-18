@@ -75,7 +75,7 @@ const Index = () => {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content:
-          "Je suis votre assistant IA EIAM. Cette interface moderne s'inspire des meilleures pratiques de ChatGPT, Claude et Manus. Comment puis-je vous aider aujourd'hui ?",
+          "Je suis votre assistant IA ORION. Cette interface moderne s'inspire des meilleures pratiques de ChatGPT, Claude et Manus. Comment puis-je vous aider aujourd'hui ?",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMessage]);
@@ -186,7 +186,7 @@ const Index = () => {
               >
                 <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <h1 className="text-lg sm:text-xl font-semibold">EIAM</h1>
+              <h1 className="text-lg sm:text-xl font-semibold">ORION</h1>
             </div>
             <Button
               variant="ghost"

@@ -9,7 +9,7 @@ import {
 } from "./ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { EiamLogo } from "./EiamLogo";
+import { OrionLogo } from "./OrionLogo";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 
@@ -104,8 +104,8 @@ export const ChatMessage = ({
   return (
     <motion.div {...animationProps} className="w-full mb-6 sm:mb-8 group">
       <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-        <EiamLogo className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-        <span className="text-sm sm:text-base font-semibold">EIAM</span>
+        <OrionLogo className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+        <span className="text-sm sm:text-base font-semibold">ORION</span>
       </div>
       
       <div className="relative pl-0 sm:pl-0">
