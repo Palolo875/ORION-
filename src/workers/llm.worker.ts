@@ -1,18 +1,43 @@
 // src/workers/llm.worker.ts
+
+/**
+ * LLM Worker - Agent de Raisonnement Principal d'ORION
+ * 
+ * Ce worker gère l'inférence du modèle de langage local.
+ * Il utilise @mlc-ai/web-llm pour exécuter des modèles LLM dans le navigateur
+ * avec WebGPU pour des performances optimales.
+ * 
+ * Fonctionnalités:
+ * - Chargement et initialisation du modèle LLM
+ * - Génération de réponses avec contexte
+ * - Changement dynamique de modèle
+ * - Gestion des erreurs et fallbacks
+ * - Reporting de progression du chargement
+ */
+
 import { WebWorkerMLCEngine, MLCEngine, ChatCompletionRequest } from "@mlc-ai/web-llm";
 import { WorkerMessage, QueryPayload } from '../types';
 
-console.log("LLM Worker chargé. Prêt à initialiser le moteur.");
+console.log("[LLM] Worker chargé. Prêt à initialiser le moteur.")
 
 // Modèle par défaut
 let SELECTED_MODEL = "Phi-3-mini-4k-instruct-q4f16_1-MLC";
 
-// --- Singleton pour le moteur LLM ---
-// Garantit que le moteur n'est chargé qu'une seule fois.
+/**
+ * Singleton pour le moteur LLM
+ * Garantit que le moteur n'est chargé qu'une seule fois et gère le changement de modèle.
+ */
 class LLMEngine {
   private static instance: MLCEngine | null = null;
   private static currentModel: string | null = null;
 
+  /**
+   * Obtient l'instance du moteur LLM (Singleton)
+   * @param modelId - ID du modèle à charger (optionnel, utilise le modèle par défaut sinon)
+   * @param progress_callback - Callback pour reporter la progression du chargement
+   * @returns Instance du moteur LLM
+   * @throws Error si le chargement du modèle échoue
+   */
   static async getInstance(
     modelId?: string,
     progress_callback?: (progress: { progress: number; text: string; loaded?: number; total?: number }) => void
@@ -27,29 +52,40 @@ class LLMEngine {
     }
     
     if (this.instance === null) {
-      console.log("[LLM] Initialisation du moteur WebLLM...");
-      
-      // Utiliser l'engine WebWorkerMLCEngine directement sans sous-worker pour éviter les problèmes de build
-      // @ts-expect-error - Le type peut ne pas correspondre exactement mais cela fonctionne
-      this.instance = await WebWorkerMLCEngine.create({
-        initProgressCallback: (report: { progress: number; text: string; loaded?: number; total?: number }) => {
-          if (progress_callback) {
-            progress_callback(report);
-          } else {
-            console.log(`[LLM] ${report.text} - ${report.progress.toFixed(1)}%`);
-          }
-        },
-      });
+      try {
+        console.log("[LLM] Initialisation du moteur WebLLM...");
+        
+        // Utiliser l'engine WebWorkerMLCEngine directement sans sous-worker pour éviter les problèmes de build
+        // @ts-expect-error - Le type peut ne pas correspondre exactement mais cela fonctionne
+        this.instance = await WebWorkerMLCEngine.create({
+          initProgressCallback: (report: { progress: number; text: string; loaded?: number; total?: number }) => {
+            if (progress_callback) {
+              progress_callback(report);
+            } else {
+              console.log(`[LLM] ${report.text} - ${report.progress.toFixed(1)}%`);
+            }
+          },
+        });
 
-      console.log(`[LLM] Chargement du modèle: ${targetModel}...`);
-      await this.instance.reload(targetModel);
-      this.currentModel = targetModel;
-      console.log("[LLM] Moteur et modèle prêts !");
+        console.log(`[LLM] Chargement du modèle: ${targetModel}...`);
+        await this.instance.reload(targetModel);
+        this.currentModel = targetModel;
+        console.log("[LLM] Moteur et modèle prêts !");
+      } catch (error) {
+        console.error("[LLM] Erreur critique lors de l'initialisation:", error);
+        this.instance = null;
+        this.currentModel = null;
+        throw new Error(`Échec de l'initialisation du moteur LLM: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      }
     }
     return this.instance;
   }
   
+  /**
+   * Réinitialise l'instance du moteur (utile pour changer de modèle)
+   */
   static reset() {
+    console.log("[LLM] Réinitialisation du moteur...");
     this.instance = null;
     this.currentModel = null;
   }
@@ -119,10 +155,27 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & { conte
       });
 
     } catch (error) {
-      console.error(`[LLM] Erreur durant l'inférence:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
+      console.error(`[LLM] Erreur durant l'inférence:`, {
+        message: errorMessage,
+        stack: errorStack,
+        query: payload.query,
+        traceId: meta?.traceId
+      });
+      
+      // Envoyer une erreur détaillée pour le debugging
       self.postMessage({ 
         type: 'llm_error', 
-        payload: { error: (error as Error).message }, 
+        payload: { 
+          error: errorMessage,
+          details: {
+            stack: errorStack,
+            query: payload.query?.substring(0, 100) + '...', // Limiter la taille
+            timestamp: Date.now()
+          }
+        }, 
         meta 
       });
     }
