@@ -1,9 +1,9 @@
 import { BrainCircuit } from 'lucide-react';
 
-interface EiamLogoProps {
+interface OrionLogoProps {
   className?: string;
 }
 
-export const EiamLogo = ({ className }: EiamLogoProps) => {
+export const OrionLogo = ({ className }: OrionLogoProps) => {
   return <BrainCircuit className={className} />;
 };

@@ -202,7 +202,7 @@ export const ChatInput = ({
           </div>
           <div className="flex items-center gap-2">
             <Wand2 className="h-3 w-3" />
-            <span>EIAM peut faire des erreurs</span>
+            <span>ORION peut faire des erreurs</span>
           </div>
         </div>
       </div>
