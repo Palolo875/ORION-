@@ -45,19 +45,48 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
   try {
     if (type === 'query') {
       console.log(`[Orchestrateur] Requête reçue (traceId: ${meta?.traceId}): "${payload.query}"`);
+      console.log(`[Orchestrateur] Profil d'appareil: '${payload.deviceProfile || 'micro'}'`);
       
       // Sauvegarder la requête courante et les métadonnées
       currentQueryContext = payload;
       currentQueryMeta = meta || null;
       startTime = performance.now(); // Démarrer le chronomètre
       
-      // Étape 1 du ReAct: Essayer d'agir d'abord (vérifier si un outil peut répondre)
-      console.log("[Orchestrateur] Interrogation du ToolUser Worker...");
-      toolUserWorker.postMessage({ 
-        type: 'find_and_execute_tool', 
-        payload: { query: payload.query },
-        meta: currentQueryMeta 
-      });
+      // --- STRATÉGIE DE DÉGRADATION GRACIEUSE ---
+      const profile = payload.deviceProfile || 'micro';
+      
+      switch (profile) {
+        case 'full':
+          // Comportement normal et complet: ReAct avec LLM
+          console.log("[Orchestrateur] Stratégie 'full': ReAct avec LLM.");
+          toolUserWorker.postMessage({ 
+            type: 'find_and_execute_tool', 
+            payload: { query: payload.query },
+            meta: currentQueryMeta 
+          });
+          break;
+
+        case 'lite':
+          // On utilise les outils mais on simplifie le LLM si nécessaire
+          console.log("[Orchestrateur] Stratégie 'lite': Outils + LLM optimisé.");
+          toolUserWorker.postMessage({ 
+            type: 'find_and_execute_tool', 
+            payload: { query: payload.query },
+            meta: currentQueryMeta 
+          });
+          break;
+
+        case 'micro':
+        default:
+          // Le mode le plus basique : outils uniquement, pas de LLM lourd
+          console.log("[Orchestrateur] Stratégie 'micro': Outils uniquement, pas de LLM.");
+          toolUserWorker.postMessage({ 
+            type: 'find_and_execute_tool', 
+            payload: { query: payload.query },
+            meta: currentQueryMeta 
+          });
+          break;
+      }
     } else if (type === 'init') {
       console.log('[Orchestrateur] Initialized');
       // Initialiser tous les workers
@@ -134,17 +163,29 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     currentMemoryHits = [];
 
   } else if (type === 'no_tool_found' || type === 'tool_error') {
-    // Aucun outil trouvé ou une erreur est survenue, on passe au raisonnement.
+    // Aucun outil trouvé ou une erreur est survenue
     if (type === 'tool_error') {
       console.error(`[Orchestrateur] Erreur du ToolUser: ${payload.error}`);
     }
     
-    console.log("[Orchestrateur] Aucun outil applicable. Lancement du processus de mémoire et débat.");
-    memoryWorker.postMessage({ 
-      type: 'search', 
-      payload: { query: currentQueryContext!.query },
-      meta: currentQueryMeta || undefined
-    });
+    const profile = currentQueryContext?.deviceProfile || 'micro';
+    
+    if (profile === 'micro') {
+      // En mode micro, si aucun outil n'est trouvé, on envoie une réponse simple
+      console.log("[Orchestrateur] Mode 'micro': Aucun outil trouvé. Réponse simplifiée.");
+      sendSimpleResponse(
+        "Je ne peux pas répondre à cette question en mode 'micro' car aucun outil n'est disponible. Les capacités de votre appareil sont limitées, donc je privilégie la réactivité plutôt que la profondeur de raisonnement.",
+        0.3
+      );
+    } else {
+      // Pour 'full' et 'lite', on lance le processus de mémoire et LLM
+      console.log("[Orchestrateur] Aucun outil applicable. Lancement du processus de mémoire et débat.");
+      memoryWorker.postMessage({ 
+        type: 'search', 
+        payload: { query: currentQueryContext!.query },
+        meta: currentQueryMeta || undefined
+      });
+    }
   } else if (type === 'init_complete') {
     console.log('[Orchestrateur] ToolUser Worker initialisé.');
   }
@@ -281,4 +322,22 @@ function sendResponse(payload: FinalResponsePayload): void {
     payload
   };
   self.postMessage(message);
+}
+
+/**
+ * Envoie une réponse simple pour les cas de dégradation gracieuse
+ */
+function sendSimpleResponse(text: string, confidence: number): void {
+  const endTime = performance.now();
+  const finalPayload: FinalResponsePayload = {
+    response: text,
+    confidence: confidence,
+    provenance: { fromAgents: ['FallbackStrategy'] },
+    debug: { inferenceTimeMs: Math.round(endTime - startTime) }
+  };
+  self.postMessage({ 
+    type: 'final_response', 
+    payload: finalPayload, 
+    meta: currentQueryMeta || undefined
+  });
 }
