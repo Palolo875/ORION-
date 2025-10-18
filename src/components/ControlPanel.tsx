@@ -1,0 +1,377 @@
+import { useState, useEffect } from "react";
+import { 
+  X, 
+  Trash2, 
+  Download, 
+  Upload, 
+  Activity, 
+  Database, 
+  BarChart3,
+  AlertTriangle,
+  CheckCircle2,
+  FileJson,
+  Zap,
+  Info
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Label } from "./ui/label";
+import { Separator } from "./ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+interface ControlPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onPurgeMemory?: () => void;
+  onExportMemory?: () => void;
+  onImportMemory?: (file: File) => void;
+  onProfileChange?: (profile: 'full' | 'lite' | 'micro') => void;
+  currentProfile?: 'full' | 'lite' | 'micro';
+  memoryStats?: {
+    totalMemories: number;
+    avgInferenceTime: number;
+    feedbackRatio: { likes: number; dislikes: number };
+  };
+}
+
+export const ControlPanel = ({ 
+  isOpen, 
+  onClose,
+  onPurgeMemory,
+  onExportMemory,
+  onImportMemory,
+  onProfileChange,
+  currentProfile = 'micro',
+  memoryStats
+}: ControlPanelProps) => {
+  const [selectedProfile, setSelectedProfile] = useState(currentProfile);
+  const [auditLog, setAuditLog] = useState<Array<{ time: string; action: string; status: string }>>([
+    { time: new Date().toLocaleTimeString(), action: "Système initialisé", status: "success" },
+  ]);
+
+  useEffect(() => {
+    setSelectedProfile(currentProfile);
+  }, [currentProfile]);
+
+  const handleProfileChange = (value: 'full' | 'lite' | 'micro') => {
+    setSelectedProfile(value);
+    onProfileChange?.(value);
+    addAuditLog(`Profil changé vers: ${value}`, "success");
+    toast({
+      title: "Profil mis à jour",
+      description: `Le profil de performance a été changé vers "${value}"`,
+    });
+  };
+
+  const handlePurgeMemory = () => {
+    if (window.confirm("Êtes-vous sûr de vouloir purger toute la mémoire ? Cette action est irréversible.")) {
+      onPurgeMemory?.();
+      addAuditLog("Mémoire purgée", "warning");
+      toast({
+        title: "Mémoire purgée",
+        description: "Toutes les données de mémoire ont été supprimées",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportMemory = () => {
+    onExportMemory?.();
+    addAuditLog("Mémoire exportée", "success");
+    toast({
+      title: "Export réussi",
+      description: "La mémoire a été exportée avec succès",
+    });
+  };
+
+  const handleImportMemory = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      onImportMemory?.(file);
+      addAuditLog("Mémoire importée", "success");
+      toast({
+        title: "Import réussi",
+        description: `Le fichier "${file.name}" a été importé avec succès`,
+      });
+    }
+  };
+
+  const addAuditLog = (action: string, status: string) => {
+    const newLog = {
+      time: new Date().toLocaleTimeString(),
+      action,
+      status
+    };
+    setAuditLog(prev => [newLog, ...prev].slice(0, 20)); // Garder les 20 derniers
+  };
+
+  const totalFeedback = (memoryStats?.feedbackRatio.likes || 0) + (memoryStats?.feedbackRatio.dislikes || 0);
+  const feedbackPercentage = totalFeedback > 0 
+    ? Math.round((memoryStats?.feedbackRatio.likes || 0) / totalFeedback * 100) 
+    : 0;
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 animate-fade-in"
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-full sm:max-w-md z-50 glass border-l border-[hsl(var(--glass-border))] animate-slide-in-right overflow-y-auto">
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border sticky top-0 glass z-10">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              <h2 className="text-xl sm:text-2xl font-semibold">Panneau de Contrôle</h2>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
+            >
+              <X className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <Tabs defaultValue="performance" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 glass rounded-xl p-1">
+                <TabsTrigger value="performance" className="rounded-lg text-xs sm:text-sm">
+                  <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                  Performance
+                </TabsTrigger>
+                <TabsTrigger value="memory" className="rounded-lg text-xs sm:text-sm">
+                  <Database className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                  Mémoire
+                </TabsTrigger>
+                <TabsTrigger value="audit" className="rounded-lg text-xs sm:text-sm">
+                  <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                  Audit
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Performance Tab */}
+              <TabsContent value="performance" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <Zap className="h-5 w-5" />
+                    Profil de Performance
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Choisissez le profil adapté à vos besoins et votre appareil.
+                  </p>
+                </div>
+
+                <div className="glass rounded-2xl p-4 sm:p-6 space-y-4">
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Profil Actif</Label>
+                    <Select value={selectedProfile} onValueChange={handleProfileChange}>
+                      <SelectTrigger className="w-full rounded-xl">
+                        <SelectValue placeholder="Sélectionner un profil" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="full">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Full</span>
+                            <span className="text-xs text-muted-foreground">- Toutes les fonctionnalités</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="lite">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Lite</span>
+                            <span className="text-xs text-muted-foreground">- Optimisé</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="micro">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Micro</span>
+                            <span className="text-xs text-muted-foreground">- Minimal</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Profil actuel: {selectedProfile.toUpperCase()}</AlertTitle>
+                    <AlertDescription className="text-xs">
+                      {selectedProfile === 'full' && "Utilise toutes les capacités de l'IA, incluant le LLM complet et tous les outils."}
+                      {selectedProfile === 'lite' && "Mode optimisé avec LLM simplifié pour un bon équilibre performance/réactivité."}
+                      {selectedProfile === 'micro' && "Mode minimal utilisant uniquement les outils locaux pour une réactivité maximale."}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+
+                {/* Metrics */}
+                <div className="glass rounded-2xl p-4 sm:p-6 space-y-4">
+                  <h4 className="text-sm font-semibold">Métriques en Temps Réel</h4>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs sm:text-sm text-muted-foreground">Souvenirs en mémoire</span>
+                      <span className="text-sm sm:text-base font-semibold">{memoryStats?.totalMemories || 0}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs sm:text-sm text-muted-foreground">Temps d'inférence moyen</span>
+                      <span className="text-sm sm:text-base font-semibold">{memoryStats?.avgInferenceTime || 0}ms</span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs sm:text-sm text-muted-foreground">Taux de satisfaction</span>
+                      <span className="text-sm sm:text-base font-semibold">{feedbackPercentage}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-green-500 transition-all" 
+                        style={{ width: `${feedbackPercentage}%` }} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Memory Tab */}
+              <TabsContent value="memory" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Gestion de la Mémoire
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Gérez les données stockées localement par ORION.
+                  </p>
+                </div>
+
+                <div className="glass rounded-2xl p-4 sm:p-6 space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold">Statistiques</h4>
+                    <div className="space-y-2 text-xs sm:text-sm">
+                      <div className="flex justify-between p-2 rounded-lg bg-muted/30">
+                        <span>Souvenirs stockés</span>
+                        <span className="font-mono font-semibold">{memoryStats?.totalMemories || 0}</span>
+                      </div>
+                      <div className="flex justify-between p-2 rounded-lg bg-muted/30">
+                        <span>Feedbacks positifs</span>
+                        <span className="font-mono font-semibold text-green-600">{memoryStats?.feedbackRatio.likes || 0}</span>
+                      </div>
+                      <div className="flex justify-between p-2 rounded-lg bg-muted/30">
+                        <span>Feedbacks négatifs</span>
+                        <span className="font-mono font-semibold text-red-600">{memoryStats?.feedbackRatio.dislikes || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold">Actions</h4>
+                    
+                    {/* Export Memory */}
+                    <Button 
+                      variant="outline" 
+                      className="w-full rounded-xl justify-start gap-2"
+                      onClick={handleExportMemory}
+                    >
+                      <Download className="h-4 w-4" />
+                      Exporter la Mémoire
+                    </Button>
+
+                    {/* Import Memory */}
+                    <div>
+                      <input
+                        type="file"
+                        id="import-memory"
+                        accept=".json"
+                        className="hidden"
+                        onChange={handleImportMemory}
+                      />
+                      <Button 
+                        variant="outline" 
+                        className="w-full rounded-xl justify-start gap-2"
+                        onClick={() => document.getElementById('import-memory')?.click()}
+                      >
+                        <Upload className="h-4 w-4" />
+                        Importer la Mémoire
+                      </Button>
+                    </div>
+
+                    <Separator />
+
+                    {/* Purge Memory - Danger zone */}
+                    <Alert variant="destructive" className="bg-destructive/5">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Zone Dangereuse</AlertTitle>
+                      <AlertDescription className="text-xs">
+                        La purge supprime définitivement toutes les données.
+                      </AlertDescription>
+                    </Alert>
+
+                    <Button 
+                      variant="destructive" 
+                      className="w-full rounded-xl justify-start gap-2"
+                      onClick={handlePurgeMemory}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Purger la Mémoire
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Audit Tab */}
+              <TabsContent value="audit" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Journal d'Audit
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Historique des actions importantes du système.
+                  </p>
+                </div>
+
+                <div className="glass rounded-2xl p-4 sm:p-6">
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {auditLog.map((log, index) => (
+                      <div 
+                        key={index} 
+                        className={cn(
+                          "flex items-start gap-3 p-3 rounded-lg border",
+                          log.status === "success" && "bg-green-500/5 border-green-500/20",
+                          log.status === "warning" && "bg-yellow-500/5 border-yellow-500/20",
+                          log.status === "error" && "bg-red-500/5 border-red-500/20"
+                        )}
+                      >
+                        <div className="mt-0.5">
+                          {log.status === "success" && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                          {log.status === "warning" && <AlertTriangle className="h-4 w-4 text-yellow-600" />}
+                          {log.status === "error" && <X className="h-4 w-4 text-red-600" />}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-xs sm:text-sm font-medium">{log.action}</p>
+                          <p className="text-xs text-muted-foreground">{log.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};

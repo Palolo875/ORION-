@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check, ThumbsUp, ThumbsDown, MoreHorizontal, RotateCcw } from "lucide-react";
+import { Copy, Check, ThumbsUp, ThumbsDown, MoreHorizontal, RotateCcw, Wrench, Database, Brain, Target, Clock, Users } from "lucide-react";
 import { Button } from "./ui/button";
 import { 
   DropdownMenu, 
@@ -7,6 +7,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "./ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { OrionLogo } from "./OrionLogo";
@@ -218,36 +219,103 @@ export const ChatMessage = ({
               </div>
             </div>
 
+            {/* Provenance - Sources utilisées */}
+            {(provenance?.toolUsed || provenance?.memoryHits || provenance?.fromAgents) && (
+              <div className="mt-4 glass rounded-xl p-3 space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-foreground">Sources utilisées</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <TooltipProvider>
+                    {provenance?.toolUsed && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                            <Wrench className="h-3.5 w-3.5" />
+                            <span className="text-xs font-medium">Outil Local</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Outil utilisé: {provenance.toolUsed}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    
+                    {provenance?.memoryHits && provenance.memoryHits.length > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                            <Database className="h-3.5 w-3.5" />
+                            <span className="text-xs font-medium">{provenance.memoryHits.length} Souvenir(s)</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs font-semibold mb-1">Souvenirs utilisés:</p>
+                          {provenance.memoryHits.slice(0, 3).map((hit, i) => (
+                            <p key={i} className="text-xs truncate">{hit}</p>
+                          ))}
+                          {provenance.memoryHits.length > 3 && (
+                            <p className="text-xs italic">et {provenance.memoryHits.length - 3} de plus...</p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    
+                    {provenance?.fromAgents?.includes('LLMAgent') && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                            <Brain className="h-3.5 w-3.5" />
+                            <span className="text-xs font-medium">Raisonnement LLM</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Réponse générée par le modèle de langage</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
+                    {provenance?.fromAgents && provenance.fromAgents.length > 1 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">
+                            <Users className="h-3.5 w-3.5" />
+                            <span className="text-xs font-medium">Multi-agents</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Agents: {provenance.fromAgents.join(', ')}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </TooltipProvider>
+                </div>
+              </div>
+            )}
+
             {/* Métadonnées et informations de débogage */}
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               {timestamp && (
-                <span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
                   {formatTime(timestamp)}
                 </span>
               )}
               {confidence !== undefined && (
-                <span className="message-meta-item">
-                  🎯 Confiance: {Math.round(confidence * 100)}%
+                <span className="flex items-center gap-1">
+                  <Target className="h-3 w-3" />
+                  Confiance: {Math.round(confidence * 100)}%
                 </span>
               )}
               {debug?.inferenceTimeMs !== undefined && (
-                <span className="message-meta-item">
-                  ⏱️ Temps: {debug.inferenceTimeMs}ms
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {debug.inferenceTimeMs}ms
                 </span>
               )}
               {debug?.totalRounds !== undefined && debug.totalRounds > 0 && (
-                <span className="message-meta-item">
-                  🔄 Rounds: {debug.totalRounds}
-                </span>
-              )}
-              {provenance?.toolUsed && (
-                <span className="message-meta-item">
-                  🛠️ Outil: {provenance.toolUsed}
-                </span>
-              )}
-              {provenance?.fromAgents && provenance.fromAgents.length > 0 && (
-                <span className="message-meta-item">
-                  🤖 Agents: {provenance.fromAgents.join(', ')}
+                <span className="flex items-center gap-1">
+                  Rounds: {debug.totalRounds}
                 </span>
               )}
             </div>

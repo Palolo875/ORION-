@@ -8,7 +8,7 @@
  * et retourne la réponse finale synthétisée après un débat multi-agents.
  */
 
-import type { WorkerMessage, QueryPayload, FinalResponsePayload } from '../types';
+import type { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from '../types';
 
 console.log("Orchestrator Worker (Secure) chargé et prêt.");
 
@@ -55,6 +55,16 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
       // --- STRATÉGIE DE DÉGRADATION GRACIEUSE ---
       const profile = payload.deviceProfile || 'micro';
       
+      // Envoyer une mise à jour de statut : Recherche d'outils
+      self.postMessage({ 
+        type: 'status_update', 
+        payload: { 
+          step: 'tool_search', 
+          details: 'Analyse de la requête pour une action possible...' 
+        } as StatusUpdatePayload,
+        meta: currentQueryMeta 
+      });
+
       switch (profile) {
         case 'full':
           // Comportement normal et complet: ReAct avec LLM
@@ -103,6 +113,27 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
       // Relayer le feedback enrichi au Memory Worker
       memoryWorker.postMessage({ 
         type: 'add_feedback', 
+        payload: payload,
+        meta: meta 
+      });
+    } else if (type === 'purge_memory') {
+      console.log('[Orchestrateur] Purge de la mémoire demandée');
+      memoryWorker.postMessage({ 
+        type: 'purge_all', 
+        payload: {},
+        meta: meta 
+      });
+    } else if (type === 'export_memory') {
+      console.log('[Orchestrateur] Export de la mémoire demandée');
+      memoryWorker.postMessage({ 
+        type: 'export_all', 
+        payload: {},
+        meta: meta 
+      });
+    } else if (type === 'import_memory') {
+      console.log('[Orchestrateur] Import de la mémoire demandée');
+      memoryWorker.postMessage({ 
+        type: 'import_all', 
         payload: payload,
         meta: meta 
       });
@@ -180,6 +211,17 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     } else {
       // Pour 'full' et 'lite', on lance le processus de mémoire et LLM
       console.log("[Orchestrateur] Aucun outil applicable. Lancement du processus de mémoire et débat.");
+      
+      // Envoyer une mise à jour de statut : Recherche en mémoire
+      self.postMessage({ 
+        type: 'status_update', 
+        payload: { 
+          step: 'memory_search', 
+          details: 'Recherche dans la mémoire contextuelle...' 
+        } as StatusUpdatePayload,
+        meta: currentQueryMeta 
+      });
+      
       memoryWorker.postMessage({ 
         type: 'search', 
         payload: { query: currentQueryContext!.query },
@@ -214,6 +256,17 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
     }
     
     console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Lancement de l'inférence LLM.`);
+    
+    // Envoyer une mise à jour de statut : Raisonnement LLM
+    self.postMessage({ 
+      type: 'status_update', 
+      payload: { 
+        step: 'llm_reasoning', 
+        details: 'Génération de la réponse par le LLM...' 
+      } as StatusUpdatePayload,
+      meta: currentQueryMeta 
+    });
+    
     const llmPayload = {
       ...currentQueryContext!,
       context: currentMemoryHits,
@@ -229,6 +282,28 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
     console.log("[Orchestrateur] Mémoire sauvegardée.");
   } else if (type === 'init_complete') {
     console.log('[Orchestrateur] Memory Worker initialisé.');
+  } else if (type === 'purge_complete') {
+    console.log('[Orchestrateur] Purge de la mémoire terminée.');
+    self.postMessage({ 
+      type: 'purge_complete', 
+      payload: {},
+      meta: meta 
+    });
+  } else if (type === 'export_complete') {
+    console.log('[Orchestrateur] Export de la mémoire terminé.');
+    // Relayer l'export à l'UI
+    self.postMessage({ 
+      type: 'export_complete', 
+      payload: payload,
+      meta: meta 
+    });
+  } else if (type === 'import_complete') {
+    console.log('[Orchestrateur] Import de la mémoire terminé.');
+    self.postMessage({ 
+      type: 'import_complete', 
+      payload: {},
+      meta: meta 
+    });
   }
 };
 

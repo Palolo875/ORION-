@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { Settings, Menu, X } from "lucide-react";
+import { Settings, Menu, X, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ChatInput";
 import { SuggestionChips } from "@/components/SuggestionChips";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Sidebar } from "@/components/Sidebar";
-import { WorkerMessage, QueryPayload, FinalResponsePayload } from "@/types";
+import { CognitiveFlow, FlowStep } from "@/components/CognitiveFlow";
+import { ControlPanel } from "@/components/ControlPanel";
+import { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from "@/types";
 import { detectDeviceProfile, DeviceProfile } from "@/utils/deviceProfiler";
 
 interface Message {
@@ -40,9 +42,21 @@ const Index = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isControlPanelOpen, setIsControlPanelOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [deviceProfile, setDeviceProfile] = useState<DeviceProfile | null>(null);
+  const [flowState, setFlowState] = useState<{ currentStep: FlowStep; stepDetails: string }>({
+    currentStep: 'idle',
+    stepDetails: 'Prêt à recevoir une requête.'
+  });
+  const [showCognitiveFlow, setShowCognitiveFlow] = useState(false);
+  const [memoryStats, setMemoryStats] = useState({
+    totalMemories: 0,
+    avgInferenceTime: 0,
+    feedbackRatio: { likes: 0, dislikes: 0 }
+  });
+  const [inferenceHistory, setInferenceHistory] = useState<number[]>([]);
   
   // Référence au worker orchestrateur
   const orchestratorWorker = useRef<Worker | null>(null);
@@ -75,25 +89,65 @@ const Index = () => {
     );
 
     // Définir ce qu'il faut faire quand on reçoit un message DU worker
-    orchestratorWorker.current.onmessage = (event: MessageEvent<WorkerMessage<FinalResponsePayload>>) => {
+    orchestratorWorker.current.onmessage = (event: MessageEvent<WorkerMessage<FinalResponsePayload | StatusUpdatePayload>>) => {
       const { type, payload, meta } = event.data;
 
-      // Nous n'écoutons que les messages de type 'final_response'
-      if (type === 'final_response') {
+      // Écouter les mises à jour de statut pour le flux cognitif
+      if (type === 'status_update') {
+        const statusPayload = payload as StatusUpdatePayload;
+        setFlowState({
+          currentStep: statusPayload.step,
+          stepDetails: statusPayload.details
+        });
+      }
+      // Gérer l'export de mémoire
+      else if (type === 'export_complete') {
+        console.log('[UI] Export de la mémoire terminé.');
+      }
+      // Gérer l'import de mémoire
+      else if (type === 'import_complete') {
+        console.log('[UI] Import de la mémoire terminé.');
+      }
+      // Gérer la purge de mémoire
+      else if (type === 'purge_complete') {
+        console.log('[UI] Purge de la mémoire terminée.');
+      }
+      // Nous écoutons aussi les messages de type 'final_response'
+      else if (type === 'final_response') {
         console.log(`[UI] Réponse reçue (traceId: ${meta?.traceId})`);
         
+        // Mettre à jour le flux vers l'état final
+        setFlowState({
+          currentStep: 'final_response',
+          stepDetails: 'Réponse générée avec succès'
+        });
+        
+        // Après un délai, remettre le flux en idle
+        setTimeout(() => {
+          setFlowState({
+            currentStep: 'idle',
+            stepDetails: 'Prêt à recevoir une requête.'
+          });
+        }, 2000);
+        
+        const finalPayload = payload as FinalResponsePayload;
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: payload.response,
+          content: finalPayload.response,
           timestamp: new Date(),
-          confidence: payload.confidence,
-          provenance: payload.provenance,
-          debug: payload.debug,
+          confidence: finalPayload.confidence,
+          provenance: finalPayload.provenance,
+          debug: finalPayload.debug,
         };
         
         setMessages((prev) => [...prev, aiMessage]);
         setIsGenerating(false);
+        
+        // Mettre à jour les statistiques d'inférence
+        if (finalPayload.debug?.inferenceTimeMs) {
+          setInferenceHistory(prev => [...prev, finalPayload.debug!.inferenceTimeMs!].slice(-5));
+        }
 
         // Update conversation with AI response
         setConversations(prev => 
@@ -174,6 +228,12 @@ const Index = () => {
 
     setMessages((prev) => [...prev, newMessage]);
     setIsGenerating(true);
+    
+    // Mettre à jour le flux cognitif - Requête utilisateur
+    setFlowState({
+      currentStep: 'query',
+      stepDetails: 'Analyse de votre question en cours...'
+    });
 
     // Update conversation title if it's the first message
     if (messages.length === 0) {
@@ -303,6 +363,15 @@ const Index = () => {
           meta: { traceId, timestamp: Date.now() }
         };
         orchestratorWorker.current.postMessage(message);
+        
+        // Mettre à jour les stats
+        setMemoryStats(prev => ({
+          ...prev,
+          feedbackRatio: {
+            ...prev.feedbackRatio,
+            likes: prev.feedbackRatio.likes + 1
+          }
+        }));
       }
     }
   };
@@ -329,9 +398,87 @@ const Index = () => {
           meta: { traceId, timestamp: Date.now() }
         };
         orchestratorWorker.current.postMessage(message);
+        
+        // Mettre à jour les stats
+        setMemoryStats(prev => ({
+          ...prev,
+          feedbackRatio: {
+            ...prev.feedbackRatio,
+            dislikes: prev.feedbackRatio.dislikes + 1
+          }
+        }));
       }
     }
   };
+
+  const handlePurgeMemory = () => {
+    // Envoyer un message au worker pour purger la mémoire
+    if (orchestratorWorker.current) {
+      const traceId = `trace_purge_${Date.now()}`;
+      orchestratorWorker.current.postMessage({
+        type: 'purge_memory',
+        payload: {},
+        meta: { traceId, timestamp: Date.now() }
+      });
+      
+      // Réinitialiser les stats
+      setMemoryStats({
+        totalMemories: 0,
+        avgInferenceTime: 0,
+        feedbackRatio: { likes: 0, dislikes: 0 }
+      });
+    }
+  };
+
+  const handleExportMemory = () => {
+    // Envoyer un message au worker pour exporter la mémoire
+    if (orchestratorWorker.current) {
+      const traceId = `trace_export_${Date.now()}`;
+      orchestratorWorker.current.postMessage({
+        type: 'export_memory',
+        payload: {},
+        meta: { traceId, timestamp: Date.now() }
+      });
+    }
+  };
+
+  const handleImportMemory = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        
+        if (orchestratorWorker.current) {
+          const traceId = `trace_import_${Date.now()}`;
+          orchestratorWorker.current.postMessage({
+            type: 'import_memory',
+            payload: { data },
+            meta: { traceId, timestamp: Date.now() }
+          });
+        }
+      } catch (error) {
+        console.error('[UI] Erreur lors de l\'import:', error);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleProfileChange = (profile: 'full' | 'lite' | 'micro') => {
+    setDeviceProfile(profile);
+  };
+
+  // Calculer les statistiques
+  useEffect(() => {
+    const avgTime = inferenceHistory.length > 0 
+      ? Math.round(inferenceHistory.reduce((a, b) => a + b, 0) / inferenceHistory.length)
+      : 0;
+    
+    setMemoryStats(prev => ({
+      ...prev,
+      avgInferenceTime: avgTime
+    }));
+  }, [inferenceHistory]);
 
   const showWelcome = messages.length === 0;
 
@@ -372,19 +519,41 @@ const Index = () => {
                 )}
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSettingsOpen(true)}
-              className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
-            >
-              <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowCognitiveFlow(!showCognitiveFlow)}
+                className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
+                title="Afficher le flux cognitif"
+              >
+                <Brain className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsControlPanelOpen(true)}
+                className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
+                title="Panneau de contrôle"
+              >
+                <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+            </div>
           </div>
         </header>
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col">
+          {/* Cognitive Flow Panel - visible when enabled */}
+          {showCognitiveFlow && (
+            <div className="container mx-auto px-3 sm:px-4 pt-4">
+              <CognitiveFlow 
+                currentStep={flowState.currentStep}
+                stepDetails={flowState.stepDetails}
+              />
+            </div>
+          )}
+
           {showWelcome ? (
             <div className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4">
               <div className="text-center space-y-4 sm:space-y-8 mb-8 sm:mb-12 max-w-2xl">
@@ -447,6 +616,18 @@ const Index = () => {
 
       {/* Settings Panel */}
       <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      
+      {/* Control Panel */}
+      <ControlPanel 
+        isOpen={isControlPanelOpen} 
+        onClose={() => setIsControlPanelOpen(false)}
+        onPurgeMemory={handlePurgeMemory}
+        onExportMemory={handleExportMemory}
+        onImportMemory={handleImportMemory}
+        onProfileChange={handleProfileChange}
+        currentProfile={deviceProfile || 'micro'}
+        memoryStats={memoryStats}
+      />
     </div>
   );
 };
