@@ -1,8 +1,12 @@
-import { Image, FileText, Clipboard } from "lucide-react";
+import { Image, FileText, Clipboard, Camera, File } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "@/hooks/use-toast";
 
-export const UploadPopover = () => {
+interface UploadPopoverProps {
+  onFileSelect?: (files: FileList | null) => void;
+}
+
+export const UploadPopover = ({ onFileSelect }: UploadPopoverProps) => {
   const handleImageUpload = () => {
     const input = document.createElement("input");
     input.type = "file";
