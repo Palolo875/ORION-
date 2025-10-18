@@ -8,13 +8,18 @@
  * et idb-keyval pour le stockage persistant dans IndexedDB.
  */
 
-import { get, set, keys } from 'idb-keyval';
-import { WorkerMessage } from '../types';
+import { get, set, keys, del } from 'idb-keyval';
+import { WorkerMessage, MemoryItem, MemoryType } from '../types';
 import { pipeline, env } from '@xenova/transformers';
 
 // Configuration de Transformers.js pour une performance optimale dans le navigateur
 env.allowLocalModels = false; // N'utilise pas de modèles locaux du système de fichiers
 env.useBrowserCache = true;  // Met en cache les modèles dans le cache du navigateur
+
+// --- Constantes de Configuration de la Mémoire ---
+const MEMORY_BUDGET = 5000; // Nombre maximum de souvenirs
+const TOOL_RESULT_TTL = 24 * 60 * 60 * 1000; // 24 heures en ms
+const EMBEDDING_MODEL_VERSION = 'Xenova/all-MiniLM-L6-v2@1.0'; // Version du modèle d'embedding
 
 // --- Singleton pour le pipeline d'embedding ---
 // Cette classe garantit que le modèle d'IA n'est chargé qu'une seule fois.
@@ -59,21 +64,25 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-async function addMemory(text: string, traceId: string) {
+async function addMemory(text: string, type: MemoryType, traceId: string) {
+  // Lancer le nettoyage AVANT d'ajouter
+  await runMemoryJanitor(traceId);
+
   const id = `memory_${Date.now()}`;
   const embedding = await createSemanticEmbedding(text);
-  const memoryItem = { id, text, embedding, timestamp: Date.now() };
+  const now = Date.now();
+  const memoryItem: MemoryItem = {
+    id,
+    text,
+    embedding,
+    timestamp: now,
+    lastAccessed: now, // Un nouveau souvenir vient d'être "accédé"
+    type,
+    embeddingVersion: EMBEDDING_MODEL_VERSION,
+  };
   
   await set(id, memoryItem);
-  console.log(`[Memory] (traceId: ${traceId}) Souvenir ajouté avec embedding sémantique.`);
-}
-
-interface MemoryItem {
-  id: string;
-  text: string;
-  embedding: number[];
-  timestamp: number;
-  similarity?: number;
+  console.log(`[Memory] (traceId: ${traceId}) Souvenir de type '${type}' ajouté avec embedding sémantique.`);
 }
 
 async function searchMemory(query: string, traceId: string): Promise<string[]> {
@@ -100,8 +109,60 @@ async function searchMemory(query: string, traceId: string): Promise<string[]> {
 
   console.log(`[Memory] (traceId: ${traceId}) Recherche sémantique effectuée. Trouvé ${allMemories.length} souvenirs.`);
   
-  // On ne retourne que les souvenirs ayant une pertinence suffisante.
-  return allMemories.filter(item => (item.similarity || 0) > 0.6).slice(0, 2).map(item => item.text);
+  // Mettre à jour le lastAccessed des souvenirs pertinents
+  const relevantResults = allMemories.filter(item => (item.similarity || 0) > 0.6).slice(0, 2);
+  const now = Date.now();
+  for (const item of relevantResults) {
+    item.lastAccessed = now;
+    await set(item.id, item);
+  }
+  
+  return relevantResults.map(item => item.text);
+}
+
+// --- NOUVELLE FONCTION : Le Nettoyeur de Mémoire ---
+async function runMemoryJanitor(traceId: string) {
+  console.log(`[Memory] (traceId: ${traceId}) Lancement du nettoyeur de mémoire...`);
+  const allKeys = (await keys()) as string[];
+  const memoryKeys = allKeys.filter(key => typeof key === 'string' && key.startsWith('memory_'));
+
+  if (memoryKeys.length < MEMORY_BUDGET) {
+    console.log(`[Memory] Budget non atteint (${memoryKeys.length}/${MEMORY_BUDGET}), pas de nettoyage majeur nécessaire.`);
+    return;
+  }
+
+  console.log(`[Memory] Budget de ${MEMORY_BUDGET} souvenirs atteint. Nettoyage en cours...`);
+  const allMemories: MemoryItem[] = await Promise.all(
+    memoryKeys.map(async key => await get(key))
+  );
+  
+  // Stratégie 1 : Supprimer les souvenirs expirés (TTL)
+  const now = Date.now();
+  const expiredItems = allMemories.filter(item => 
+    item && item.type === 'tool_result' && (now - item.timestamp > TOOL_RESULT_TTL)
+  );
+
+  for (const item of expiredItems) {
+    await del(item.id);
+    console.log(`[Memory] Souvenir expiré (TTL) supprimé: ${item.id}`);
+  }
+
+  // Stratégie 2 : Si toujours au-dessus du budget, supprimer les plus anciens non utilisés (LRU)
+  const remainingMemories = allMemories.filter(
+    item => item && !expiredItems.find(e => e.id === item.id)
+  );
+  
+  if (remainingMemories.length > MEMORY_BUDGET) {
+    remainingMemories.sort((a, b) => a.lastAccessed - b.lastAccessed); // Trier par le plus ancien accès
+    const itemsToDelete = remainingMemories.slice(0, remainingMemories.length - MEMORY_BUDGET);
+    
+    for (const item of itemsToDelete) {
+      await del(item.id);
+      console.log(`[Memory] Souvenir le moins utilisé (LRU) supprimé: ${item.id}`);
+    }
+  }
+
+  console.log(`[Memory] (traceId: ${traceId}) Nettoyage terminé.`);
 }
 
 // Nouvelle fonction pour récupérer le contexte de conversation récent
@@ -147,7 +208,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     }
     else if (type === 'store') {
       // Ajouter un souvenir
-      await addMemory(payload.content, traceId);
+      const memoryType: MemoryType = payload.type || 'conversation';
+      await addMemory(payload.content, memoryType, traceId);
       self.postMessage({ type: 'store_complete', payload: { success: true }, meta });
     } 
     else if (type === 'search') {

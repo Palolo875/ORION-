@@ -110,3 +110,22 @@ export interface AgentProposal {
 export interface DebateRoundResult {
   proposals: AgentProposal[];
 }
+
+/**
+ * Type de souvenir pour la gestion de la mémoire
+ */
+export type MemoryType = 'conversation' | 'tool_result' | 'user_fact';
+
+/**
+ * Structure d'un item en mémoire avec métadonnées pour la gestion TTL/LRU
+ */
+export interface MemoryItem {
+  id: string;
+  text: string;
+  embedding: number[];
+  timestamp: number;
+  lastAccessed: number; // Pour la stratégie LRU
+  type: MemoryType; // Pour la stratégie TTL
+  embeddingVersion: string; // Pour la migration d'embeddings
+  similarity?: number; // Pour les résultats de recherche
+}

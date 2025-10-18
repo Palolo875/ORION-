@@ -44,6 +44,8 @@ const Index = () => {
   
   // Référence au worker orchestrateur
   const orchestratorWorker = useRef<Worker | null>(null);
+  // Référence au migration worker pour la migration d'embeddings
+  const migrationWorker = useRef<Worker | null>(null);
   // Référence à l'ID de conversation actuel pour éviter les stale closures
   const currentConversationIdRef = useRef<string | null>(currentConversationId);
   
@@ -100,10 +102,32 @@ const Index = () => {
 
     console.log('[UI] Orchestrator Worker initialisé');
 
-    // Nettoyer en terminant le worker quand le composant est détruit
+    // Initialiser le Migration Worker pour la migration d'embeddings
+    migrationWorker.current = new Worker(
+      new URL('../workers/migration.worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+
+    migrationWorker.current.onmessage = (event: MessageEvent) => {
+      const { type } = event.data;
+      if (type === 'init_complete') {
+        console.log('[UI] Migration Worker initialisé.');
+      } else if (type === 'migration_complete') {
+        console.log('[UI] Cycle de migration terminé.');
+      }
+    };
+
+    migrationWorker.current.onerror = (error) => {
+      console.error('[UI] Erreur du Migration Worker:', error);
+    };
+
+    console.log('[UI] Migration Worker lancé en arrière-plan.');
+
+    // Nettoyer en terminant les workers quand le composant est détruit
     return () => {
       orchestratorWorker.current?.terminate();
-      console.log('[UI] Orchestrator Worker terminé');
+      migrationWorker.current?.terminate();
+      console.log('[UI] Workers terminés.');
     };
   }, []); // Le tableau vide `[]` assure que cet effet ne s'exécute qu'une seule fois
 
