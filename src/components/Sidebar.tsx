@@ -7,8 +7,13 @@ import {
   Edit3, 
   ChevronDown,
   ChevronRight,
-  Bot,
-  User
+  Search,
+  Star,
+  Archive,
+  Pin,
+  Filter,
+  TrendingUp,
+  Clock
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -25,6 +30,7 @@ import {
   CollapsibleTrigger 
 } from "./ui/collapsible";
 import { ScrollArea } from "./ui/scroll-area";
+import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
 
 interface Conversation {
@@ -60,14 +66,25 @@ export const Sidebar = ({
   const [editingTitle, setEditingTitle] = useState("");
   const [isTodayOpen, setIsTodayOpen] = useState(true);
   const [isPreviousOpen, setIsPreviousOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterMode, setFilterMode] = useState<"all" | "favorites" | "archived">("all");
 
   const today = new Date();
-  const todayConversations = conversations.filter(conv => {
+  
+  // Filter conversations by search query
+  const filteredConversations = conversations.filter(conv => {
+    const matchesSearch = searchQuery === "" || 
+      conv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
+  const todayConversations = filteredConversations.filter(conv => {
     const convDate = new Date(conv.timestamp);
     return convDate.toDateString() === today.toDateString();
   });
   
-  const previousConversations = conversations.filter(conv => {
+  const previousConversations = filteredConversations.filter(conv => {
     const convDate = new Date(conv.timestamp);
     return convDate.toDateString() !== today.toDateString();
   });
@@ -121,7 +138,7 @@ export const Sidebar = ({
       <div className="fixed left-0 top-0 bottom-0 w-80 z-50 glass border-r border-[hsl(var(--glass-border))] lg:relative lg:z-auto">
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="p-4 border-b border-[hsl(var(--glass-border))]">
+          <div className="p-4 border-b border-[hsl(var(--glass-border))] space-y-3">
             <Button
               onClick={onNewConversation}
               className="w-full justify-start gap-2 h-10 glass-hover rounded-xl"
@@ -130,6 +147,35 @@ export const Sidebar = ({
               <Plus className="h-4 w-4" />
               <span className="font-medium">Nouvelle conversation</span>
             </Button>
+
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Rechercher..."
+                className="pl-9 h-9 rounded-xl bg-background/50"
+              />
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="glass rounded-lg p-2">
+                <div className="text-lg font-semibold">{conversations.length}</div>
+                <div className="text-xs text-muted-foreground">Total</div>
+              </div>
+              <div className="glass rounded-lg p-2">
+                <div className="text-lg font-semibold">{todayConversations.length}</div>
+                <div className="text-xs text-muted-foreground">Aujourd'hui</div>
+              </div>
+              <div className="glass rounded-lg p-2">
+                <div className="text-lg font-semibold text-primary">
+                  <TrendingUp className="h-4 w-4 mx-auto" />
+                </div>
+                <div className="text-xs text-muted-foreground">Actif</div>
+              </div>
+            </div>
           </div>
 
           {/* Content */}
@@ -221,6 +267,19 @@ export const Sidebar = ({
                   </p>
                 </div>
               )}
+
+              {/* No results */}
+              {conversations.length > 0 && filteredConversations.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Search className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Aucun résultat
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Essayez une autre recherche
+                  </p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -274,7 +333,10 @@ const ConversationItem = ({
       )}
       onClick={!isEditing ? onSelect : undefined}
     >
-      <MessageSquare className="h-4 w-4 shrink-0" />
+      <div className="flex items-center gap-2 shrink-0">
+        <MessageSquare className="h-4 w-4" />
+        {isActive && <Badge variant="default" className="h-1.5 w-1.5 p-0 rounded-full" />}
+      </div>
       
       {isEditing ? (
         <Input
@@ -287,11 +349,17 @@ const ConversationItem = ({
         />
       ) : (
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">
-            {conversation.title}
-          </p>
-          <p className="text-xs text-muted-foreground truncate">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium truncate flex-1">
+              {conversation.title}
+            </p>
+            <Clock className="h-3 w-3 text-muted-foreground" />
+          </div>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
             {conversation.lastMessage}
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            {formatTime(conversation.timestamp)}
           </p>
         </div>
       )}
@@ -310,11 +378,23 @@ const ConversationItem = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
+                <Pin className="h-4 w-4 mr-2" />
+                Épingler
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
+                <Star className="h-4 w-4 mr-2" />
+                Favoris
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(); }}>
                 <Edit3 className="h-4 w-4 mr-2" />
                 Renommer
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
+                <Archive className="h-4 w-4 mr-2" />
+                Archiver
+              </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
                 className="text-destructive focus:text-destructive"
