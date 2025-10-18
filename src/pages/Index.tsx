@@ -245,6 +245,58 @@ const Index = () => {
     handleSendMessage(suggestion);
   };
 
+  const handleLike = (messageId: string) => {
+    console.log(`[UI] Feedback positif reçu pour le message ${messageId}`);
+    
+    // Trouver le message et la requête qui le précède
+    const messageIndex = messages.findIndex(msg => msg.id === messageId);
+    if (messageIndex > 0) {
+      const failedResponse = messages[messageIndex].content;
+      const originalQuery = messages[messageIndex - 1].content;
+
+      if (orchestratorWorker.current) {
+        const traceId = `trace_feedback_${Date.now()}`;
+        const message: WorkerMessage = {
+          type: 'feedback',
+          payload: { 
+            messageId, 
+            feedback: 'good', 
+            query: originalQuery, 
+            response: failedResponse 
+          },
+          meta: { traceId, timestamp: Date.now() }
+        };
+        orchestratorWorker.current.postMessage(message);
+      }
+    }
+  };
+
+  const handleDislike = (messageId: string) => {
+    console.log(`[UI] Feedback négatif reçu pour le message ${messageId}`);
+    
+    // Trouver le message et la requête qui le précède
+    const messageIndex = messages.findIndex(msg => msg.id === messageId);
+    if (messageIndex > 0) {
+      const failedResponse = messages[messageIndex].content;
+      const originalQuery = messages[messageIndex - 1].content;
+
+      if (orchestratorWorker.current) {
+        const traceId = `trace_feedback_${Date.now()}`;
+        const message: WorkerMessage = {
+          type: 'feedback',
+          payload: { 
+            messageId, 
+            feedback: 'bad', 
+            query: originalQuery, 
+            response: failedResponse 
+          },
+          meta: { traceId, timestamp: Date.now() }
+        };
+        orchestratorWorker.current.postMessage(message);
+      }
+    }
+  };
+
   const showWelcome = messages.length === 0;
 
   return (
@@ -315,6 +367,8 @@ const Index = () => {
                     timestamp={message.timestamp}
                     isTyping={message.isTyping}
                     onRegenerate={message.role === "assistant" ? handleRegenerate : undefined}
+                    onLike={message.role === "assistant" ? () => handleLike(message.id) : undefined}
+                    onDislike={message.role === "assistant" ? () => handleDislike(message.id) : undefined}
                     confidence={message.confidence}
                     debug={message.debug}
                     provenance={message.provenance}

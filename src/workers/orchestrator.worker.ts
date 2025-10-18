@@ -25,7 +25,11 @@ const toolUserWorker = new Worker(new URL('./toolUser.worker.ts', import.meta.ur
   type: 'module',
 });
 
-console.log("[Orchestrateur] Tous les workers ont été instanciés.");
+const geniusHourWorker = new Worker(new URL('./geniusHour.worker.ts', import.meta.url), {
+  type: 'module',
+});
+
+console.log("[Orchestrateur] Tous les workers ont été instanciés (LLM, Memory, ToolUser, GeniusHour).");
 
 // Variables pour stocker la requête en cours et le tracer
 let currentQueryContext: QueryPayload | null = null;
@@ -60,9 +64,19 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
       llmWorker.postMessage({ type: 'init' });
       memoryWorker.postMessage({ type: 'init' });
       toolUserWorker.postMessage({ type: 'init' });
+      // Le GeniusHourWorker n'a pas besoin d'initialisation, il démarre automatiquement
+      console.log('[Orchestrateur] GeniusHour Worker démarré en arrière-plan');
     } else if (type === 'feedback') {
-      console.log(`[Orchestrateur] Feedback relayé au Memory Worker.`);
-      memoryWorker.postMessage({ type: 'add_feedback', payload: payload });
+      console.log(`[Orchestrateur] Feedback reçu (${payload.feedback}) pour le message ${payload.messageId}`);
+      console.log(`[Orchestrateur] Query: "${payload.query}"`);
+      console.log(`[Orchestrateur] Response: "${payload.response}"`);
+      
+      // Relayer le feedback enrichi au Memory Worker
+      memoryWorker.postMessage({ 
+        type: 'add_feedback', 
+        payload: payload,
+        meta: meta 
+      });
     } else {
       console.warn(`[Orchestrateur] Unknown message type: ${type}`);
     }

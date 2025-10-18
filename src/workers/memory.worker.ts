@@ -104,6 +104,28 @@ async function searchMemory(query: string, traceId: string): Promise<string[]> {
   return allMemories.filter(item => (item.similarity || 0) > 0.6).slice(0, 2).map(item => item.text);
 }
 
+// Nouvelle fonction pour récupérer le contexte de conversation récent
+async function getConversationContext(messageId: string): Promise<MemoryItem[]> {
+  // Pour ce PoC, cette fonction est simplifiée. 
+  // On récupère les 10 derniers souvenirs pour donner du contexte à l'échec.
+  const memoryKeys = (await keys()) as string[];
+  const recentMemoryKeys = memoryKeys
+    .filter(key => typeof key === 'string' && key.startsWith('memory_'))
+    .sort()
+    .reverse()
+    .slice(0, 10);
+  
+  const recentMemories: MemoryItem[] = [];
+  for (const key of recentMemoryKeys) {
+    const item = await get(key);
+    if (item) {
+      recentMemories.push(item as MemoryItem);
+    }
+  }
+  
+  return recentMemories;
+}
+
 // --- Le worker principal ---
 
 self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
@@ -140,10 +162,30 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         meta 
       });
     }
-    // Gérer le feedback
+    // Gérer le feedback avec rapport d'échec enrichi
     else if (type === 'add_feedback') {
-      await set(`feedback_${payload.messageId}`, payload.feedback);
-      console.log(`[Memory] (traceId: ${traceId}) Feedback '${payload.feedback}' sauvegardé.`);
+      const { messageId, feedback, query, response } = payload;
+      
+      // On crée un rapport d'échec structuré
+      const failureReport = {
+        id: `failure_${messageId}_${Date.now()}`,
+        timestamp: Date.now(),
+        feedback: feedback,
+        originalQuery: query,
+        failedResponse: response,
+        // On récupère le contexte de la conversation au moment de l'échec
+        conversationContext: await getConversationContext(messageId),
+      };
+
+      // On ne sauvegarde que les rapports d'échec pour le Genius Hour
+      if (feedback === 'bad') {
+        await set(failureReport.id, failureReport);
+        console.log(`[Memory] (traceId: ${traceId}) Rapport d'échec sauvegardé pour ${messageId}`);
+      } else {
+        // Pour un feedback positif, on pourrait juste le logger ou l'ignorer pour l'instant
+        console.log(`[Memory] (traceId: ${traceId}) Feedback positif enregistré pour ${messageId}`);
+      }
+      
       self.postMessage({ type: 'feedback_saved', payload: { success: true }, meta });
     }
     else {
