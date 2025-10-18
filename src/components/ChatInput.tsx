@@ -7,6 +7,8 @@ import { UploadPopover } from "./UploadPopover";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { processFiles, formatFileSize, ProcessedFile } from "@/utils/fileProcessor";
+import { validateUserInput, rateLimiter } from "@/utils/inputValidator";
+import { logger } from "@/utils/logger";
 
 interface ChatInputProps {
   onSend: (message: string, attachments?: ProcessedFile[]) => void;
@@ -70,7 +72,54 @@ export const ChatInput = ({
 
   const handleSend = () => {
     if ((message.trim() || attachments.length > 0) && !disabled && !isGenerating && !isProcessing) {
-      onSend(message, attachments.length > 0 ? attachments : undefined);
+      // Rate limiting (max 10 messages par minute)
+      if (!rateLimiter.check('chat_input', 10, 60000)) {
+        toast({
+          title: "Trop de messages",
+          description: "Veuillez patienter quelques secondes avant d'envoyer un autre message",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validation du message
+      if (message.trim()) {
+        const validation = validateUserInput(message, {
+          maxLength: 10000,
+          context: 'ChatInput'
+        });
+
+        // Si le message est bloqué (contenu malveillant)
+        if (validation.blocked) {
+          logger.warn('ChatInput', 'Message bloqué pour contenu suspect', {
+            warnings: validation.warnings
+          });
+          toast({
+            title: "Message bloqué",
+            description: "Votre message contient du contenu potentiellement dangereux",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Si des warnings mais pas bloqué, informer l'utilisateur
+        if (!validation.isValid && validation.warnings.length > 0) {
+          logger.info('ChatInput', 'Message modifié lors de la validation', {
+            warnings: validation.warnings
+          });
+          toast({
+            title: "Message modifié",
+            description: "Votre message a été nettoyé pour des raisons de sécurité",
+          });
+        }
+
+        // Envoyer le message sanitizé
+        onSend(validation.sanitized, attachments.length > 0 ? attachments : undefined);
+      } else {
+        // Pas de message texte mais des attachments
+        onSend(message, attachments.length > 0 ? attachments : undefined);
+      }
+
       setMessage("");
       setAttachments([]);
     }

@@ -1,0 +1,46 @@
+# Configuration Netlify pour ORION
+# Headers de sécurité pour la production
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Content Security Policy stricte
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://huggingface.co https://*.huggingface.co; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+    
+    # Empêcher le site d'être intégré dans une iframe
+    X-Frame-Options = "DENY"
+    
+    # Empêcher le MIME sniffing
+    X-Content-Type-Options = "nosniff"
+    
+    # Politique de référent stricte
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # Permissions restrictives
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    
+    # XSS Protection (pour les anciens navigateurs)
+    X-XSS-Protection = "1; mode=block"
+
+# Cache pour les assets statiques
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Pas de cache pour index.html
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Configuration du build
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Redirections
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
