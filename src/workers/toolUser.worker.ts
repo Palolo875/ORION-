@@ -28,16 +28,16 @@ const TOOL_WHITELIST = {
     // Le nombre d'arguments attendus.
     argCount: 0, 
     // Une fonction optionnelle pour valider les arguments (pas nécessaire pour 0 arg).
-    validator: (args: any[]) => args.length === 0 
+    validator: (args: unknown[]) => args.length === 0 
   },
   getDate: {
     argCount: 0,
-    validator: (args: any[]) => args.length === 0
+    validator: (args: unknown[]) => args.length === 0
   },
   // Exemple pour un outil futur :
   // greet: {
   //   argCount: 1,
-  //   validator: (args: any[]) => typeof args[0] === 'string'
+  //   validator: (args: unknown[]) => typeof args[0] === 'string'
   // }
 };
 
@@ -50,7 +50,7 @@ const TOOL_WHITELIST = {
  * @returns Le résultat de l'exécution de l'outil.
  * @throws {Error} Si l'outil n'est pas autorisé ou si les arguments sont invalides.
  */
-function safeToolCall(toolName: string, args: any[] = []): string {
+function safeToolCall(toolName: string, args: unknown[] = []): string {
   const toolSpec = TOOL_WHITELIST[toolName as keyof typeof TOOL_WHITELIST];
 
   // Vérification 1 : L'outil est-il dans la whitelist ?

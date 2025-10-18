@@ -100,7 +100,7 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
 };
 
 // Écouter les réponses du MemoryWorker
-memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: any[] }>>) => {
+memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ content?: string }> }>>) => {
   const { type, payload } = event.data;
 
   if (type === 'search_result') {
@@ -108,7 +108,7 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: any[] }>>
     
     const reasoningPayload = {
       ...currentQueryContext!,
-      context: payload.results.map((r: any) => r.content || '').join('\n'),
+      context: payload.results.map((r) => r.content || '').join('\n'),
     };
 
     reasoningWorker.postMessage({ type: 'reason', payload: reasoningPayload });
