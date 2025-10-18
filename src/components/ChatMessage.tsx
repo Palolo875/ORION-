@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, User, Copy, Check, ThumbsUp, ThumbsDown, MoreHorizontal, RotateCcw } from "lucide-react";
+import { Copy, Check, ThumbsUp, ThumbsDown, MoreHorizontal, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { 
   DropdownMenu, 
@@ -9,6 +9,9 @@ import {
 } from "./ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { EiamLogo } from "./EiamLogo";
+import ReactMarkdown from "react-markdown";
+import { motion } from "framer-motion";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -71,51 +74,67 @@ export const ChatMessage = ({
     });
   };
 
-  return (
-    <div className={`group flex gap-3 sm:gap-4 mb-6 sm:mb-8 ${isUser ? "justify-end" : "justify-start"}`}>
-      {!isUser && (
-        <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20">
-          <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-        </div>
-      )}
-      
-      <div className={`flex flex-col max-w-[85%] sm:max-w-[80%] ${isUser ? "items-end" : "items-start"}`}>
-        {/* Message content */}
-        <div
-          className={cn(
-            "relative glass rounded-2xl sm:rounded-3xl px-4 py-3 sm:px-6 sm:py-4 group/message",
-            isUser 
-              ? "bg-primary text-primary-foreground rounded-br-md" 
-              : "bg-card/50 backdrop-blur-sm border border-border/50 rounded-bl-md"
-          )}
-        >
-          {isTyping ? (
-            <div className="flex items-center gap-1">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
-              </div>
-              <span className="text-sm text-muted-foreground ml-2">L'IA écrit...</span>
-            </div>
-          ) : (
-            <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap break-words">
-              {content}
-            </p>
-          )}
+  const animationProps = {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.3 },
+  };
 
-          {/* Message actions */}
-          {!isTyping && (
-            <div className="absolute -bottom-2 right-2 opacity-0 group-hover/message:opacity-100 transition-opacity">
-              <div className="flex items-center gap-1 glass rounded-full px-2 py-1 border border-border/50">
-                {!isUser && onRegenerate && (
+  if (isUser) {
+    // Message de l'utilisateur - Bulle à droite
+    return (
+      <motion.div {...animationProps} className="w-full flex justify-end mb-6 sm:mb-8">
+        <div className="max-w-[85%] sm:max-w-[70%] px-4 sm:px-6 py-3 sm:py-4 rounded-3xl bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-lg">
+          <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap break-words">
+            {content}
+          </p>
+          {timestamp && (
+            <div className="mt-2 text-right">
+              <span className="text-xs opacity-80">
+                {formatTime(timestamp)}
+              </span>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Message de l'IA - Sans bulle, à gauche
+  return (
+    <motion.div {...animationProps} className="w-full mb-6 sm:mb-8 group">
+      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+        <EiamLogo className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+        <span className="text-sm sm:text-base font-semibold">EIAM</span>
+      </div>
+      
+      <div className="relative pl-0 sm:pl-0">
+        {isTyping ? (
+          <div className="flex items-center gap-1">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+            </div>
+            <span className="text-sm text-muted-foreground ml-2">L'IA écrit...</span>
+          </div>
+        ) : (
+          <>
+            <div className="prose prose-sm sm:prose-base prose-slate dark:prose-invert max-w-none">
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </div>
+
+            {/* Actions du message */}
+            <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1">
+                {onRegenerate && (
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={onRegenerate}
-                    className="h-6 w-6 hover:bg-accent/50"
+                    className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-accent/50 rounded-full"
                   >
-                    <RotateCcw className="h-3 w-3" />
+                    <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 )}
                 
@@ -123,59 +142,55 @@ export const ChatMessage = ({
                   variant="ghost"
                   size="icon"
                   onClick={handleCopy}
-                  className="h-6 w-6 hover:bg-accent/50"
+                  className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-accent/50 rounded-full"
                 >
                   {copied ? (
-                    <Check className="h-3 w-3 text-green-500" />
+                    <Check className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
                   ) : (
-                    <Copy className="h-3 w-3" />
+                    <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
                   )}
                 </Button>
 
-                {!isUser && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleLike}
-                      className={cn(
-                        "h-6 w-6 hover:bg-accent/50",
-                        liked && "text-green-500"
-                      )}
-                    >
-                      <ThumbsUp className="h-3 w-3" />
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleDislike}
-                      className={cn(
-                        "h-6 w-6 hover:bg-accent/50",
-                        disliked && "text-red-500"
-                      )}
-                    >
-                      <ThumbsDown className="h-3 w-3" />
-                    </Button>
-                  </>
-                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLike}
+                  className={cn(
+                    "h-7 w-7 sm:h-8 sm:w-8 hover:bg-accent/50 rounded-full",
+                    liked && "text-green-500"
+                  )}
+                >
+                  <ThumbsUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDislike}
+                  className={cn(
+                    "h-7 w-7 sm:h-8 sm:w-8 hover:bg-accent/50 rounded-full",
+                    disliked && "text-red-500"
+                  )}
+                >
+                  <ThumbsDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 hover:bg-accent/50"
+                      className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-accent/50 rounded-full"
                     >
-                      <MoreHorizontal className="h-3 w-3" />
+                      <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="start" className="w-48">
                     <DropdownMenuItem onClick={handleCopy}>
                       <Copy className="h-4 w-4 mr-2" />
                       Copier
                     </DropdownMenuItem>
-                    {!isUser && onRegenerate && (
+                    {onRegenerate && (
                       <DropdownMenuItem onClick={onRegenerate}>
                         <RotateCcw className="h-4 w-4 mr-2" />
                         Régénérer
@@ -189,24 +204,17 @@ export const ChatMessage = ({
                 </DropdownMenu>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Timestamp */}
-        {timestamp && (
-          <div className="mt-2 px-2">
-            <span className="text-xs text-muted-foreground">
-              {formatTime(timestamp)}
-            </span>
-          </div>
+            {timestamp && (
+              <div className="mt-2">
+                <span className="text-xs text-muted-foreground">
+                  {formatTime(timestamp)}
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
-
-      {isUser && (
-        <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-muted to-muted/50 border border-border/50">
-          <User className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 };
