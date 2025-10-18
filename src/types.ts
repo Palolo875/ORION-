@@ -15,7 +15,7 @@ export interface WorkerMessage<T = unknown> {
 export interface QueryPayload {
   query: string;
   // Nous ajouterons l'historique de la conversation ici plus tard pour le contexte
-  conversationHistory: { sender: 'user' | 'eiam'; text: string }[];
+  conversationHistory: { sender: 'user' | 'orion'; text: string }[];
 }
 
 /**
