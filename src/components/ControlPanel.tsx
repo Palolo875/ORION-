@@ -34,6 +34,8 @@ interface ControlPanelProps {
     totalMemories: number;
     avgInferenceTime: number;
     feedbackRatio: { likes: number; dislikes: number };
+    totalTokensGenerated?: number;
+    tokensPerSecond?: number;
   };
 }
 
@@ -217,28 +219,68 @@ export const ControlPanel = ({
                 <div className="glass rounded-2xl p-4 sm:p-6 space-y-4">
                   <h4 className="text-sm font-semibold">Métriques en Temps Réel</h4>
                   
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-muted-foreground">Souvenirs en mémoire</span>
-                      <span className="text-sm sm:text-base font-semibold">{memoryStats?.totalMemories || 0}</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Souvenirs */}
+                    <div className="glass-subtle rounded-xl p-3 border border-primary/10">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Database className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs text-muted-foreground">Souvenirs</span>
+                      </div>
+                      <div className="text-xl font-bold">{memoryStats?.totalMemories || 0}</div>
                     </div>
-                    <Separator />
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-muted-foreground">Temps d'inférence moyen</span>
-                      <span className="text-sm sm:text-base font-semibold">{memoryStats?.avgInferenceTime || 0}ms</span>
+                    
+                    {/* Temps d'inférence */}
+                    <div className="glass-subtle rounded-xl p-3 border border-accent/10">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Zap className="h-3.5 w-3.5 text-accent" />
+                        <span className="text-xs text-muted-foreground">Latence moy.</span>
+                      </div>
+                      <div className="text-xl font-bold">{memoryStats?.avgInferenceTime || 0}<span className="text-xs text-muted-foreground ml-1">ms</span></div>
                     </div>
-                    <Separator />
+                    
+                    {/* Feedbacks positifs */}
+                    <div className="glass-subtle rounded-xl p-3 border border-green-500/10">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                        <span className="text-xs text-muted-foreground">Positifs</span>
+                      </div>
+                      <div className="text-xl font-bold text-green-600">{memoryStats?.feedbackRatio.likes || 0}</div>
+                    </div>
+                    
+                    {/* Feedbacks négatifs */}
+                    <div className="glass-subtle rounded-xl p-3 border border-red-500/10">
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+                        <span className="text-xs text-muted-foreground">Négatifs</span>
+                      </div>
+                      <div className="text-xl font-bold text-red-600">{memoryStats?.feedbackRatio.dislikes || 0}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Taux de satisfaction */}
+                  <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-muted-foreground">Taux de satisfaction</span>
-                      <span className="text-sm sm:text-base font-semibold">{feedbackPercentage}%</span>
+                      <span className="text-xs text-muted-foreground">Taux de satisfaction global</span>
+                      <span className="text-sm font-semibold">{feedbackPercentage}%</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-green-500 transition-all" 
+                        className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all" 
                         style={{ width: `${feedbackPercentage}%` }} 
                       />
                     </div>
                   </div>
+                  
+                  {/* Tokens générés (si disponible) */}
+                  {memoryStats?.totalTokensGenerated && (
+                    <Separator />
+                  )}
+                  {memoryStats?.totalTokensGenerated && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs sm:text-sm text-muted-foreground">Tokens générés</span>
+                      <span className="text-sm sm:text-base font-semibold font-mono">{memoryStats.totalTokensGenerated.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 

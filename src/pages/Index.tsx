@@ -8,8 +8,11 @@ import { ChatMessage } from "@/components/ChatMessage";
 import { Sidebar } from "@/components/Sidebar";
 import { CognitiveFlow, FlowStep } from "@/components/CognitiveFlow";
 import { ControlPanel } from "@/components/ControlPanel";
+import { ModelSelector } from "@/components/ModelSelector";
+import { ModelLoader } from "@/components/ModelLoader";
 import { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from "@/types";
 import { detectDeviceProfile, DeviceProfile } from "@/utils/deviceProfiler";
+import { MODELS, DEFAULT_MODEL } from "@/config/models";
 
 interface Message {
   id: string;
@@ -54,9 +57,16 @@ const Index = () => {
   const [memoryStats, setMemoryStats] = useState({
     totalMemories: 0,
     avgInferenceTime: 0,
-    feedbackRatio: { likes: 0, dislikes: 0 }
+    feedbackRatio: { likes: 0, dislikes: 0 },
+    totalTokensGenerated: 0,
+    tokensPerSecond: 0
   });
   const [inferenceHistory, setInferenceHistory] = useState<number[]>([]);
+  
+  // États pour la gestion des modèles
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [isModelLoading, setIsModelLoading] = useState(false);
+  const [modelLoadProgress, setModelLoadProgress] = useState({ progress: 0, text: '', loaded: 0, total: 0 });
   
   // Référence au worker orchestrateur
   const orchestratorWorker = useRef<Worker | null>(null);
@@ -76,6 +86,12 @@ const Index = () => {
       // Détecter le profil
       const profile = await detectDeviceProfile();
       setDeviceProfile(profile);
+      
+      // Vérifier si un modèle est déjà en cache
+      const cachedModel = localStorage.getItem('orion_selected_model');
+      if (cachedModel) {
+        setSelectedModel(cachedModel);
+      }
     }
     initialize();
   }, []);
@@ -99,6 +115,23 @@ const Index = () => {
           currentStep: statusPayload.step,
           stepDetails: statusPayload.details
         });
+      }
+      // Gérer la progression du chargement du modèle
+      else if (type === 'llm_load_progress') {
+        setIsModelLoading(true);
+        setModelLoadProgress({
+          progress: payload.progress || 0,
+          text: payload.text || '',
+          loaded: payload.loaded || 0,
+          total: payload.total || 0,
+        });
+        
+        // Si le chargement est terminé
+        if (payload.progress >= 100) {
+          setTimeout(() => {
+            setIsModelLoading(false);
+          }, 1000);
+        }
       }
       // Gérer l'export de mémoire
       else if (type === 'export_complete') {
@@ -468,6 +501,31 @@ const Index = () => {
     setDeviceProfile(profile);
   };
 
+  const handleModelSelect = (modelId: string) => {
+    setSelectedModel(modelId);
+    localStorage.setItem('orion_selected_model', modelId);
+    
+    // Informer le worker LLM du nouveau modèle
+    if (orchestratorWorker.current) {
+      orchestratorWorker.current.postMessage({
+        type: 'set_model',
+        payload: { modelId },
+        meta: { traceId: `trace_model_${Date.now()}`, timestamp: Date.now() }
+      });
+    }
+  };
+
+  // Obtenir les informations du modèle actuel
+  const getCurrentModelInfo = () => {
+    if (!selectedModel) return null;
+    for (const [key, model] of Object.entries(MODELS)) {
+      if (model.id === selectedModel) {
+        return { key, ...model };
+      }
+    }
+    return null;
+  };
+
   // Calculer les statistiques
   useEffect(() => {
     const avgTime = inferenceHistory.length > 0 
@@ -481,6 +539,25 @@ const Index = () => {
   }, [inferenceHistory]);
 
   const showWelcome = messages.length === 0;
+  
+  // Afficher le sélecteur de modèle si aucun modèle n'est sélectionné
+  if (!selectedModel) {
+    return <ModelSelector onSelect={handleModelSelect} defaultModel={DEFAULT_MODEL as 'demo' | 'standard' | 'advanced'} />;
+  }
+  
+  // Afficher le loader pendant le chargement du modèle
+  const modelInfo = getCurrentModelInfo();
+  if (isModelLoading && modelInfo) {
+    return (
+      <ModelLoader 
+        modelName={modelInfo.name}
+        modelSize={modelInfo.size}
+        onProgress={(state) => {
+          // Optionnel: mise à jour de l'état si nécessaire
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex relative">

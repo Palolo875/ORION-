@@ -29,7 +29,11 @@ const geniusHourWorker = new Worker(new URL('./geniusHour.worker.ts', import.met
   type: 'module',
 });
 
-console.log("[Orchestrateur] Tous les workers ont été instanciés (LLM, Memory, ToolUser, GeniusHour).");
+const contextManagerWorker = new Worker(new URL('./contextManager.worker.ts', import.meta.url), {
+  type: 'module',
+});
+
+console.log("[Orchestrateur] Tous les workers ont été instanciés (LLM, Memory, ToolUser, GeniusHour, ContextManager).");
 
 // Variables pour stocker la requête en cours et le tracer
 let currentQueryContext: QueryPayload | null = null;
@@ -103,8 +107,13 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
       llmWorker.postMessage({ type: 'init' });
       memoryWorker.postMessage({ type: 'init' });
       toolUserWorker.postMessage({ type: 'init' });
+      contextManagerWorker.postMessage({ type: 'init' });
       // Le GeniusHourWorker n'a pas besoin d'initialisation, il démarre automatiquement
       console.log('[Orchestrateur] GeniusHour Worker démarré en arrière-plan');
+    } else if (type === 'set_model') {
+      // Relayer la configuration du modèle au LLM Worker
+      console.log(`[Orchestrateur] Changement de modèle: ${payload.modelId}`);
+      llmWorker.postMessage({ type: 'set_model', payload, meta });
     } else if (type === 'feedback') {
       console.log(`[Orchestrateur] Feedback reçu (${payload.feedback}) pour le message ${payload.messageId}`);
       console.log(`[Orchestrateur] Query: "${payload.query}"`);
@@ -255,29 +264,21 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
       console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Aucun souvenir pertinent trouvé.`);
     }
     
-    console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Lancement de l'inférence LLM.`);
-    
-    // Envoyer une mise à jour de statut : Raisonnement LLM
-    self.postMessage({ 
-      type: 'status_update', 
-      payload: { 
-        step: 'llm_reasoning', 
-        details: 'Génération de la réponse par le LLM...' 
-      } as StatusUpdatePayload,
-      meta: currentQueryMeta 
-    });
-    
-    const llmPayload = {
-      ...currentQueryContext!,
-      context: currentMemoryHits,
-    };
-
-    // Appeler le LLM Worker
-    llmWorker.postMessage({ 
-      type: 'generate_response', 
-      payload: llmPayload,
-      meta: currentQueryMeta || undefined
-    });
+    // Compresser l'historique de conversation si nécessaire
+    if (currentQueryContext && currentQueryContext.conversationHistory.length > 10) {
+      console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Compression du contexte...`);
+      contextManagerWorker.postMessage({
+        type: 'compress_context',
+        payload: {
+          messages: currentQueryContext.conversationHistory,
+          maxTokens: 3000
+        },
+        meta: currentQueryMeta || undefined
+      });
+    } else {
+      // Si pas besoin de compression, lancer directement l'inférence
+      launchLLMInference();
+    }
   } else if (type === 'store_complete') {
     console.log("[Orchestrateur] Mémoire sauvegardée.");
   } else if (type === 'init_complete') {
@@ -416,3 +417,59 @@ function sendSimpleResponse(text: string, confidence: number): void {
     meta: currentQueryMeta || undefined
   });
 }
+
+/**
+ * Lance l'inférence LLM avec le contexte actuel
+ */
+function launchLLMInference(): void {
+  console.log(`[Orchestrateur] (traceId: ${currentQueryMeta?.traceId}) Lancement de l'inférence LLM.`);
+  
+  // Envoyer une mise à jour de statut : Raisonnement LLM
+  self.postMessage({ 
+    type: 'status_update', 
+    payload: { 
+      step: 'llm_reasoning', 
+      details: 'Génération de la réponse par le LLM...' 
+    } as StatusUpdatePayload,
+    meta: currentQueryMeta 
+  });
+  
+  const llmPayload = {
+    ...currentQueryContext!,
+    context: currentMemoryHits,
+  };
+
+  // Appeler le LLM Worker
+  llmWorker.postMessage({ 
+    type: 'generate_response', 
+    payload: llmPayload,
+    meta: currentQueryMeta || undefined
+  });
+}
+
+// Écouter les réponses du ContextManager
+contextManagerWorker.onmessage = (event: MessageEvent) => {
+  const { type, payload, meta } = event.data;
+
+  if (meta?.traceId !== currentQueryMeta?.traceId && type !== 'init_complete') {
+    return;
+  }
+
+  if (type === 'context_compressed') {
+    console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Contexte compressé: ${payload.originalCount} → ${payload.compressedCount} messages`);
+    
+    // Mettre à jour le contexte avec la version compressée
+    if (currentQueryContext) {
+      currentQueryContext.conversationHistory = payload.compressedMessages;
+    }
+    
+    // Lancer l'inférence avec le contexte compressé
+    launchLLMInference();
+  } else if (type === 'init_complete') {
+    console.log('[Orchestrateur] ContextManager Worker initialisé.');
+  } else if (type === 'context_error') {
+    console.error(`[Orchestrateur] Erreur ContextManager: ${payload.error}`);
+    // En cas d'erreur, continuer avec le contexte non compressé
+    launchLLMInference();
+  }
+};
