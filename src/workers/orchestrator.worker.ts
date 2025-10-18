@@ -122,11 +122,11 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     
     console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${currentQueryMeta?.traceId}) en ${inferenceTimeMs}ms.`);
 
-    // Sauvegarder la conversation
+    // Sauvegarder la conversation avec le type approprié
     const memoryToSave = `Q: ${currentQueryContext!.query} | A: ${payload.result}`;
     memoryWorker.postMessage({ 
       type: 'store', 
-      payload: { content: memoryToSave },
+      payload: { content: memoryToSave, type: 'tool_result' },
       meta: currentQueryMeta || undefined
     });
     
@@ -225,12 +225,12 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
 
     console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${meta?.traceId}) en ${inferenceTimeMs}ms.`);
 
-    // Sauvegarder la conversation
+    // Sauvegarder la conversation avec le type approprié
     if (currentQueryContext) {
       const memoryToSave = `Q: ${currentQueryContext.query} | A: ${payload.response}`;
       memoryWorker.postMessage({ 
         type: 'store', 
-        payload: { content: memoryToSave }, 
+        payload: { content: memoryToSave, type: 'conversation' }, 
         meta: currentQueryMeta || undefined
       });
     }
