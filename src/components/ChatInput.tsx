@@ -24,7 +24,9 @@ export const ChatInput = ({
 }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const handleSend = () => {
     if (message.trim() && !disabled && !isGenerating) {
@@ -41,11 +43,124 @@ export const ChatInput = ({
     }
   };
 
+  // Initialize speech recognition
+  useEffect(() => {
+    // Check if browser supports Web Speech API
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'fr-FR'; // French language
+      
+      recognition.onstart = () => {
+        setIsRecording(true);
+        toast({
+          title: "Écoute en cours...",
+          description: "Parlez maintenant",
+        });
+      };
+      
+      recognition.onresult = (event: any) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+        
+        if (finalTranscript) {
+          setMessage(prev => prev + finalTranscript);
+        }
+      };
+      
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+        
+        let errorMessage = "Une erreur est survenue";
+        switch (event.error) {
+          case 'no-speech':
+            errorMessage = "Aucune parole détectée";
+            break;
+          case 'audio-capture':
+            errorMessage = "Aucun microphone trouvé";
+            break;
+          case 'not-allowed':
+            errorMessage = "Permission du microphone refusée";
+            break;
+          case 'network':
+            errorMessage = "Erreur réseau";
+            break;
+          default:
+            errorMessage = `Erreur: ${event.error}`;
+        }
+        
+        toast({
+          title: "Erreur de reconnaissance vocale",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      };
+      
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+      
+      recognitionRef.current = recognition;
+    }
+    
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
   const handleMicClick = () => {
-    toast({
-      title: "Reconnaissance vocale",
-      description: "Cette fonctionnalité sera bientôt disponible",
-    });
+    // Check if browser supports Web Speech API
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      toast({
+        title: "Non supporté",
+        description: "Votre navigateur ne supporte pas la reconnaissance vocale. Essayez Chrome ou Edge.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (isRecording) {
+      // Stop recording
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsRecording(false);
+      toast({
+        title: "Enregistrement arrêté",
+        description: "Reconnaissance vocale terminée",
+      });
+    } else {
+      // Start recording
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (error) {
+          console.error('Error starting recognition:', error);
+          toast({
+            title: "Erreur",
+            description: "Impossible de démarrer la reconnaissance vocale",
+            variant: "destructive",
+          });
+        }
+      }
+    }
   };
 
   const handleFileUpload = (files: FileList | null) => {
@@ -165,12 +280,17 @@ export const ChatInput = ({
             {/* Voice input */}
             <Button
               onClick={handleMicClick}
-              variant="ghost"
+              variant={isRecording ? "default" : "ghost"}
               size="icon"
-              className="shrink-0 rounded-xl hover:bg-accent/50 transition-colors h-9 w-9"
+              className={cn(
+                "shrink-0 rounded-xl transition-all h-9 w-9",
+                isRecording 
+                  ? "bg-red-500 hover:bg-red-600 animate-pulse" 
+                  : "hover:bg-accent/50"
+              )}
               disabled={disabled || isGenerating}
             >
-              <Mic className="h-4 w-4" />
+              <Mic className={cn("h-4 w-4", isRecording && "text-white")} />
             </Button>
 
             {/* Send/Stop button */}
