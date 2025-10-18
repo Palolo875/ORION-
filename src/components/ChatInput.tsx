@@ -25,8 +25,46 @@ export const ChatInput = ({
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Type definitions for Web Speech API
+  interface SpeechRecognition extends EventTarget {
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+    start: () => void;
+    stop: () => void;
+    onstart: () => void;
+    onresult: (event: SpeechRecognitionEvent) => void;
+    onerror: (event: SpeechRecognitionErrorEvent) => void;
+    onend: () => void;
+  }
+
+  interface SpeechRecognitionEvent {
+    resultIndex: number;
+    results: SpeechRecognitionResultList;
+  }
+
+  interface SpeechRecognitionResultList {
+    length: number;
+    [index: number]: SpeechRecognitionResult;
+  }
+
+  interface SpeechRecognitionResult {
+    isFinal: boolean;
+    [index: number]: SpeechRecognitionAlternative;
+  }
+
+  interface SpeechRecognitionAlternative {
+    transcript: string;
+  }
+
+  interface SpeechRecognitionErrorEvent {
+    error: string;
+  }
 
   const handleSend = () => {
     if (message.trim() && !disabled && !isGenerating) {
@@ -46,23 +84,34 @@ export const ChatInput = ({
   // Initialize speech recognition
   useEffect(() => {
     // Check if browser supports Web Speech API
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognitionAPI = (window as Window & { 
+      SpeechRecognition?: new () => SpeechRecognition; 
+      webkitSpeechRecognition?: new () => SpeechRecognition;
+    }).SpeechRecognition || (window as Window & { 
+      SpeechRecognition?: new () => SpeechRecognition; 
+      webkitSpeechRecognition?: new () => SpeechRecognition;
+    }).webkitSpeechRecognition;
     
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
+    if (SpeechRecognitionAPI) {
+      const recognition = new SpeechRecognitionAPI();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'fr-FR'; // French language
       
       recognition.onstart = () => {
         setIsRecording(true);
+        setRecordingTime(0);
+        // Démarrer le timer
+        recordingIntervalRef.current = setInterval(() => {
+          setRecordingTime(prev => prev + 1);
+        }, 1000);
         toast({
           title: "Écoute en cours...",
           description: "Parlez maintenant",
         });
       };
       
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
         let interimTranscript = '';
         let finalTranscript = '';
         
@@ -80,7 +129,7 @@ export const ChatInput = ({
         }
       };
       
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error);
         setIsRecording(false);
         
@@ -111,6 +160,12 @@ export const ChatInput = ({
       
       recognition.onend = () => {
         setIsRecording(false);
+        setRecordingTime(0);
+        // Arrêter le timer
+        if (recordingIntervalRef.current) {
+          clearInterval(recordingIntervalRef.current);
+          recordingIntervalRef.current = null;
+        }
       };
       
       recognitionRef.current = recognition;
@@ -120,14 +175,23 @@ export const ChatInput = ({
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
     };
   }, []);
 
   const handleMicClick = () => {
     // Check if browser supports Web Speech API
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognitionAPI = (window as Window & { 
+      SpeechRecognition?: new () => SpeechRecognition; 
+      webkitSpeechRecognition?: new () => SpeechRecognition;
+    }).SpeechRecognition || (window as Window & { 
+      SpeechRecognition?: new () => SpeechRecognition; 
+      webkitSpeechRecognition?: new () => SpeechRecognition;
+    }).webkitSpeechRecognition;
     
-    if (!SpeechRecognition) {
+    if (!SpeechRecognitionAPI) {
       toast({
         title: "Non supporté",
         description: "Votre navigateur ne supporte pas la reconnaissance vocale. Essayez Chrome ou Edge.",
@@ -142,6 +206,11 @@ export const ChatInput = ({
         recognitionRef.current.stop();
       }
       setIsRecording(false);
+      setRecordingTime(0);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
       toast({
         title: "Enregistrement arrêté",
         description: "Reconnaissance vocale terminée",
@@ -277,21 +346,35 @@ export const ChatInput = ({
 
           {/* Action buttons */}
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Voice input */}
-            <Button
-              onClick={handleMicClick}
-              variant={isRecording ? "default" : "ghost"}
-              size="icon"
-              className={cn(
-                "shrink-0 rounded-xl transition-all h-9 w-9",
-                isRecording 
-                  ? "bg-red-500 hover:bg-red-600 animate-pulse" 
-                  : "hover:bg-accent/50"
+            {/* Voice input with recording indicator */}
+            <div className="relative flex items-center gap-2">
+              {isRecording && (
+                <div className="flex items-center gap-2 bg-red-500/10 rounded-xl px-3 py-2 animate-fade-in">
+                  <div className="flex gap-1">
+                    <div className="w-1 h-4 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1 h-4 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1 h-4 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                  </div>
+                  <span className="text-sm font-medium text-red-500">
+                    {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
               )}
-              disabled={disabled || isGenerating}
-            >
-              <Mic className={cn("h-4 w-4", isRecording && "text-white")} />
-            </Button>
+              <Button
+                onClick={handleMicClick}
+                variant={isRecording ? "default" : "ghost"}
+                size="icon"
+                className={cn(
+                  "shrink-0 rounded-xl transition-all h-9 w-9",
+                  isRecording 
+                    ? "bg-red-500 hover:bg-red-600" 
+                    : "hover:bg-accent/50"
+                )}
+                disabled={disabled || isGenerating}
+              >
+                <Mic className={cn("h-4 w-4", isRecording && "text-white")} />
+              </Button>
+            </div>
 
             {/* Send/Stop button */}
             {isGenerating ? (

@@ -10,6 +10,7 @@ import { CognitiveFlow, FlowStep } from "@/components/CognitiveFlow";
 import { ControlPanel } from "@/components/ControlPanel";
 import { ModelSelector } from "@/components/ModelSelector";
 import { ModelLoader } from "@/components/ModelLoader";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from "@/types";
 import { detectDeviceProfile, DeviceProfile } from "@/utils/deviceProfiler";
 import { MODELS, DEFAULT_MODEL } from "@/config/models";
@@ -475,6 +476,28 @@ const Index = () => {
     }
   };
 
+  const handleExportConversation = () => {
+    // Exporter la conversation actuelle en JSON
+    const currentConversation = conversations.find(conv => conv.id === currentConversationId);
+    const exportData = {
+      conversation: currentConversation,
+      messages: messages,
+      exportedAt: new Date().toISOString(),
+      version: '1.0'
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `orion-conversation-${currentConversation?.title.replace(/[^a-z0-9]/gi, '_')}-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleImportMemory = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -597,6 +620,7 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               <Button
                 variant="ghost"
                 size="icon"
@@ -700,6 +724,7 @@ const Index = () => {
         onClose={() => setIsControlPanelOpen(false)}
         onPurgeMemory={handlePurgeMemory}
         onExportMemory={handleExportMemory}
+        onExportConversation={handleExportConversation}
         onImportMemory={handleImportMemory}
         onProfileChange={handleProfileChange}
         currentProfile={deviceProfile || 'micro'}
