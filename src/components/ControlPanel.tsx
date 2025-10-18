@@ -28,6 +28,7 @@ interface ControlPanelProps {
   onPurgeMemory?: () => void;
   onExportMemory?: () => void;
   onImportMemory?: (file: File) => void;
+  onExportConversation?: () => void;
   onProfileChange?: (profile: 'full' | 'lite' | 'micro') => void;
   currentProfile?: 'full' | 'lite' | 'micro';
   memoryStats?: {
@@ -45,6 +46,7 @@ export const ControlPanel = ({
   onPurgeMemory,
   onExportMemory,
   onImportMemory,
+  onExportConversation,
   onProfileChange,
   currentProfile = 'micro',
   memoryStats
@@ -86,6 +88,15 @@ export const ControlPanel = ({
     toast({
       title: "Export réussi",
       description: "La mémoire a été exportée avec succès",
+    });
+  };
+
+  const handleExportConversation = () => {
+    onExportConversation?.();
+    addAuditLog("Conversation exportée", "success");
+    toast({
+      title: "Export réussi",
+      description: "La conversation a été exportée avec succès",
     });
   };
 
@@ -320,6 +331,16 @@ export const ControlPanel = ({
                   <div className="space-y-3">
                     <h4 className="text-sm font-semibold">Actions</h4>
                     
+                    {/* Export Conversation */}
+                    <Button 
+                      variant="outline" 
+                      className="w-full rounded-xl justify-start gap-2"
+                      onClick={handleExportConversation}
+                    >
+                      <FileJson className="h-4 w-4" />
+                      Exporter la Conversation
+                    </Button>
+
                     {/* Export Memory */}
                     <Button 
                       variant="outline" 

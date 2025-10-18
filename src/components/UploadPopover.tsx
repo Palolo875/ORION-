@@ -11,12 +11,14 @@ export const UploadPopover = ({ onFileSelect }: UploadPopoverProps) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
+    input.multiple = true;
     input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files.length > 0) {
+        onFileSelect?.(files);
         toast({
-          title: "Image ajoutée",
-          description: file.name,
+          title: "Image(s) ajoutée(s)",
+          description: `${files.length} fichier(s) ajouté(s)`,
         });
       }
     };
@@ -26,12 +28,33 @@ export const UploadPopover = ({ onFileSelect }: UploadPopoverProps) => {
   const handleFileUpload = () => {
     const input = document.createElement("input");
     input.type = "file";
+    input.multiple = true;
     input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files.length > 0) {
+        onFileSelect?.(files);
         toast({
-          title: "Fichier ajouté",
-          description: file.name,
+          title: "Fichier(s) ajouté(s)",
+          description: `${files.length} fichier(s) ajouté(s)`,
+        });
+      }
+    };
+    input.click();
+  };
+
+  const handleCameraCapture = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    // Set capture attribute for mobile camera access
+    input.setAttribute("capture", "environment");
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files.length > 0) {
+        onFileSelect?.(files);
+        toast({
+          title: "Photo capturée",
+          description: files[0].name,
         });
       }
     };
@@ -78,6 +101,17 @@ export const UploadPopover = ({ onFileSelect }: UploadPopoverProps) => {
           <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
         </div>
         <span className="text-xs sm:text-sm font-medium">Ajouter un fichier</span>
+      </Button>
+
+      <Button
+        variant="ghost"
+        className="w-full justify-start gap-2 sm:gap-3 rounded-xl sm:rounded-2xl hover:bg-accent/50 transition-colors py-2 sm:py-3 h-auto"
+        onClick={handleCameraCapture}
+      >
+        <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-primary/10">
+          <Camera className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+        </div>
+        <span className="text-xs sm:text-sm font-medium">Prendre une photo</span>
       </Button>
 
       <Button
