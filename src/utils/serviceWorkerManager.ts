@@ -75,7 +75,7 @@ class ServiceWorkerManager {
       });
 
       // Exposer la fonction de mise à jour
-      (window as any).__ORION_UPDATE_SW__ = updateSW;
+      (window as Window & { __ORION_UPDATE_SW__?: () => Promise<void> }).__ORION_UPDATE_SW__ = updateSW;
 
       return true;
     } catch (error) {
@@ -118,8 +118,9 @@ class ServiceWorkerManager {
    * Réactive le service worker (utilisé après une mise à jour)
    */
   async activate() {
-    if ((window as any).__ORION_UPDATE_SW__) {
-      await (window as any).__ORION_UPDATE_SW__();
+    const win = window as Window & { __ORION_UPDATE_SW__?: () => Promise<void> };
+    if (win.__ORION_UPDATE_SW__) {
+      await win.__ORION_UPDATE_SW__();
       window.location.reload();
     }
   }
