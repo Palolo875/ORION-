@@ -12,7 +12,11 @@ import {
   FileJson,
   Zap,
   Info,
-  MessageSquare
+  MessageSquare,
+  Brain,
+  Rocket,
+  Check,
+  Sparkles
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -23,6 +27,7 @@ import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { DebateModeSelector, DebateMode } from "./DebateModeSelector";
+import { MODELS, formatBytes } from "@/config/models";
 
 interface ControlPanelProps {
   isOpen: boolean;
@@ -40,6 +45,8 @@ interface ControlPanelProps {
   currentDebateMode?: DebateMode;
   onCustomAgentsChange?: (agents: string[]) => void;
   customAgents?: string[];
+  currentModel?: string;
+  onModelChange?: (modelId: string) => void;
   cacheStats?: {
     size: number;
     totalHits: number;
@@ -70,6 +77,8 @@ export const ControlPanel = ({
   currentDebateMode = 'balanced',
   onCustomAgentsChange,
   customAgents = ['synthesizer'],
+  currentModel,
+  onModelChange,
   cacheStats,
   memoryStats
 }: ControlPanelProps) => {
@@ -212,8 +221,12 @@ export const ControlPanel = ({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-            <Tabs defaultValue="performance" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 glass rounded-xl p-1">
+            <Tabs defaultValue="model" className="w-full">
+              <TabsList className="grid w-full grid-cols-5 glass rounded-xl p-1">
+                <TabsTrigger value="model" className="rounded-lg text-xs sm:text-sm">
+                  <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                  Modèle
+                </TabsTrigger>
                 <TabsTrigger value="performance" className="rounded-lg text-xs sm:text-sm">
                   <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
                   Perf.
@@ -231,6 +244,137 @@ export const ControlPanel = ({
                   Audit
                 </TabsTrigger>
               </TabsList>
+
+              {/* Model Tab */}
+              <TabsContent value="model" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <Brain className="h-5 w-5" />
+                    Sélection du Modèle LLM
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Choisissez le modèle d'IA local qui correspond le mieux à vos besoins.
+                  </p>
+                </div>
+
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Modèle actuel</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    {currentModel ? (
+                      <>
+                        {Object.values(MODELS).find(m => m.id === currentModel)?.name || 'Standard'} 
+                        {' - '}
+                        {formatBytes(Object.values(MODELS).find(m => m.id === currentModel)?.size || 0)}
+                      </>
+                    ) : (
+                      'Aucun modèle sélectionné'
+                    )}
+                  </AlertDescription>
+                </Alert>
+
+                <div className="glass rounded-2xl p-4 sm:p-6">
+                  <div className="space-y-2">
+                    {Object.entries(MODELS).map(([key, model]) => {
+                      const isCurrentlyLoaded = currentModel === model.id;
+                      
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => {
+                            if (window.confirm(`Voulez-vous changer de modèle vers "${model.name}" ? L'application va se recharger.`)) {
+                              onModelChange?.(model.id);
+                              addAuditLog(`Modèle changé vers: ${model.name}`, "success");
+                              toast({
+                                title: "Modèle changé",
+                                description: `Le modèle a été changé vers "${model.name}". Chargement en cours...`,
+                              });
+                              onClose();
+                            }
+                          }}
+                          disabled={isCurrentlyLoaded}
+                          className={cn(
+                            "relative glass rounded-xl p-3 border text-left transition-all duration-200 w-full",
+                            "hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed",
+                            isCurrentlyLoaded 
+                              ? "border-primary shadow-md shadow-primary/20 bg-primary/5" 
+                              : "border-transparent hover:border-primary/30"
+                          )}
+                        >
+                          {/* Badge recommandé */}
+                          {model.recommended && (
+                            <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Sparkles className="h-3 w-3" />
+                              Recommandé
+                            </div>
+                          )}
+
+                          {/* Checkmark si actuellement chargé */}
+                          {isCurrentlyLoaded && (
+                            <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
+                              <Check className="h-3 w-3" />
+                            </div>
+                          )}
+
+                          <div className="flex items-start gap-3">
+                            {/* Icon */}
+                            <div className={cn(
+                              "rounded-lg p-2 mt-0.5",
+                              isCurrentlyLoaded ? "bg-primary/20" : "bg-accent/20"
+                            )}>
+                              {key === 'demo' && <Zap className="h-4 w-4" />}
+                              {key === 'standard' && <Brain className="h-4 w-4" />}
+                              {key === 'advanced' && <Rocket className="h-4 w-4" />}
+                              {!['demo', 'standard', 'advanced'].includes(key) && <Brain className="h-4 w-4" />}
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-semibold">{model.name}</h4>
+                                {isCurrentlyLoaded && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                                    Actif
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {model.description}
+                              </p>
+                              
+                              {/* Specs */}
+                              <div className="flex items-center gap-3 text-xs">
+                                <span className="text-muted-foreground">
+                                  {formatBytes(model.size)}
+                                </span>
+                                <span className="text-muted-foreground">•</span>
+                                <span className="text-muted-foreground">
+                                  {model.quality === 'basic' && '⭐'}
+                                  {model.quality === 'high' && '⭐⭐'}
+                                  {model.quality === 'very-high' && '⭐⭐⭐'}
+                                  {model.quality === 'ultra' && '⭐⭐⭐⭐'}
+                                </span>
+                                <span className="text-muted-foreground">•</span>
+                                <span className="text-muted-foreground">
+                                  {model.speed === 'very-fast' && '⚡⚡⚡'}
+                                  {model.speed === 'fast' && '⚡⚡'}
+                                  {model.speed === 'moderate' && '⚡'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  <p className="text-xs text-muted-foreground text-center">
+                    🔒 Tous les modèles fonctionnent 100% localement et sont mis en cache. Le changement nécessite le téléchargement du nouveau modèle.
+                  </p>
+                </div>
+              </TabsContent>
 
               {/* Performance Tab */}
               <TabsContent value="performance" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">

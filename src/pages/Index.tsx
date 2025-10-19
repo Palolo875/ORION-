@@ -546,7 +546,12 @@ const Index = () => {
       </div>
 
       {/* Settings Panel */}
-      <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsPanel 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)}
+        currentModel={selectedModel}
+        onModelChange={handleModelSelect}
+      />
       
       {/* Control Panel */}
       <ControlPanel 
@@ -565,6 +570,8 @@ const Index = () => {
         currentDebateMode={debateMode}
         onCustomAgentsChange={handleCustomAgentsChange}
         customAgents={customAgents}
+        currentModel={selectedModel}
+        onModelChange={handleModelSelect}
         cacheStats={getCacheStats()}
         memoryStats={memoryStats}
       />

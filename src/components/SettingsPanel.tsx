@@ -1,4 +1,4 @@
-import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette } from "lucide-react";
+import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, Rocket, Check, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -6,16 +6,29 @@ import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { useState } from "react";
+import { MODELS, formatBytes, ModelConfig } from "@/config/models";
+import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  currentModel?: string;
+  onModelChange?: (modelId: string) => void;
 }
 
-export const SettingsPanel = ({ isOpen, onClose }: SettingsPanelProps) => {
+export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: SettingsPanelProps) => {
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [model, setModel] = useState("gpt-4");
+  const [selectedModelKey, setSelectedModelKey] = useState<string>(() => {
+    // Find the key for the current model
+    if (currentModel) {
+      const entry = Object.entries(MODELS).find(([_, model]) => model.id === currentModel);
+      return entry ? entry[0] : 'standard';
+    }
+    return 'standard';
+  });
   const [temperature, setTemperature] = useState([0.7]);
   const [maxTokens, setMaxTokens] = useState([2000]);
   const [language, setLanguage] = useState("fr");
@@ -90,22 +103,113 @@ export const SettingsPanel = ({ isOpen, onClose }: SettingsPanelProps) => {
 
                 <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-5 sm:space-y-6">
                   {/* Model Selection */}
-                  <div className="space-y-2 sm:space-y-3">
-                    <Label className="text-xs sm:text-sm font-medium">Modèle d'IA</Label>
-                    <Select value={model} onValueChange={setModel}>
-                      <SelectTrigger className="w-full rounded-xl">
-                        <SelectValue placeholder="Sélectionner un modèle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gpt-4">GPT-4 Turbo (Recommandé)</SelectItem>
-                        <SelectItem value="gpt-3.5">GPT-3.5 Turbo (Rapide)</SelectItem>
-                        <SelectItem value="claude-3">Claude 3 Opus</SelectItem>
-                        <SelectItem value="claude-2">Claude 2.1</SelectItem>
-                        <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-3">
+                    <Label className="text-xs sm:text-sm font-medium">Modèle d'IA Local</Label>
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertTitle className="text-xs sm:text-sm">Modèle actuel</AlertTitle>
+                      <AlertDescription className="text-xs">
+                        {MODELS[selectedModelKey]?.name || 'Standard'} - {formatBytes(MODELS[selectedModelKey]?.size || 0)}
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <div className="grid grid-cols-1 gap-2">
+                      {Object.entries(MODELS).map(([key, model]) => {
+                        const isSelected = selectedModelKey === key;
+                        const isCurrentlyLoaded = currentModel === model.id;
+                        
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => {
+                              if (window.confirm(`Voulez-vous changer de modèle vers "${model.name}" ? L'application va se recharger.`)) {
+                                setSelectedModelKey(key);
+                                onModelChange?.(model.id);
+                                toast({
+                                  title: "Modèle changé",
+                                  description: `Le modèle a été changé vers "${model.name}". Chargement en cours...`,
+                                });
+                                onClose();
+                              }
+                            }}
+                            disabled={isCurrentlyLoaded}
+                            className={cn(
+                              "relative glass rounded-xl p-3 border text-left transition-all duration-200",
+                              "hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed",
+                              isCurrentlyLoaded 
+                                ? "border-primary shadow-md shadow-primary/20 bg-primary/5" 
+                                : "border-transparent hover:border-primary/30"
+                            )}
+                          >
+                            {/* Badge recommandé */}
+                            {model.recommended && (
+                              <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Sparkles className="h-3 w-3" />
+                                Recommandé
+                              </div>
+                            )}
+
+                            {/* Checkmark si actuellement chargé */}
+                            {isCurrentlyLoaded && (
+                              <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
+                                <Check className="h-3 w-3" />
+                              </div>
+                            )}
+
+                            <div className="flex items-start gap-3">
+                              {/* Icon */}
+                              <div className={cn(
+                                "rounded-lg p-2 mt-0.5",
+                                isCurrentlyLoaded ? "bg-primary/20" : "bg-accent/20"
+                              )}>
+                                {key === 'demo' && <Zap className="h-4 w-4" />}
+                                {key === 'standard' && <Brain className="h-4 w-4" />}
+                                {key === 'advanced' && <Rocket className="h-4 w-4" />}
+                                {!['demo', 'standard', 'advanced'].includes(key) && <Brain className="h-4 w-4" />}
+                              </div>
+
+                              {/* Content */}
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-sm font-semibold">{model.name}</h4>
+                                  {isCurrentlyLoaded && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                                      Actif
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground line-clamp-1">
+                                  {model.description}
+                                </p>
+                                
+                                {/* Specs */}
+                                <div className="flex items-center gap-3 text-xs">
+                                  <span className="text-muted-foreground">
+                                    {formatBytes(model.size)}
+                                  </span>
+                                  <span className="text-muted-foreground">•</span>
+                                  <span className="text-muted-foreground">
+                                    {model.quality === 'basic' && '⭐'}
+                                    {model.quality === 'high' && '⭐⭐'}
+                                    {model.quality === 'very-high' && '⭐⭐⭐'}
+                                    {model.quality === 'ultra' && '⭐⭐⭐⭐'}
+                                  </span>
+                                  <span className="text-muted-foreground">•</span>
+                                  <span className="text-muted-foreground">
+                                    {model.speed === 'very-fast' && '⚡⚡⚡'}
+                                    {model.speed === 'fast' && '⚡⚡'}
+                                    {model.speed === 'moderate' && '⚡'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
                     <p className="text-xs text-muted-foreground">
-                      Choisissez le modèle qui correspond le mieux à vos besoins.
+                      🔒 Tous les modèles fonctionnent 100% localement. Le changement nécessite le téléchargement et le chargement du nouveau modèle.
                     </p>
                   </div>
 
