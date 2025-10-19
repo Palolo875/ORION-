@@ -20,8 +20,11 @@ env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 // === Singleton pour le pipeline d'embedding ===
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PipelineInstance = any;
+interface PipelineInstance {
+  (text: string, options: { pooling: 'mean'; normalize: boolean }): Promise<{
+    data: Float32Array;
+  }>;
+}
 
 class EmbeddingPipeline {
   static task = 'feature-extraction';
@@ -31,7 +34,7 @@ class EmbeddingPipeline {
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
       console.log("[Memory] Initialisation du modèle d'embedding... (peut prendre du temps la première fois)");
-      this.instance = await pipeline(this.task as any, this.model);
+      this.instance = (await pipeline(this.task, this.model)) as PipelineInstance;
       console.log("[Memory] Modèle d'embedding prêt.");
     }
     return this.instance;
@@ -39,8 +42,16 @@ class EmbeddingPipeline {
 }
 
 // === HNSW Index Manager ===
+interface HNSWIndex extends HierarchicalNSW {
+  initIndex(maxElements: number, m: number, efConstruction: number, randomSeed: number): void;
+  addPoint(embedding: Float32Array, id: number, replaceDeleted: boolean): void;
+  setEf(ef: number): void;
+  searchKnn(queryEmbedding: Float32Array, k: number): { neighbors: number[]; distances: number[] };
+  getCurrentCount(): number;
+}
+
 class HNSWIndexManager {
-  private index: HierarchicalNSW | null = null;
+  private index: HNSWIndex | null = null;
   private indexInitialized = false;
   private embeddingDimension = 384; // Dimension pour all-MiniLM-L6-v2
   private idToMemoryKey: Map<number, string> = new Map();
@@ -56,9 +67,9 @@ class HNSWIndexManager {
     const hnswlibModule = await loadHnswlib();
     
     // Créer un nouvel index HNSW
-    const HNSWClass = hnswlibModule.HierarchicalNSW as any;
-    this.index = new HNSWClass('cosine', this.embeddingDimension);
-    (this.index as any).initIndex(
+    const HNSWClass = hnswlibModule.HierarchicalNSW;
+    this.index = new HNSWClass('cosine', this.embeddingDimension) as HNSWIndex;
+    this.index.initIndex(
       MEMORY_CONFIG.BUDGET,
       HNSW_CONFIG.M,
       HNSW_CONFIG.EF_CONSTRUCTION,
@@ -86,7 +97,7 @@ class HNSWIndexManager {
         this.memoryKeyToId.set(item.id, id);
         
         if (this.index) {
-          (this.index as any).addPoint(new Float32Array(item.embedding), id, true);
+          this.index.addPoint(new Float32Array(item.embedding), id, true);
           loadedCount++;
         }
       }
@@ -105,7 +116,7 @@ class HNSWIndexManager {
     this.memoryKeyToId.set(memoryId, id);
     
     if (this.index) {
-      (this.index as any).addPoint(new Float32Array(embedding), id, true);
+      this.index.addPoint(new Float32Array(embedding), id, true);
     }
   }
 
@@ -119,11 +130,9 @@ class HNSWIndexManager {
       return [];
     }
 
-    if ((this.index as any).setEf) {
-      (this.index as any).setEf(HNSW_CONFIG.EF_SEARCH);
-    }
+    this.index.setEf(HNSW_CONFIG.EF_SEARCH);
     
-    const result = (this.index as any).searchKnn(
+    const result = this.index.searchKnn(
       new Float32Array(queryEmbedding),
       k
     );
@@ -381,6 +390,17 @@ async function getConversationContext(messageId: string): Promise<MemoryItem[]> 
 
 // === Worker principal ===
 
+import { FeedbackPayload } from '../types';
+
+interface StorePayload {
+  content: string;
+  type: MemoryType;
+}
+
+interface SearchPayload {
+  query: string;
+}
+
 self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
   const { type, payload, meta } = event.data;
   const traceId = meta?.traceId || 'unknown';
@@ -402,13 +422,13 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       });
     }
     else if (type === 'store') {
-      const storePayload = payload as any;
+      const storePayload = payload as StorePayload;
       const memoryType: MemoryType = storePayload.type || 'conversation';
       await addMemory(storePayload.content, memoryType, traceId);
       self.postMessage({ type: 'store_complete', payload: { success: true }, meta });
     } 
     else if (type === 'search') {
-      const searchPayload = payload as any;
+      const searchPayload = payload as SearchPayload;
       const results = await searchMemory(searchPayload.query, traceId);
       self.postMessage({ 
         type: 'search_result', 
@@ -420,7 +440,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       });
     }
     else if (type === 'add_feedback') {
-      const feedbackPayload = payload as any;
+      const feedbackPayload = payload as FeedbackPayload;
       const { messageId, feedback, query, response } = feedbackPayload;
       
       const failureReport = {

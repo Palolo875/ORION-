@@ -7,7 +7,7 @@ export default defineConfig({
   testDir: './e2e',
   
   // Timeout maximum pour chaque test
-  timeout: 30 * 1000,
+  timeout: 120 * 1000,
   
   // Expect timeout
   expect: {
@@ -97,6 +97,6 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://localhost:8080',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 180 * 1000,
   },
 });

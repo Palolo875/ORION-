@@ -1,8 +1,15 @@
 import { useRef, useEffect, useCallback } from "react";
-import { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from "@/types";
+import { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload, FeedbackPayload } from "@/types";
 import { FlowStep } from "@/components/CognitiveFlow";
 import { DeviceProfile } from "@/utils/performance/deviceProfiler";
 import { ProcessedFile } from "@/utils/fileProcessor";
+
+interface LlmLoadProgressPayload {
+  progress: number;
+  text: string;
+  loaded: number;
+  total: number;
+}
 
 interface UseOrchestratorWorkerProps {
   onStatusUpdate: (step: FlowStep, details: string) => void;
@@ -44,7 +51,7 @@ export function useOrchestratorWorker({
           break;
         }
         case 'llm_load_progress': {
-          const llmPayload = payload as any;
+          const llmPayload = payload as LlmLoadProgressPayload;
           onLoadProgress({
             progress: llmPayload.progress || 0,
             text: llmPayload.text || '',
@@ -169,7 +176,7 @@ export function useOrchestratorWorker({
     });
   }, []);
 
-  const importMemory = useCallback((data: any) => {
+  const importMemory = useCallback((data: string) => {
     if (!orchestratorWorker.current) return;
 
     const traceId = `trace_import_${Date.now()}`;

@@ -23,8 +23,11 @@ const CURRENT_EMBEDDING_MODEL_VERSION = 'Xenova/all-MiniLM-L6-v2@1.0';
 const MIGRATION_INTERVAL = 60000; // 60 secondes
 
 // --- Singleton pour le pipeline d'embedding ---
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PipelineInstance = any;
+interface PipelineInstance {
+  (text: string, options: { pooling: 'mean'; normalize: boolean }): Promise<{
+    data: Float32Array;
+  }>;
+}
 
 class EmbeddingPipeline {
   static task = 'feature-extraction';
@@ -34,7 +37,7 @@ class EmbeddingPipeline {
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
       console.log("[Migration] Initialisation du modèle d'embedding...");
-      this.instance = await pipeline(this.task as any, this.model);
+      this.instance = (await pipeline(this.task, this.model)) as PipelineInstance;
       console.log("[Migration] Modèle d'embedding prêt.");
     }
     return this.instance;

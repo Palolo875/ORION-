@@ -35,11 +35,23 @@ export interface BrowserCompatibility {
   recommendations: string[];
 }
 
+// Interfaces pour typer l'API WebGPU (qui peut ne pas être dans les types standards)
+interface GPUAdapter {
+  isFeatureDetected: boolean;
+}
+
+interface NavigatorWithGPU extends Navigator {
+  gpu?: {
+    requestAdapter: () => Promise<GPUAdapter | null>;
+  };
+}
+
 /**
  * Détecte la compatibilité WebGPU
  */
 async function detectWebGPU(): Promise<{ supported: boolean; message: string }> {
-  if (!(navigator as any).gpu) {
+  const nav = navigator as NavigatorWithGPU;
+  if (!nav.gpu) {
     return {
       supported: false,
       message: "WebGPU n'est pas disponible dans votre navigateur. Utilisez Chrome 113+ ou Edge 113+ pour des performances optimales."
@@ -47,7 +59,7 @@ async function detectWebGPU(): Promise<{ supported: boolean; message: string }> 
   }
 
   try {
-    const adapter = await (navigator as any).gpu.requestAdapter();
+    const adapter = await nav.gpu.requestAdapter();
     if (!adapter) {
       return {
         supported: false,
@@ -108,11 +120,16 @@ function detectWebGL(): { supported: boolean; message: string; version?: 1 | 2 }
 }
 
 /**
+interface WindowWithSpeechRecognition extends Window {
+  SpeechRecognition?: typeof SpeechRecognition;
+  webkitSpeechRecognition?: typeof SpeechRecognition;
+}
+
+/**
  * Détecte la compatibilité de la reconnaissance vocale
  */
 function detectSpeechRecognition(): { supported: boolean; message: string } {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  const SpeechRecognitionAPI = (window as WindowWithSpeechRecognition).SpeechRecognition || (window as WindowWithSpeechRecognition).webkitSpeechRecognition;
   
   if (SpeechRecognitionAPI) {
     return {

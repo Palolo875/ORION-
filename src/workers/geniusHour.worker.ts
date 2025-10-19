@@ -45,8 +45,11 @@ interface AlternativePrompt {
 }
 
 // === Singleton pour le pipeline d'embedding ===
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PipelineInstance = any;
+interface PipelineInstance {
+  (text: string, options: { pooling: 'mean'; normalize: boolean }): Promise<{
+    data: Float32Array;
+  }>;
+}
 
 class EmbeddingPipeline {
   static task = 'feature-extraction';
@@ -56,7 +59,7 @@ class EmbeddingPipeline {
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
       console.log("[GeniusHour] Initialisation du modèle d'embedding...");
-      this.instance = await pipeline(this.task as any, this.model);
+      this.instance = (await pipeline(this.task, this.model)) as PipelineInstance;
       console.log("[GeniusHour] Modèle d'embedding prêt.");
     }
     return this.instance;

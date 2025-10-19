@@ -1,5 +1,7 @@
 // src/types.ts
 
+import { DebateQuality } from './utils/debateQuality';
+
 /**
  * Le format de message standard échangé entre l'UI et les workers,
  * ou entre les workers eux-mêmes.
@@ -12,6 +14,13 @@ export interface WorkerMessage<T = unknown> {
     traceId: string; // Un ID unique pour suivre une requête à travers tout le système
     timestamp: number; // Horodatage du message
   };
+}
+
+export interface FeedbackPayload {
+  messageId: string;
+  feedback: 'good' | 'bad';
+  query: string;
+  response: string;
 }
 
 /**
@@ -63,7 +72,7 @@ export interface FinalResponsePayload {
   debug: { 
     totalRounds?: number; 
     inferenceTimeMs?: number;
-    debateQuality?: any; // DebateQuality from debateQuality.ts
+    debateQuality?: DebateQuality;
     error?: string;
   };
 }
