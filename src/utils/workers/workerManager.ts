@@ -7,7 +7,7 @@
  * - Libérant les ressources quand elles ne sont plus utilisées
  */
 
-import { errorLogger, UserMessages } from './errorLogger';
+import { errorLogger, UserMessages } from '../errorLogger';
 
 export type WorkerType = 'orchestrator' | 'llm' | 'memory' | 'toolUser' | 'geniusHour' | 'contextManager' | 'migration';
 

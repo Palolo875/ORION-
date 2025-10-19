@@ -1,6 +1,6 @@
 // src/utils/deviceProfiler.ts
 
-import { isMobileDevice } from './browserCompatibility';
+import { isMobileDevice } from '../browser/browserCompatibility';
 
 export type DeviceProfile = 'full' | 'lite' | 'micro';
 

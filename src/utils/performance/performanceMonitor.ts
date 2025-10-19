@@ -6,7 +6,7 @@
  * et les métriques des workers.
  */
 
-import { logger } from './logger';
+import { logger } from '../logger';
 
 /**
  * Métriques de performance

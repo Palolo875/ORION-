@@ -6,7 +6,7 @@
 import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { sanitizeContent, detectMaliciousContent } from '@/utils/sanitizer';
+import { sanitizeContent, detectMaliciousContent } from '@/utils/security';
 import { logger } from '@/utils/logger';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertTriangle } from 'lucide-react';

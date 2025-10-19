@@ -7,7 +7,7 @@ import { UploadPopover } from "./UploadPopover";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { processFiles, formatFileSize, ProcessedFile } from "@/utils/fileProcessor";
-import { validateUserInput, rateLimiter } from "@/utils/inputValidator";
+import { validateUserInput, rateLimiter } from "@/utils/security";
 import { logger } from "@/utils/logger";
 
 interface ChatInputProps {

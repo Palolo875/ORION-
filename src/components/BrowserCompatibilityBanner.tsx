@@ -7,7 +7,7 @@ import {
   getBrowserRecommendation, 
   getBrowserInfo,
   BrowserCompatibility 
-} from "@/utils/browserCompatibility";
+} from "@/utils/browser";
 import { cn } from "@/lib/utils";
 
 export const BrowserCompatibilityBanner = () => {

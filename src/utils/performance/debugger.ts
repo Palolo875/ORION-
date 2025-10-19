@@ -5,7 +5,7 @@
  * notamment l'inspection des workers, des états internes, et des performances.
  */
 
-import { logger, LogLevel } from './logger';
+import { logger, LogLevel } from '../logger';
 import { performanceMonitor } from './performanceMonitor';
 
 /**
