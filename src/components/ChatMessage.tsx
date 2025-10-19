@@ -14,6 +14,8 @@ import { OrionLogo } from "./OrionLogo";
 import { motion } from "framer-motion";
 import { getTTSInstance, isTTSSupported } from "@/utils/textToSpeech";
 import { SafeMessage } from "./SafeMessage";
+import { DebateMetrics } from "./DebateMetrics";
+import { DebateQuality } from "@/utils/debateQuality";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -27,6 +29,7 @@ interface ChatMessageProps {
   debug?: {
     totalRounds?: number;
     inferenceTimeMs?: number;
+    debateQuality?: DebateQuality;
   };
   provenance?: {
     fromAgents?: string[];
@@ -426,6 +429,11 @@ export const ChatMessage = ({
                   </TooltipProvider>
                 </div>
               </div>
+            )}
+
+            {/* Métriques de Qualité du Débat */}
+            {debug?.debateQuality && (
+              <DebateMetrics metrics={debug.debateQuality} className="mt-4" />
             )}
 
             {/* Métadonnées et informations de débogage */}

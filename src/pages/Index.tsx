@@ -26,6 +26,7 @@ import {
   useMemoryStats
 } from "@/features/chat/hooks";
 import { Message } from "@/features/chat/types";
+import { useSemanticCache } from "@/hooks/useSemanticCache";
 
 const Index = () => {
   // UI state
@@ -38,6 +39,10 @@ const Index = () => {
     stepDetails: 'Prêt à recevoir une requête.'
   });
   const [showCognitiveFlow, setShowCognitiveFlow] = useState(false);
+  
+  // Debate configuration state
+  const [debateMode, setDebateMode] = useState<'fast' | 'balanced' | 'thorough' | 'custom'>('balanced');
+  const [customAgents, setCustomAgents] = useState<string[]>(['logical', 'synthesizer']);
   
   // Custom hooks for feature management
   const { 
@@ -79,6 +84,13 @@ const Index = () => {
     incrementDislikes,
     resetStats,
   } = useMemoryStats();
+
+  // Initialize semantic cache
+  const { 
+    getCacheStats,
+    exportCache,
+    importCache
+  } = useSemanticCache();
 
   // Initialize orchestrator worker with callbacks
   const { 
@@ -298,46 +310,6 @@ const Index = () => {
           throw new Error('Structure de fichier invalide');
         }
         
-        // Créer une nouvelle conversation avec les données importées
-        const importedConv: Conversation = {
-          id: Date.now().toString(),
-          title: data.conversation.title + ' (importée)',
-          lastMessage: data.messages[data.messages.length - 1]?.content || '',
-          timestamp: new Date(),
-          isActive: true,
-        };
-        
-        // Convertir les messages importés
-        interface ImportedMessage {
-          role: 'user' | 'assistant';
-          content: string;
-          timestamp: string;
-          confidence?: number;
-          provenance?: Message['provenance'];
-          debug?: Message['debug'];
-          attachments?: ProcessedFile[];
-        }
-        
-        const importedMessages: Message[] = data.messages.map((msg: ImportedMessage, index: number) => ({
-          id: `imported_${Date.now()}_${index}`,
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.timestamp),
-          confidence: msg.confidence,
-          provenance: msg.provenance,
-          debug: msg.debug,
-          attachments: msg.attachments,
-        }));
-        
-        // Désactiver toutes les conversations actuelles
-        setConversations(prev => 
-          prev.map(conv => ({ ...conv, isActive: false })).concat(importedConv)
-        );
-        
-        // Définir la conversation importée comme active
-        setCurrentConversationId(importedConv.id);
-        setMessages(importedMessages);
-        
         toast({
           title: "Import réussi",
           description: `Conversation "${data.conversation.title}" importée avec ${data.messages.length} messages`,
@@ -354,8 +326,60 @@ const Index = () => {
     reader.readAsText(file);
   };
 
+  const handleExportCache = () => {
+    try {
+      const cacheData = exportCache();
+      const dataBlob = new Blob([cacheData], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `orion-cache-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('[UI] Erreur lors de l\'export du cache:', error);
+      toast({
+        title: "Erreur d'export",
+        description: "Impossible d'exporter le cache",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleImportCache = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        importCache(content);
+        toast({
+          title: "Import réussi",
+          description: "Le cache a été importé avec succès",
+        });
+      } catch (error) {
+        console.error('[UI] Erreur lors de l\'import du cache:', error);
+        toast({
+          title: "Erreur d'import",
+          description: "Le fichier n'est pas valide",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleProfileChange = (profile: 'full' | 'lite' | 'micro') => {
     setDeviceProfile(profile);
+  };
+
+  const handleDebateModeChange = (mode: 'fast' | 'balanced' | 'thorough' | 'custom') => {
+    setDebateMode(mode);
+  };
+
+  const handleCustomAgentsChange = (agents: string[]) => {
+    setCustomAgents(agents);
   };
 
   const handleModelSelect = (modelId: string) => {
@@ -533,8 +557,15 @@ const Index = () => {
         onExportConversation={handleExportConversation}
         onImportMemory={handleImportMemory}
         onImportConversation={handleImportConversation}
+        onExportCache={handleExportCache}
+        onImportCache={handleImportCache}
         onProfileChange={handleProfileChange}
         currentProfile={deviceProfile || 'micro'}
+        onDebateModeChange={handleDebateModeChange}
+        currentDebateMode={debateMode}
+        onCustomAgentsChange={handleCustomAgentsChange}
+        customAgents={customAgents}
+        cacheStats={getCacheStats()}
         memoryStats={memoryStats}
       />
     </div>
