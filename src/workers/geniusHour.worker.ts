@@ -56,7 +56,7 @@ class EmbeddingPipeline {
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
       console.log("[GeniusHour] Initialisation du modèle d'embedding...");
-      this.instance = await pipeline(this.task, this.model);
+      this.instance = await pipeline(this.task as any, this.model);
       console.log("[GeniusHour] Modèle d'embedding prêt.");
     }
     return this.instance;

@@ -37,6 +37,16 @@ export interface QueryPayload {
 }
 
 /**
+ * Payload pour la progression du chargement du modèle
+ */
+export interface LLMLoadProgressPayload {
+  progress: number;
+  text: string;
+  loaded: number;
+  total: number;
+}
+
+/**
  * La structure de la réponse finale envoyée par l'orchestrateur à l'UI.
  * Enrichie avec des informations de provenance et de débogage.
  */

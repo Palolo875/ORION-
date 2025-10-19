@@ -34,7 +34,7 @@ class EmbeddingPipeline {
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
       console.log("[Migration] Initialisation du modèle d'embedding...");
-      this.instance = await pipeline(this.task, this.model);
+      this.instance = await pipeline(this.task as any, this.model);
       console.log("[Migration] Modèle d'embedding prêt.");
     }
     return this.instance;

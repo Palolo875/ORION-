@@ -37,7 +37,7 @@ export interface BrowserCompatibility {
  * Détecte la compatibilité WebGPU
  */
 async function detectWebGPU(): Promise<{ supported: boolean; message: string }> {
-  if (!navigator.gpu) {
+  if (!(navigator as any).gpu) {
     return {
       supported: false,
       message: "WebGPU n'est pas disponible dans votre navigateur. Utilisez Chrome 113+ ou Edge 113+ pour des performances optimales."
@@ -45,7 +45,7 @@ async function detectWebGPU(): Promise<{ supported: boolean; message: string }> 
   }
 
   try {
-    const adapter = await navigator.gpu.requestAdapter();
+    const adapter = await (navigator as any).gpu.requestAdapter();
     if (!adapter) {
       return {
         supported: false,

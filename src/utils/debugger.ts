@@ -250,22 +250,19 @@ class OrionDebugger {
         if (result instanceof Promise) {
           return result
             .then((value) => {
-              endTracking({ success: true });
+              endTracking();
               return value;
             })
             .catch((error) => {
-              endTracking({ success: false, error: error.message });
+              endTracking();
               throw error;
             });
         }
 
-        endTracking({ success: true });
+        endTracking();
         return result;
       } catch (error) {
-        endTracking({ 
-          success: false, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
-        });
+        endTracking();
         throw error;
       }
     }) as T;

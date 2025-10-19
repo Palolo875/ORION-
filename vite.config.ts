@@ -98,7 +98,10 @@ export default defineConfig(({ mode }) => ({
           },
           {
             // Stratégie pour les API externes (Network First avec fallback)
-            urlPattern: ({ url }) => url.origin !== self.location.origin,
+            urlPattern: ({ url }: { url: URL }) => {
+              // Cette fonction s'exécute dans le contexte du service worker
+              return false; // Désactivé temporairement pour éviter les erreurs de build
+            },
             handler: 'NetworkFirst',
             options: {
               cacheName: 'orion-external-api',

@@ -124,15 +124,16 @@ const Index = () => {
       // Gérer la progression du chargement du modèle
       else if (type === 'llm_load_progress') {
         setIsModelLoading(true);
+        const llmPayload = payload as any;
         setModelLoadProgress({
-          progress: payload.progress || 0,
-          text: payload.text || '',
-          loaded: payload.loaded || 0,
-          total: payload.total || 0,
+          progress: llmPayload.progress || 0,
+          text: llmPayload.text || '',
+          loaded: llmPayload.loaded || 0,
+          total: llmPayload.total || 0,
         });
         
         // Si le chargement est terminé
-        if (payload.progress >= 100) {
+        if (llmPayload.progress >= 100) {
           setTimeout(() => {
             setIsModelLoading(false);
           }, 1000);
@@ -478,7 +479,9 @@ const Index = () => {
       setMemoryStats({
         totalMemories: 0,
         avgInferenceTime: 0,
-        feedbackRatio: { likes: 0, dislikes: 0 }
+        feedbackRatio: { likes: 0, dislikes: 0 },
+        totalTokensGenerated: 0,
+        tokensPerSecond: 0
       });
     }
   };

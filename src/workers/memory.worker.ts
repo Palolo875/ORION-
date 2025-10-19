@@ -31,7 +31,7 @@ class EmbeddingPipeline {
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
       console.log("[Memory] Initialisation du modèle d'embedding... (peut prendre du temps la première fois)");
-      this.instance = await pipeline(this.task, this.model);
+      this.instance = await pipeline(this.task as any, this.model);
       console.log("[Memory] Modèle d'embedding prêt.");
     }
     return this.instance;
@@ -56,12 +56,13 @@ class HNSWIndexManager {
     const hnswlibModule = await loadHnswlib();
     
     // Créer un nouvel index HNSW
-    this.index = new hnswlibModule.HierarchicalNSW('cosine', this.embeddingDimension);
-    this.index.initIndex(
+    const HNSWClass = hnswlibModule.HierarchicalNSW as any;
+    this.index = new HNSWClass('cosine', this.embeddingDimension);
+    (this.index as any).initIndex(
       MEMORY_CONFIG.BUDGET,
       HNSW_CONFIG.M,
       HNSW_CONFIG.EF_CONSTRUCTION,
-      200 // random seed
+      200
     );
     
     // Charger les embeddings existants dans l'index
@@ -85,7 +86,7 @@ class HNSWIndexManager {
         this.memoryKeyToId.set(item.id, id);
         
         if (this.index) {
-          this.index.addPoint(new Float32Array(item.embedding), id);
+          (this.index as any).addPoint(new Float32Array(item.embedding), id, true);
           loadedCount++;
         }
       }
@@ -104,7 +105,7 @@ class HNSWIndexManager {
     this.memoryKeyToId.set(memoryId, id);
     
     if (this.index) {
-      this.index.addPoint(new Float32Array(embedding), id);
+      (this.index as any).addPoint(new Float32Array(embedding), id, true);
     }
   }
 
@@ -118,9 +119,11 @@ class HNSWIndexManager {
       return [];
     }
 
-    this.index.setEf(HNSW_CONFIG.EF_SEARCH);
+    if ((this.index as any).setEf) {
+      (this.index as any).setEf(HNSW_CONFIG.EF_SEARCH);
+    }
     
-    const result = this.index.searchKnn(
+    const result = (this.index as any).searchKnn(
       new Float32Array(queryEmbedding),
       k
     );
@@ -399,12 +402,14 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       });
     }
     else if (type === 'store') {
-      const memoryType: MemoryType = payload.type || 'conversation';
-      await addMemory(payload.content, memoryType, traceId);
+      const storePayload = payload as any;
+      const memoryType: MemoryType = storePayload.type || 'conversation';
+      await addMemory(storePayload.content, memoryType, traceId);
       self.postMessage({ type: 'store_complete', payload: { success: true }, meta });
     } 
     else if (type === 'search') {
-      const results = await searchMemory(payload.query, traceId);
+      const searchPayload = payload as any;
+      const results = await searchMemory(searchPayload.query, traceId);
       self.postMessage({ 
         type: 'search_result', 
         payload: { 
@@ -415,7 +420,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       });
     }
     else if (type === 'add_feedback') {
-      const { messageId, feedback, query, response } = payload;
+      const feedbackPayload = payload as any;
+      const { messageId, feedback, query, response } = feedbackPayload;
       
       const failureReport = {
         id: `failure_${messageId}_${Date.now()}`,

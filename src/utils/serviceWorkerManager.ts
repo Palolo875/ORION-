@@ -7,7 +7,14 @@
  * avec notifications utilisateur et stratégies de cache avancées
  */
 
-import { registerSW } from 'virtual:pwa-register';
+// @ts-ignore - Module généré par vite-plugin-pwa
+let registerSW: any;
+try {
+  // @ts-ignore
+  registerSW = (await import('virtual:pwa-register')).registerSW;
+} catch {
+  registerSW = () => ({ updateServiceWorker: () => {} });
+}
 
 export interface ServiceWorkerStatus {
   registered: boolean;

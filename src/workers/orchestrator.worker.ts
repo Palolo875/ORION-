@@ -112,12 +112,12 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
       console.log('[Orchestrateur] GeniusHour Worker démarré en arrière-plan');
     } else if (type === 'set_model') {
       // Relayer la configuration du modèle au LLM Worker
-      console.log(`[Orchestrateur] Changement de modèle: ${payload.modelId}`);
+      console.log(`[Orchestrateur] Changement de modèle: ${(payload as any).modelId}`);
       llmWorker.postMessage({ type: 'set_model', payload, meta });
     } else if (type === 'feedback') {
-      console.log(`[Orchestrateur] Feedback reçu (${payload.feedback}) pour le message ${payload.messageId}`);
-      console.log(`[Orchestrateur] Query: "${payload.query}"`);
-      console.log(`[Orchestrateur] Response: "${payload.response}"`);
+      console.log(`[Orchestrateur] Feedback reçu (${(payload as any).feedback}) pour le message ${(payload as any).messageId}`);
+      console.log(`[Orchestrateur] Query: "${(payload as any).query}"`);
+      console.log(`[Orchestrateur] Response: "${(payload as any).response}"`);
       
       // Relayer le feedback enrichi au Memory Worker
       memoryWorker.postMessage({ 
@@ -153,7 +153,9 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
     console.error('[Orchestrateur] Error processing message:', error);
     sendResponse({
       response: 'Une erreur est survenue lors du traitement de votre demande.',
-      confidence: 0
+      confidence: 0,
+      provenance: {},
+      debug: {}
     });
   }
 };
@@ -168,13 +170,14 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     // L'outil a été trouvé et exécuté avec succès. On court-circuite le débat.
     const endTime = performance.now();
     const inferenceTimeMs = Math.round(endTime - startTime);
+    const toolPayload = payload as any;
     
-    console.log(`[Orchestrateur] Outil '${payload.toolName}' exécuté. Réponse directe.`);
+    console.log(`[Orchestrateur] Outil '${toolPayload.toolName}' exécuté. Réponse directe.`);
     const responsePayload: FinalResponsePayload = {
-      response: payload.result,
+      response: toolPayload.result,
       confidence: 1.0, // Confiance maximale pour un outil factuel
       provenance: { 
-        toolUsed: payload.toolName,
+        toolUsed: toolPayload.toolName,
         memoryHits: [],
         fromAgents: undefined
       },
@@ -192,7 +195,7 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${currentQueryMeta?.traceId}) en ${inferenceTimeMs}ms.`);
 
     // Sauvegarder la conversation avec le type approprié
-    const memoryToSave = `Q: ${currentQueryContext!.query} | A: ${payload.result}`;
+    const memoryToSave = `Q: ${currentQueryContext!.query} | A: ${toolPayload.result}`;
     memoryWorker.postMessage({ 
       type: 'store', 
       payload: { content: memoryToSave, type: 'tool_result' },
@@ -205,7 +208,7 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   } else if (type === 'no_tool_found' || type === 'tool_error') {
     // Aucun outil trouvé ou une erreur est survenue
     if (type === 'tool_error') {
-      console.error(`[Orchestrateur] Erreur du ToolUser: ${payload.error}`);
+      console.error(`[Orchestrateur] Erreur du ToolUser: ${(payload as any).error}`);
     }
     
     const profile = currentQueryContext?.deviceProfile || 'micro';
@@ -321,9 +324,10 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     const endTime = performance.now();
     const inferenceTimeMs = Math.round(endTime - startTime);
     console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Réponse du LLM reçue en ${inferenceTimeMs}ms.`);
+    const llmPayload = payload as any;
 
     const finalPayload: FinalResponsePayload = {
-      response: payload.response,
+      response: llmPayload.response,
       confidence: 0.9, // À affiner plus tard avec une analyse du LLM
       provenance: {
         fromAgents: ['LLMAgent'],
@@ -344,7 +348,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
 
     // Sauvegarder la conversation avec le type approprié
     if (currentQueryContext) {
-      const memoryToSave = `Q: ${currentQueryContext.query} | A: ${payload.response}`;
+      const memoryToSave = `Q: ${currentQueryContext.query} | A: ${llmPayload.response}`;
       memoryWorker.postMessage({ 
         type: 'store', 
         payload: { content: memoryToSave, type: 'conversation' }, 
@@ -359,9 +363,10 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
 
   } else if (type === 'llm_error') {
     // Gérer l'erreur du LLM
-    console.error(`[Orchestrateur] Erreur LLM: ${payload.error}`);
+    const errorPayload2 = payload as any;
+    console.error(`[Orchestrateur] Erreur LLM: ${errorPayload2.error}`);
     const errorPayload: FinalResponsePayload = {
-      response: `Désolé, une erreur est survenue lors de la génération de la réponse: ${payload.error}`,
+      response: `Désolé, une erreur est survenue lors de la génération de la réponse: ${errorPayload2.error}`,
       confidence: 0,
       provenance: {},
       debug: {}

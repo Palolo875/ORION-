@@ -188,7 +188,9 @@ export function configureDOMPurify(): void {
   DOMPurify.addHook('uponSanitizeElement', (node, data) => {
     // Bloquer les tentatives d'évasion via attributs
     if (data.tagName === 'form' || data.tagName === 'input') {
-      node.remove();
+      if (node && 'remove' in node && typeof node.remove === 'function') {
+        node.remove();
+      }
     }
   });
 
