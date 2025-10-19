@@ -11,7 +11,8 @@ import {
   CheckCircle2,
   FileJson,
   Zap,
-  Info
+  Info,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -21,6 +22,7 @@ import { Separator } from "./ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { DebateModeSelector, DebateMode } from "./DebateModeSelector";
 
 interface ControlPanelProps {
   isOpen: boolean;
@@ -30,8 +32,19 @@ interface ControlPanelProps {
   onImportMemory?: (file: File) => void;
   onExportConversation?: () => void;
   onImportConversation?: (file: File) => void;
+  onExportCache?: () => void;
+  onImportCache?: (file: File) => void;
   onProfileChange?: (profile: 'full' | 'lite' | 'micro') => void;
   currentProfile?: 'full' | 'lite' | 'micro';
+  onDebateModeChange?: (mode: DebateMode) => void;
+  currentDebateMode?: DebateMode;
+  onCustomAgentsChange?: (agents: string[]) => void;
+  customAgents?: string[];
+  cacheStats?: {
+    size: number;
+    totalHits: number;
+    hitRate: number;
+  };
   memoryStats?: {
     totalMemories: number;
     avgInferenceTime: number;
@@ -49,8 +62,15 @@ export const ControlPanel = ({
   onImportMemory,
   onExportConversation,
   onImportConversation,
+  onExportCache,
+  onImportCache,
   onProfileChange,
   currentProfile = 'micro',
+  onDebateModeChange,
+  currentDebateMode = 'balanced',
+  onCustomAgentsChange,
+  customAgents = ['synthesizer'],
+  cacheStats,
   memoryStats
 }: ControlPanelProps) => {
   const [selectedProfile, setSelectedProfile] = useState(currentProfile);
@@ -102,6 +122,15 @@ export const ControlPanel = ({
     });
   };
 
+  const handleExportCache = () => {
+    onExportCache?.();
+    addAuditLog("Cache exporté", "success");
+    toast({
+      title: "Export réussi",
+      description: "Le cache a été exporté avec succès",
+    });
+  };
+
   const handleImportMemory = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -122,6 +151,18 @@ export const ControlPanel = ({
       toast({
         title: "Import réussi",
         description: `La conversation "${file.name}" a été importée avec succès`,
+      });
+    }
+  };
+
+  const handleImportCache = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      onImportCache?.(file);
+      addAuditLog("Cache importé", "success");
+      toast({
+        title: "Import réussi",
+        description: `Le cache "${file.name}" a été importé avec succès`,
       });
     }
   };
@@ -172,14 +213,18 @@ export const ControlPanel = ({
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             <Tabs defaultValue="performance" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 glass rounded-xl p-1">
+              <TabsList className="grid w-full grid-cols-4 glass rounded-xl p-1">
                 <TabsTrigger value="performance" className="rounded-lg text-xs sm:text-sm">
                   <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                  Performance
+                  Perf.
+                </TabsTrigger>
+                <TabsTrigger value="debate" className="rounded-lg text-xs sm:text-sm">
+                  <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                  Débat
                 </TabsTrigger>
                 <TabsTrigger value="memory" className="rounded-lg text-xs sm:text-sm">
                   <Database className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                  Mémoire
+                  Mém.
                 </TabsTrigger>
                 <TabsTrigger value="audit" className="rounded-lg text-xs sm:text-sm">
                   <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
@@ -263,22 +308,22 @@ export const ControlPanel = ({
                       <div className="text-xl font-bold">{memoryStats?.avgInferenceTime || 0}<span className="text-xs text-muted-foreground ml-1">ms</span></div>
                     </div>
                     
-                    {/* Feedbacks positifs */}
-                    <div className="glass-subtle rounded-xl p-3 border border-green-500/10">
+                    {/* Cache size */}
+                    <div className="glass-subtle rounded-xl p-3 border border-blue-500/10">
                       <div className="flex items-center gap-2 mb-1">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                        <span className="text-xs text-muted-foreground">Positifs</span>
+                        <Database className="h-3.5 w-3.5 text-blue-600" />
+                        <span className="text-xs text-muted-foreground">Cache</span>
                       </div>
-                      <div className="text-xl font-bold text-green-600">{memoryStats?.feedbackRatio.likes || 0}</div>
+                      <div className="text-xl font-bold text-blue-600">{cacheStats?.size || 0}</div>
                     </div>
                     
-                    {/* Feedbacks négatifs */}
-                    <div className="glass-subtle rounded-xl p-3 border border-red-500/10">
+                    {/* Cache hit rate */}
+                    <div className="glass-subtle rounded-xl p-3 border border-purple-500/10">
                       <div className="flex items-center gap-2 mb-1">
-                        <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
-                        <span className="text-xs text-muted-foreground">Négatifs</span>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-purple-600" />
+                        <span className="text-xs text-muted-foreground">Hit Rate</span>
                       </div>
-                      <div className="text-xl font-bold text-red-600">{memoryStats?.feedbackRatio.dislikes || 0}</div>
+                      <div className="text-xl font-bold text-purple-600">{cacheStats ? (cacheStats.hitRate * 100).toFixed(0) : 0}%</div>
                     </div>
                   </div>
                   
@@ -307,6 +352,44 @@ export const ControlPanel = ({
                     </div>
                   )}
                 </div>
+              </TabsContent>
+
+              {/* Debate Tab */}
+              <TabsContent value="debate" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Configuration du Débat
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Choisissez le mode de débat et les agents à mobiliser.
+                  </p>
+                </div>
+
+                <div className="glass rounded-2xl p-4 sm:p-6">
+                  <DebateModeSelector
+                    currentMode={currentDebateMode}
+                    onModeChange={(mode) => {
+                      onDebateModeChange?.(mode);
+                      addAuditLog(`Mode débat changé vers: ${mode}`, "success");
+                      toast({
+                        title: "Mode débat mis à jour",
+                        description: `Le mode a été changé vers "${mode}"`,
+                      });
+                    }}
+                    customAgents={customAgents}
+                    onCustomAgentsChange={onCustomAgentsChange}
+                  />
+                </div>
+
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Conseil</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Le mode <strong>Équilibré</strong> offre le meilleur compromis entre qualité et rapidité pour la plupart des questions.
+                    Utilisez le mode <strong>Approfondi</strong> pour des analyses complexes nécessitant plusieurs perspectives.
+                  </AlertDescription>
+                </Alert>
               </TabsContent>
 
               {/* Memory Tab */}
@@ -371,6 +454,37 @@ export const ControlPanel = ({
                       >
                         <Upload className="h-4 w-4" />
                         Importer une Conversation
+                      </Button>
+                    </div>
+
+                    <Separator />
+
+                    {/* Export Cache */}
+                    <Button 
+                      variant="outline" 
+                      className="w-full rounded-xl justify-start gap-2"
+                      onClick={handleExportCache}
+                    >
+                      <Download className="h-4 w-4" />
+                      Exporter le Cache
+                    </Button>
+
+                    {/* Import Cache */}
+                    <div>
+                      <input
+                        type="file"
+                        id="import-cache"
+                        accept=".json"
+                        className="hidden"
+                        onChange={handleImportCache}
+                      />
+                      <Button 
+                        variant="outline" 
+                        className="w-full rounded-xl justify-start gap-2"
+                        onClick={() => document.getElementById('import-cache')?.click()}
+                      >
+                        <Upload className="h-4 w-4" />
+                        Importer le Cache
                       </Button>
                     </div>
 
