@@ -12,6 +12,7 @@ import type { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePay
 import { LOGICAL_AGENT, CREATIVE_AGENT, CRITICAL_AGENT, SYNTHESIZER_AGENT, createSynthesisMessage } from '../config/agents';
 import { errorLogger, UserMessages } from '../utils/errorLogger';
 import { withRetry, retryStrategies } from '../utils/retry';
+import { evaluateDebate, generateQualityReport, type DebateQuality } from '../utils/debateQuality';
 
 console.log("Orchestrator Worker (Secure) chargé et prêt.");
 
@@ -49,11 +50,13 @@ interface MultiAgentState {
   logicalResponse?: string;
   creativeResponse?: string;
   criticalResponse?: string;
-  currentStep: 'idle' | 'logical' | 'creative' | 'critical' | 'synthesis';
+  currentStep: 'idle' | 'parallel_generation' | 'critical' | 'synthesis';
+  parallelResponses: { logical: boolean; creative: boolean };
 }
 
 let multiAgentState: MultiAgentState = {
-  currentStep: 'idle'
+  currentStep: 'idle',
+  parallelResponses: { logical: false, creative: false }
 };
 
 // --- Logique principale de l'Orchestrateur ---
@@ -345,62 +348,49 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   }
 
   if (type === 'llm_response_complete') {
-    const llmPayload = payload as any;
+    const llmPayload = payload as { response: string; agentType?: string };
+    const agentType = llmPayload.agentType;
     
     // Gérer les réponses en fonction de l'état du débat multi-agents
-    if (multiAgentState.currentStep === 'logical') {
-      console.log(`[Orchestrateur] Agent Logique a répondu`);
-      multiAgentState.logicalResponse = llmPayload.response;
-      multiAgentState.currentStep = 'creative';
+    if (multiAgentState.currentStep === 'parallel_generation') {
+      // Gérer les réponses parallèles (Logique + Créatif)
+      if (agentType === 'logical') {
+        console.log(`[Orchestrateur] Agent Logique a répondu (parallèle)`);
+        multiAgentState.logicalResponse = llmPayload.response;
+        multiAgentState.parallelResponses.logical = true;
+      } else if (agentType === 'creative') {
+        console.log(`[Orchestrateur] Agent Créatif a répondu (parallèle)`);
+        multiAgentState.creativeResponse = llmPayload.response;
+        multiAgentState.parallelResponses.creative = true;
+      }
       
-      // Lancer l'agent créatif
-      self.postMessage({ 
-        type: 'status_update', 
-        payload: { 
-          step: 'multi_agent_creative', 
-          details: 'Agent Créatif en cours...' 
-        } as StatusUpdatePayload,
-        meta: currentQueryMeta 
-      });
-      
-      llmWorker.postMessage({ 
-        type: 'generate_response', 
-        payload: {
-          ...currentQueryContext!,
-          context: currentMemoryHits,
-          systemPrompt: CREATIVE_AGENT.systemPrompt,
-          temperature: CREATIVE_AGENT.temperature,
-          maxTokens: CREATIVE_AGENT.maxTokens,
-        },
-        meta: currentQueryMeta || undefined
-      });
-      
-    } else if (multiAgentState.currentStep === 'creative') {
-      console.log(`[Orchestrateur] Agent Créatif a répondu`);
-      multiAgentState.creativeResponse = llmPayload.response;
-      multiAgentState.currentStep = 'critical';
-      
-      // Lancer l'agent critique
-      self.postMessage({ 
-        type: 'status_update', 
-        payload: { 
-          step: 'multi_agent_critical', 
-          details: 'Agent Critique en cours...' 
-        } as StatusUpdatePayload,
-        meta: currentQueryMeta 
-      });
-      
-      llmWorker.postMessage({ 
-        type: 'generate_response', 
-        payload: {
-          ...currentQueryContext!,
-          context: currentMemoryHits,
-          systemPrompt: CRITICAL_AGENT.systemPrompt,
-          temperature: CRITICAL_AGENT.temperature,
-          maxTokens: CRITICAL_AGENT.maxTokens,
-        },
-        meta: currentQueryMeta || undefined
-      });
+      // Si les deux agents ont répondu, lancer l'agent critique
+      if (multiAgentState.parallelResponses.logical && multiAgentState.parallelResponses.creative) {
+        console.log(`[Orchestrateur] Génération parallèle terminée, lancement de l'agent critique`);
+        multiAgentState.currentStep = 'critical';
+        
+        // Lancer l'agent critique
+        self.postMessage({ 
+          type: 'status_update', 
+          payload: { 
+            step: 'multi_agent_critical', 
+            details: 'Agent Critique en cours...' 
+          } as StatusUpdatePayload,
+          meta: currentQueryMeta 
+        });
+        
+        llmWorker.postMessage({ 
+          type: 'generate_response', 
+          payload: {
+            ...currentQueryContext!,
+            context: currentMemoryHits,
+            systemPrompt: CRITICAL_AGENT.systemPrompt,
+            temperature: CRITICAL_AGENT.temperature,
+            maxTokens: CRITICAL_AGENT.maxTokens,
+          },
+          meta: currentQueryMeta || undefined
+        });
+      }
       
     } else if (multiAgentState.currentStep === 'critical') {
       console.log(`[Orchestrateur] Agent Critique a répondu`);
@@ -450,15 +440,42 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
         ? ['Logical', 'Creative', 'Critical', 'Synthesizer']
         : ['LLMAgent'];
 
+      // Évaluer la qualité du débat si on a utilisé le débat multi-agents
+      let debateQuality: DebateQuality | undefined;
+      if (multiAgentState.currentStep === 'synthesis' && 
+          multiAgentState.logicalResponse && 
+          multiAgentState.creativeResponse && 
+          multiAgentState.criticalResponse) {
+        
+        console.log('[Orchestrateur] Évaluation de la qualité du débat...');
+        debateQuality = evaluateDebate({
+          logical: multiAgentState.logicalResponse,
+          creative: multiAgentState.creativeResponse,
+          critical: multiAgentState.criticalResponse,
+          synthesis: llmPayload.response
+        });
+        
+        console.log('[Orchestrateur] Qualité du débat:', debateQuality);
+        
+        // Générer un rapport si la qualité est faible
+        if (debateQuality.overallScore < 0.6) {
+          console.warn('[Orchestrateur] ⚠️ Qualité du débat sous le seuil acceptable (< 60%)');
+          console.warn(generateQualityReport(debateQuality));
+        } else {
+          console.log('[Orchestrateur] ✓ Qualité du débat acceptable');
+        }
+      }
+
       const finalPayload: FinalResponsePayload = {
         response: llmPayload.response,
-        confidence: 0.9,
+        confidence: debateQuality ? debateQuality.overallScore : 0.9,
         provenance: {
           fromAgents,
           memoryHits: currentMemoryHits,
         },
         debug: {
           inferenceTimeMs: inferenceTimeMs,
+          debateQuality: debateQuality,
         }
       };
 
@@ -484,7 +501,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
       currentMemoryHits = [];
       currentQueryContext = null;
       currentQueryMeta = null;
-      multiAgentState = { currentStep: 'idle' };
+      multiAgentState = { currentStep: 'idle', parallelResponses: { logical: false, creative: false } };
     }
 
   } else if (type === 'llm_error') {
@@ -514,7 +531,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     currentMemoryHits = [];
     currentQueryContext = null;
     currentQueryMeta = null;
-    multiAgentState = { currentStep: 'idle' };
+    multiAgentState = { currentStep: 'idle', parallelResponses: { logical: false, creative: false } };
 
   } else if (type === 'llm_load_progress') {
     // Relayer la progression du chargement à l'UI
@@ -609,28 +626,31 @@ function launchSimpleLLMInference(): void {
 
 /**
  * Lance le débat multi-agents (4 agents: Logique, Créatif, Critique, Synthétiseur)
+ * Avec parallélisation intelligente: Logique + Créatif en parallèle
  */
 function launchMultiAgentDebate(): void {
-  console.log(`[Orchestrateur] Démarrage du débat multi-agents...`);
+  console.log(`[Orchestrateur] Démarrage du débat multi-agents avec parallélisation...`);
   
   // Réinitialiser l'état
   multiAgentState = {
-    currentStep: 'logical',
+    currentStep: 'parallel_generation',
     logicalResponse: undefined,
     creativeResponse: undefined,
     criticalResponse: undefined,
+    parallelResponses: { logical: false, creative: false }
   };
   
-  // Lancer l'agent logique en premier
+  // Lancer les agents Logique et Créatif en PARALLÈLE (gain de ~5s)
   self.postMessage({ 
     type: 'status_update', 
     payload: { 
       step: 'llm_reasoning', 
-      details: 'Agent Logique : Analyse structurée...' 
+      details: 'Agents Logique et Créatif : Analyse parallèle...' 
     } as StatusUpdatePayload,
     meta: currentQueryMeta 
   });
   
+  // Agent Logique
   llmWorker.postMessage({ 
     type: 'generate_response', 
     payload: {
@@ -639,6 +659,21 @@ function launchMultiAgentDebate(): void {
       systemPrompt: LOGICAL_AGENT.systemPrompt,
       temperature: LOGICAL_AGENT.temperature,
       maxTokens: LOGICAL_AGENT.maxTokens,
+      agentType: 'logical',
+    },
+    meta: currentQueryMeta || undefined
+  });
+  
+  // Agent Créatif (lancé immédiatement après, en parallèle)
+  llmWorker.postMessage({ 
+    type: 'generate_response', 
+    payload: {
+      ...currentQueryContext!,
+      context: currentMemoryHits,
+      systemPrompt: CREATIVE_AGENT.systemPrompt,
+      temperature: CREATIVE_AGENT.temperature,
+      maxTokens: CREATIVE_AGENT.maxTokens,
+      agentType: 'creative',
     },
     meta: currentQueryMeta || undefined
   });
