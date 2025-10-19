@@ -38,19 +38,44 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'robots.txt', 'placeholder.svg'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        maximumFileSizeToCacheInBytes: 50 * 1024 * 1024, // 50MB pour les gros modèles
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,wasm}'],
+        maximumFileSizeToCacheInBytes: 100 * 1024 * 1024, // 100MB pour les gros modèles
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
-            // Cette règle met en cache les modèles de Web-LLM
-            urlPattern: ({ url }) => url.href.startsWith('https://huggingface.co/mlc-ai'),
+            // Stratégie pour les modèles Web-LLM (Cache First avec fallback)
+            urlPattern: ({ url }) => url.href.includes('huggingface.co/mlc-ai'),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'web-llm-cache',
+              cacheName: 'orion-web-llm-models',
               expiration: { 
-                maxEntries: 5, 
-                maxAgeSeconds: 30 * 24 * 60 * 60 // 30 jours
+                maxEntries: 10, 
+                maxAgeSeconds: 60 * 24 * 60 * 60, // 60 jours
+                purgeOnQuotaError: true
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              },
+              matchOptions: {
+                ignoreSearch: false,
+                ignoreVary: true
+              }
+            },
+          },
+          {
+            // Stratégie pour les modèles Transformers.js
+            urlPattern: ({ url }) => url.href.includes('huggingface.co/Xenova'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'orion-transformers-models',
+              expiration: { 
+                maxEntries: 10, 
+                maxAgeSeconds: 60 * 24 * 60 * 60, // 60 jours
+                purgeOnQuotaError: true
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -58,32 +83,80 @@ export default defineConfig(({ mode }) => ({
             },
           },
           {
-            // Cette règle met en cache les modèles de Transformers.js
-            urlPattern: ({ url }) => url.href.startsWith('https://huggingface.co/Xenova'),
+            // Stratégie pour les fichiers WASM
+            urlPattern: /\.wasm$/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'transformers-cache',
-              expiration: { 
-                maxEntries: 5, 
-                maxAgeSeconds: 30 * 24 * 60 * 60 // 30 jours
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
+              cacheName: 'orion-wasm-cache',
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 90 * 24 * 60 * 60, // 90 jours
+              }
+            },
+          },
+          {
+            // Stratégie pour les API externes (Network First avec fallback)
+            urlPattern: ({ url }) => url.origin !== self.location.origin,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'orion-external-api',
+              networkTimeoutSeconds: 10,
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 7 * 24 * 60 * 60, // 7 jours
+              }
+            },
+          },
+          {
+            // Stratégie pour les images
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'orion-images',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 jours
               }
             },
           },
         ],
       },
+      devOptions: {
+        enabled: false, // Désactiver en dev pour éviter les problèmes
+        type: 'module',
+      },
       manifest: {
-        name: 'ORION - IA Personnelle',
+        name: 'ORION - IA Personnelle Locale',
         short_name: 'ORION',
-        description: 'Assistant IA personnel fonctionnant localement dans votre navigateur',
+        description: 'Assistant IA personnel fonctionnant localement dans votre navigateur avec support offline complet',
         theme_color: '#1e293b',
+        background_color: '#0f172a',
+        display: 'standalone',
+        orientation: 'portrait-primary',
+        scope: '/',
+        start_url: '/',
         icons: [
           {
             src: '/favicon.ico',
             sizes: '64x64 32x32 24x24 16x16',
             type: 'image/x-icon'
+          },
+          {
+            src: '/placeholder.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
+          }
+        ],
+        categories: ['productivity', 'utilities', 'education'],
+        screenshots: [],
+        shortcuts: [
+          {
+            name: 'Nouvelle Conversation',
+            short_name: 'Nouveau Chat',
+            description: 'Démarrer une nouvelle conversation avec ORION',
+            url: '/',
+            icons: []
           }
         ]
       }

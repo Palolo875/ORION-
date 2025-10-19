@@ -1,0 +1,416 @@
+/* src/styles/accessibility.css */
+
+/**
+ * Styles d'accessibilité pour ORION
+ * Support complet du clavier, lecteurs d'écran, et WCAG AA
+ */
+
+/* === LECTEURS D'ÉCRAN === */
+
+/* Classe pour masquer visuellement mais garder accessible aux lecteurs d'écran */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Rendre visible au focus (utile pour les liens "skip to content") */
+.sr-only-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* === NAVIGATION AU CLAVIER === */
+
+/* Focus visible seulement lors de la navigation au clavier */
+body:not(.keyboard-navigation) *:focus {
+  outline: none;
+}
+
+/* Focus visible amélioré pour la navigation au clavier */
+body.keyboard-navigation *:focus {
+  outline: 2px solid var(--focus-color, #3b82f6);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Focus visible pour les boutons */
+body.keyboard-navigation button:focus,
+body.keyboard-navigation a:focus,
+body.keyboard-navigation input:focus,
+body.keyboard-navigation textarea:focus,
+body.keyboard-navigation select:focus {
+  outline: 2px solid var(--focus-color, #3b82f6);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Style pour les éléments désactivés */
+[aria-disabled="true"],
+[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* === LIENS "SKIP TO CONTENT" === */
+
+.skip-to-content {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: var(--background, #fff);
+  color: var(--foreground, #000);
+  padding: 0.75rem 1.5rem;
+  text-decoration: none;
+  border-radius: 0 0 0.5rem 0;
+  z-index: 9999;
+  transition: top 0.2s;
+}
+
+.skip-to-content:focus {
+  top: 0;
+  outline: 2px solid var(--focus-color, #3b82f6);
+}
+
+/* === INDICATEURS D'ÉTAT ARIA === */
+
+/* Indicateur visuel pour aria-pressed */
+[aria-pressed="true"] {
+  background-color: var(--pressed-bg, #e5e7eb);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Indicateur visuel pour aria-expanded */
+[aria-expanded="true"]::after {
+  content: "";
+  display: inline-block;
+  margin-left: 0.5rem;
+  transform: rotate(180deg);
+  transition: transform 0.2s;
+}
+
+[aria-expanded="false"]::after {
+  content: "";
+  display: inline-block;
+  margin-left: 0.5rem;
+  transform: rotate(0deg);
+  transition: transform 0.2s;
+}
+
+/* === CONTRASTE ÉLEVÉ === */
+
+@media (prefers-contrast: high) {
+  :root {
+    --focus-color: #000;
+  }
+
+  body.keyboard-navigation *:focus {
+    outline-width: 3px;
+    outline-color: #000;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    border: 2px solid currentColor;
+  }
+}
+
+/* === RÉDUCTION DES MOUVEMENTS === */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* === MODES DE COULEUR === */
+
+/* Support du mode sombre avec accessibilité */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --focus-color: #60a5fa;
+  }
+}
+
+/* === TAILLES DE POLICE AGRANDIES === */
+
+/* Support pour les utilisateurs ayant besoin de plus gros textes */
+@media (prefers-font-size: large) {
+  html {
+    font-size: 120%;
+  }
+}
+
+/* === TARGETS TACTILES === */
+
+/* Assurer que les zones tactiles font au moins 44x44px (WCAG AA) */
+button,
+a,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* === INDICATEURS DE CHARGEMENT ACCESSIBLES === */
+
+/* Animation pour les lecteurs d'écran */
+@keyframes loading-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+[aria-busy="true"] {
+  animation: loading-pulse 1.5s ease-in-out infinite;
+}
+
+/* === MESSAGES D'ERREUR === */
+
+/* Style pour les messages d'erreur accessibles */
+[role="alert"],
+[aria-invalid="true"] + [role="alert"] {
+  color: var(--error-color, #dc2626);
+  font-weight: 500;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+[aria-invalid="true"] {
+  border-color: var(--error-color, #dc2626);
+  outline-color: var(--error-color, #dc2626);
+}
+
+/* === ZONES LIVE (pour les mises à jour dynamiques) === */
+
+[aria-live] {
+  position: relative;
+}
+
+/* === NAVIGATION PAR LANDMARKS === */
+
+/* Améliorer la visibilité des landmarks principaux */
+main:focus,
+nav:focus,
+aside:focus,
+header:focus,
+footer:focus {
+  outline: 2px solid var(--focus-color, #3b82f6);
+  outline-offset: 2px;
+}
+
+/* === SUPPORT RTL (Right-to-Left) === */
+
+[dir="rtl"] {
+  direction: rtl;
+}
+
+[dir="rtl"] .skip-to-content {
+  left: auto;
+  right: 0;
+  border-radius: 0 0 0.5rem 0;
+}
+
+[dir="rtl"] [aria-expanded]::after {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+
+/* === INDICATEURS DE PROGRESSION === */
+
+/* Style accessible pour les barres de progression */
+[role="progressbar"] {
+  position: relative;
+  height: 8px;
+  background-color: var(--progress-bg, #e5e7eb);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+[role="progressbar"]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: var(--progress-fg, #3b82f6);
+  width: var(--progress-value, 0%);
+  transition: width 0.3s ease;
+}
+
+/* === TOOLTIPS ACCESSIBLES === */
+
+[role="tooltip"] {
+  position: absolute;
+  z-index: 9999;
+  padding: 0.5rem;
+  background: var(--tooltip-bg, #1f2937);
+  color: var(--tooltip-fg, #fff);
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  pointer-events: none;
+}
+
+/* === MODALES ET DIALOGUES === */
+
+[role="dialog"],
+[role="alertdialog"] {
+  position: fixed;
+  z-index: 9999;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--dialog-bg, #fff);
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+              0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+/* Overlay pour les modales */
+[role="dialog"] + .modal-overlay,
+[role="alertdialog"] + .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+}
+
+/* === ACCORDÉONS === */
+
+[role="region"][aria-labelledby] {
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+[role="button"][aria-expanded] {
+  width: 100%;
+  text-align: left;
+  padding: 1rem;
+  cursor: pointer;
+  background: var(--accordion-header-bg, #f9fafb);
+  border: none;
+  transition: background-color 0.2s;
+}
+
+[role="button"][aria-expanded]:hover {
+  background: var(--accordion-header-hover-bg, #f3f4f6);
+}
+
+/* === MENUS === */
+
+[role="menu"],
+[role="menubar"] {
+  display: flex;
+  gap: 0.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+[role="menuitem"],
+[role="menuitemcheckbox"],
+[role="menuitemradio"] {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+[role="menuitem"]:hover,
+[role="menuitemcheckbox"]:hover,
+[role="menuitemradio"]:hover {
+  background: var(--menu-hover-bg, #f3f4f6);
+}
+
+[role="menuitem"]:focus,
+[role="menuitemcheckbox"]:focus,
+[role="menuitemradio"]:focus {
+  background: var(--menu-focus-bg, #e5e7eb);
+  outline: none;
+}
+
+/* === TABLEAUX ACCESSIBLES === */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th {
+  text-align: left;
+  padding: 0.75rem;
+  background: var(--table-header-bg, #f9fafb);
+  border-bottom: 2px solid var(--border-color, #e5e7eb);
+  font-weight: 600;
+}
+
+td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+/* Indicateur de tri */
+th[aria-sort="ascending"]::after {
+  content: " ↑";
+}
+
+th[aria-sort="descending"]::after {
+  content: " ↓";
+}
+
+/* === FORMULAIRES ACCESSIBLES === */
+
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+input[required] + label::after,
+label[for] input[required] {
+  content: " *";
+  color: var(--error-color, #dc2626);
+}
+
+/* === LIVE REGIONS === */
+
+[aria-live="polite"] {
+  position: relative;
+}
+
+[aria-live="assertive"] {
+  position: relative;
+  font-weight: 600;
+}
