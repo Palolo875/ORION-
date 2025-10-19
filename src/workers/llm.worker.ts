@@ -93,7 +93,13 @@ class LLMEngine {
 
 // --- Le worker principal ---
 
-self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & { context?: string[]; modelId?: string }>>) => {
+self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & { 
+  context?: string[]; 
+  modelId?: string; 
+  systemPrompt?: string;
+  temperature?: number;
+  maxTokens?: number;
+}>>) => {
   const { type, payload, meta } = event.data;
 
   if (type === 'set_model') {
@@ -124,24 +130,22 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & { conte
         });
       });
 
-      const prompt = `
-        Tu es l'agent de raisonnement principal d'ORION, une IA personnelle et locale.
-        Réponds à la requête de l'utilisateur de manière concise, intelligente et utile.
+      // Utiliser le System Prompt personnalisé ou le prompt par défaut
+      const defaultSystemPrompt = `Tu es l'agent de raisonnement principal d'ORION, une IA personnelle et locale.
+Réponds à la requête de l'utilisateur de manière concise, intelligente et utile.`;
 
-        Contexte pertinent trouvé dans ta mémoire:
-        ${payload.context && payload.context.length > 0 ? payload.context.join('\n- ') : 'Aucun.'}
-
-        Requête de l'utilisateur:
-        "${payload.query}"
-
-        Ta réponse:
-      `;
+      const systemPrompt = payload.systemPrompt || defaultSystemPrompt;
+      
+      const contextStr = payload.context && payload.context.length > 0 
+        ? `\n\nContexte pertinent trouvé dans ta mémoire:\n${payload.context.join('\n- ')}`
+        : '';
+      
+      const prompt = `${systemPrompt}${contextStr}\n\nRequête de l'utilisateur:\n"${payload.query}"\n\nTa réponse:`;
 
       const request: ChatCompletionRequest = {
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 256,
-        // Options pour des réponses plus créatives mais cohérentes
-        temperature: 0.7,
+        max_tokens: payload.maxTokens || 256,
+        temperature: payload.temperature !== undefined ? payload.temperature : 0.7,
         top_p: 0.95,
       };
 
