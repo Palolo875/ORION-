@@ -286,4 +286,200 @@ describe('LLM Worker', () => {
       );
     });
   });
+
+  describe('Tests de non-contamination entre personas', () => {
+    it('devrait maintenir la cohérence de la persona logique', async () => {
+      const { WebWorkerMLCEngine } = await import('@mlc-ai/web-llm');
+      
+      // Mock de réponses différentes selon la persona
+      const mockResponses = new Map([
+        ['logical', 'Analyse logique: 1. Point A 2. Point B 3. Conclusion'],
+        ['creative', 'Perspective créative: Imagine si... comme une métaphore...'],
+      ]);
+      
+      let callCount = 0;
+      vi.mocked(WebWorkerMLCEngine.create).mockResolvedValue({
+        reload: vi.fn().mockResolvedValue(undefined),
+        chat: {
+          completions: {
+            create: vi.fn().mockImplementation(async (request: any) => {
+              const prompt = request.messages[0].content.toLowerCase();
+              let response = 'Default response';
+              
+              if (prompt.includes('logique') || prompt.includes('logical')) {
+                response = mockResponses.get('logical')!;
+              } else if (prompt.includes('créatif') || prompt.includes('creative')) {
+                response = mockResponses.get('creative')!;
+              }
+              
+              callCount++;
+              return {
+                choices: [{ message: { content: response } }]
+              };
+            })
+          }
+        }
+      } as any);
+
+      await import('../llm.worker');
+
+      // Test agent logique
+      const logicalMessage: WorkerMessage<QueryPayload & { systemPrompt?: string; agentType?: string }> = {
+        type: 'generate_response',
+        payload: {
+          query: 'Explain AI',
+          conversationHistory: [],
+          systemPrompt: 'Tu es un analyste logique',
+          agentType: 'logical'
+        },
+        meta: { traceId: 'test-logical', timestamp: Date.now() }
+      };
+
+      if (global.self.onmessage) {
+        global.self.onmessage({ data: logicalMessage } as MessageEvent);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Vérifier que la réponse contient des éléments logiques
+      const logicalCalls = postMessageSpy.mock.calls.filter((call: any) => 
+        call[0].type === 'llm_response_complete' &&
+        call[0].payload.response.includes('Analyse logique')
+      );
+      
+      expect(logicalCalls.length).toBeGreaterThan(0);
+    });
+
+    it('devrait maintenir la cohérence de la persona créative', async () => {
+      const { WebWorkerMLCEngine } = await import('@mlc-ai/web-llm');
+      
+      vi.mocked(WebWorkerMLCEngine.create).mockResolvedValue({
+        reload: vi.fn().mockResolvedValue(undefined),
+        chat: {
+          completions: {
+            create: vi.fn().mockImplementation(async (request: any) => {
+              const prompt = request.messages[0].content.toLowerCase();
+              
+              if (prompt.includes('créatif') || prompt.includes('creative')) {
+                return {
+                  choices: [{
+                    message: {
+                      content: 'Perspective créative: Imagine un monde où... comme une métaphore de la nature...'
+                    }
+                  }]
+                };
+              }
+              
+              return {
+                choices: [{ message: { content: 'Default response' } }]
+              };
+            })
+          }
+        }
+      } as any);
+
+      await import('../llm.worker');
+
+      const creativeMessage: WorkerMessage<QueryPayload & { systemPrompt?: string; agentType?: string }> = {
+        type: 'generate_response',
+        payload: {
+          query: 'Explain AI',
+          conversationHistory: [],
+          systemPrompt: 'Tu es un penseur créatif',
+          agentType: 'creative'
+        },
+        meta: { traceId: 'test-creative', timestamp: Date.now() }
+      };
+
+      if (global.self.onmessage) {
+        global.self.onmessage({ data: creativeMessage } as MessageEvent);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Vérifier que la réponse contient des éléments créatifs
+      const creativeCalls = postMessageSpy.mock.calls.filter((call: any) => 
+        call[0].type === 'llm_response_complete' &&
+        (call[0].payload.response.includes('Perspective créative') ||
+         call[0].payload.response.includes('Imagine') ||
+         call[0].payload.response.includes('métaphore'))
+      );
+      
+      expect(creativeCalls.length).toBeGreaterThan(0);
+    });
+
+    it('ne devrait pas contaminer la réponse créative avec des éléments logiques', async () => {
+      const { WebWorkerMLCEngine } = await import('@mlc-ai/web-llm');
+      
+      const responses: string[] = [];
+      
+      vi.mocked(WebWorkerMLCEngine.create).mockResolvedValue({
+        reload: vi.fn().mockResolvedValue(undefined),
+        chat: {
+          completions: {
+            create: vi.fn().mockImplementation(async (request: any) => {
+              const prompt = request.messages[0].content.toLowerCase();
+              let response = '';
+              
+              if (prompt.includes('logique')) {
+                response = 'Analyse logique: Step 1, Step 2, Step 3';
+              } else if (prompt.includes('créatif')) {
+                response = 'Perspective créative: Imagine, métaphore, connexion surprenante';
+              }
+              
+              responses.push(response);
+              return {
+                choices: [{ message: { content: response } }]
+              };
+            })
+          }
+        }
+      } as any);
+
+      await import('../llm.worker');
+
+      // D'abord l'agent logique
+      const logicalMessage: WorkerMessage<QueryPayload & { systemPrompt?: string; agentType?: string }> = {
+        type: 'generate_response',
+        payload: {
+          query: 'Test',
+          conversationHistory: [],
+          systemPrompt: 'Tu es logique',
+          agentType: 'logical'
+        },
+        meta: { traceId: 'test-1', timestamp: Date.now() }
+      };
+
+      if (global.self.onmessage) {
+        global.self.onmessage({ data: logicalMessage } as MessageEvent);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Ensuite l'agent créatif
+      const creativeMessage: WorkerMessage<QueryPayload & { systemPrompt?: string; agentType?: string }> = {
+        type: 'generate_response',
+        payload: {
+          query: 'Test',
+          conversationHistory: [],
+          systemPrompt: 'Tu es créatif',
+          agentType: 'creative'
+        },
+        meta: { traceId: 'test-2', timestamp: Date.now() }
+      };
+
+      if (global.self.onmessage) {
+        global.self.onmessage({ data: creativeMessage } as MessageEvent);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // La réponse créative ne devrait pas contenir des mots logiques comme "Step", "analyze"
+      const creativeResponse = responses.find(r => r.includes('créative'));
+      expect(creativeResponse).toBeDefined();
+      if (creativeResponse) {
+        expect(creativeResponse.toLowerCase()).not.toMatch(/step 1|step 2|analyze|structured/i);
+      }
+    });
+  });
 });

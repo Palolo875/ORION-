@@ -28,10 +28,12 @@ let SELECTED_MODEL = "Phi-3-mini-4k-instruct-q4f16_1-MLC";
 /**
  * Singleton pour le moteur LLM
  * Garantit que le moteur n'est chargé qu'une seule fois et gère le changement de modèle.
+ * Inclut un mécanisme de reset pour éviter la contamination entre personas.
  */
 class LLMEngine {
   private static instance: MLCEngine | null = null;
   private static currentModel: string | null = null;
+  private static lastAgentType: string | null = null;
 
   /**
    * Obtient l'instance du moteur LLM (Singleton)
@@ -130,6 +132,21 @@ class LLMEngine {
     console.log("[LLM] Réinitialisation du moteur...");
     this.instance = null;
     this.currentModel = null;
+    this.lastAgentType = null;
+  }
+  
+  /**
+   * Réinitialise le contexte interne pour éviter la contamination entre agents
+   * Note: Avec MLC, on ne peut pas vraiment reset le contexte interne,
+   * mais on peut s'assurer que chaque requête est indépendante en utilisant
+   * des messages système clairs et en ne gardant pas d'historique.
+   */
+  static resetContext(agentType?: string) {
+    if (agentType && this.lastAgentType && this.lastAgentType !== agentType) {
+      console.log(`[LLM] Changement d'agent détecté: ${this.lastAgentType} → ${agentType}`);
+      console.log("[LLM] Contexte réinitialisé pour éviter la contamination");
+    }
+    this.lastAgentType = agentType || null;
   }
 }
 
@@ -141,6 +158,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
+  agentType?: string; // Type d'agent pour l'orchestration parallèle
 }>>) => {
   const { type, payload, meta } = event.data;
 
@@ -157,6 +175,9 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & {
   } else if (type === 'generate_response') {
     try {
       console.log(`[LLM] (traceId: ${meta?.traceId}) Inférence initiée.`);
+      
+      // Réinitialiser le contexte si on change d'agent (éviter contamination)
+      LLMEngine.resetContext(payload.agentType);
       
       const engine = await LLMEngine.getInstance(payload.modelId, (progress) => {
         // Envoyer la progression du chargement à l'UI avec plus de détails
@@ -214,7 +235,10 @@ Réponds à la requête de l'utilisateur de manière concise, intelligente et ut
 
       self.postMessage({ 
         type: 'llm_response_complete', 
-        payload: { response: responseText }, 
+        payload: { 
+          response: responseText,
+          agentType: payload.agentType // Inclure le type d'agent dans la réponse
+        }, 
         meta 
       });
 

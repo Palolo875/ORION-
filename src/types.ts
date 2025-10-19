@@ -63,6 +63,8 @@ export interface FinalResponsePayload {
   debug: { 
     totalRounds?: number; 
     inferenceTimeMs?: number;
+    debateQuality?: any; // DebateQuality from debateQuality.ts
+    error?: string;
   };
 }
 
