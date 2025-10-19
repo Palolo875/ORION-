@@ -12,8 +12,10 @@ import {
   FileJson,
   Zap,
   Info,
-  MessageSquare
+  MessageSquare,
+  Brain
 } from "lucide-react";
+import { MODELS, formatBytes } from "@/config/models";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -40,6 +42,7 @@ interface ControlPanelProps {
   currentDebateMode?: DebateMode;
   onCustomAgentsChange?: (agents: string[]) => void;
   customAgents?: string[];
+  currentModel?: string;
   cacheStats?: {
     size: number;
     totalHits: number;
@@ -70,6 +73,7 @@ export const ControlPanel = ({
   currentDebateMode = 'balanced',
   onCustomAgentsChange,
   customAgents = ['synthesizer'],
+  currentModel,
   cacheStats,
   memoryStats
 }: ControlPanelProps) => {
@@ -284,6 +288,44 @@ export const ControlPanel = ({
                     </AlertDescription>
                   </Alert>
                 </div>
+
+                {/* Current Model Info */}
+                {currentModel && (() => {
+                  const modelEntry = Object.entries(MODELS).find(([_, model]) => model.id === currentModel);
+                  const model = modelEntry ? modelEntry[1] : null;
+                  
+                  return model ? (
+                    <div className="glass rounded-2xl p-4 sm:p-6 space-y-3">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <Brain className="h-4 w-4" />
+                        Modèle Actuel
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Nom</span>
+                          <span className="text-sm font-semibold">{model.name}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Taille</span>
+                          <span className="text-sm">{formatBytes(model.size)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Contexte max</span>
+                          <span className="text-sm">{model.maxTokens.toLocaleString()} tokens</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Qualité</span>
+                          <span className="text-sm">
+                            {model.quality === 'basic' && '⭐'}
+                            {model.quality === 'high' && '⭐⭐'}
+                            {model.quality === 'very-high' && '⭐⭐⭐'}
+                            {model.quality === 'ultra' && '⭐⭐⭐⭐'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
 
                 {/* Metrics */}
                 <div className="glass rounded-2xl p-4 sm:p-6 space-y-4">

@@ -8,17 +8,18 @@ import { cn } from '@/lib/utils';
 
 interface ModelSelectorProps {
   onSelect: (modelId: string) => void;
-  defaultModel?: 'demo' | 'standard' | 'advanced';
+  defaultModel?: string;
+  compactMode?: boolean; // Pour affichage dans le SettingsPanel
 }
 
-export const ModelSelector = ({ onSelect, defaultModel = 'standard' }: ModelSelectorProps) => {
-  const [selectedModel, setSelectedModel] = useState<'demo' | 'standard' | 'advanced'>(defaultModel);
+export const ModelSelector = ({ onSelect, defaultModel = 'standard', compactMode = false }: ModelSelectorProps) => {
+  const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
 
   const handleSelect = () => {
     onSelect(MODELS[selectedModel].id);
   };
 
-  const getModelIcon = (modelKey: 'demo' | 'standard' | 'advanced') => {
+  const getModelIcon = (modelKey: string) => {
     switch (modelKey) {
       case 'demo':
         return <Zap className="h-6 w-6" />;
@@ -26,6 +27,14 @@ export const ModelSelector = ({ onSelect, defaultModel = 'standard' }: ModelSele
         return <Brain className="h-6 w-6" />;
       case 'advanced':
         return <Rocket className="h-6 w-6" />;
+      case 'mistral':
+        return <Sparkles className="h-6 w-6" />;
+      case 'gemma':
+        return <Brain className="h-6 w-6" />;
+      case 'codegemma':
+        return <Zap className="h-6 w-6" />;
+      default:
+        return <Brain className="h-6 w-6" />;
     }
   };
 
@@ -51,9 +60,76 @@ export const ModelSelector = ({ onSelect, defaultModel = 'standard' }: ModelSele
     }
   };
 
+  // Mode compact pour le SettingsPanel
+  if (compactMode) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3">
+          {Object.keys(MODELS).map((modelKey) => {
+            const model = MODELS[modelKey];
+            const isSelected = selectedModel === modelKey;
+            
+            return (
+              <button
+                key={modelKey}
+                onClick={() => {
+                  setSelectedModel(modelKey);
+                  onSelect(model.id);
+                }}
+                className={cn(
+                  "relative glass rounded-xl p-4 border-2 transition-all duration-200",
+                  "hover:scale-102 hover:shadow-lg text-left",
+                  isSelected 
+                    ? "border-primary shadow-md shadow-primary/20 bg-primary/5" 
+                    : "border-transparent hover:border-primary/30"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "rounded-lg p-2 flex-shrink-0",
+                    isSelected ? "bg-primary/20" : "bg-accent/20"
+                  )}>
+                    {getModelIcon(modelKey)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-semibold text-sm">{model.name}</h4>
+                      {model.recommended && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                          Recommandé
+                        </span>
+                      )}
+                      {isSelected && (
+                        <Check className="h-4 w-4 text-primary ml-auto flex-shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">{model.description}</p>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span>{formatBytes(model.size)}</span>
+                      <span>•</span>
+                      <span>{getSpeedLabel(model.speed)}</span>
+                      <span>•</span>
+                      <span className={getQualityColor(model.quality)}>
+                        {model.quality === 'basic' && '⭐'}
+                        {model.quality === 'high' && '⭐⭐'}
+                        {model.quality === 'very-high' && '⭐⭐⭐'}
+                        {model.quality === 'ultra' && '⭐⭐⭐⭐'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Mode complet pour la première sélection
   return (
     <div className="min-h-screen flex items-center justify-center p-4 glass-subtle">
-      <div className="max-w-4xl w-full space-y-8">
+      <div className="max-w-6xl w-full space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="flex justify-center">
@@ -71,8 +147,8 @@ export const ModelSelector = ({ onSelect, defaultModel = 'standard' }: ModelSele
         </div>
 
         {/* Grille de modèles */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {(Object.keys(MODELS) as Array<'demo' | 'standard' | 'advanced'>).map((modelKey) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Object.keys(MODELS).map((modelKey) => {
             const model = MODELS[modelKey];
             const isSelected = selectedModel === modelKey;
             
@@ -133,6 +209,7 @@ export const ModelSelector = ({ onSelect, defaultModel = 'standard' }: ModelSele
                       {model.quality === 'basic' && '⭐'}
                       {model.quality === 'high' && '⭐⭐'}
                       {model.quality === 'very-high' && '⭐⭐⭐'}
+                      {model.quality === 'ultra' && '⭐⭐⭐⭐'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
