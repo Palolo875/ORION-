@@ -3,7 +3,7 @@
  * Chiffrement AES-GCM pour les données sensibles dans IndexedDB
  */
 
-import { logger } from './logger';
+import { logger } from '../logger';
 
 /**
  * Classe de chiffrement sécurisé pour le stockage local

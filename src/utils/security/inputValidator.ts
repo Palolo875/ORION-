@@ -4,7 +4,7 @@
  */
 
 import { detectMaliciousContent, sanitizeContent } from './sanitizer';
-import { logger } from './logger';
+import { logger } from '../logger';
 
 export interface ValidationResult {
   isValid: boolean;
