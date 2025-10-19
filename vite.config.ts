@@ -7,31 +7,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
-    port: 8080,
-    // Headers de sécurité pour le développement
-    headers: {
-      // Content Security Policy stricte
-      'Content-Security-Policy': [
-        "default-src 'self'",
-        "script-src 'self' 'wasm-unsafe-eval'", // Nécessaire pour WebAssembly
-        "style-src 'self' 'unsafe-inline'", // Tailwind nécessite inline styles
-        "img-src 'self' data: blob:", // Data URIs pour images uploadées
-        "font-src 'self' data:",
-        "connect-src 'self' https://huggingface.co https://*.huggingface.co", // API modèles
-        "worker-src 'self' blob:", // Web Workers
-        "frame-src 'none'", // Pas d'iframes
-        "object-src 'none'", // Pas d'objets Flash/Java
-        "base-uri 'self'",
-        "form-action 'self'",
-        "upgrade-insecure-requests"
-      ].join('; '),
-      // Autres headers de sécurité
-      'X-Frame-Options': 'DENY',
-      'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
-      'Permissions-Policy': 'geolocation=(), microphone=(), camera=()'
-    }
+    host: "0.0.0.0",
+    port: 5000,
   },
   plugins: [
     react(), 
