@@ -39,8 +39,10 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'placeholder.svg'],
+      injectRegister: 'auto',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,wasm}'],
+        globIgnores: ['**/node_modules/**/*'],
         maximumFileSizeToCacheInBytes: 100 * 1024 * 1024, // 100MB pour les gros modèles
         cleanupOutdatedCaches: true,
         skipWaiting: true,
@@ -171,13 +173,38 @@ export default defineConfig(({ mode }) => ({
     // Optimisations
     minify: 'esbuild',
     target: 'esnext',
+    // Augmenter la limite de taille pour les grands fichiers (workers)
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
+        format: 'es',
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui-vendor': ['framer-motion', 'lucide-react'],
-        }
+          'radix-ui': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-tooltip',
+          ],
+          'ml-libs': ['@mlc-ai/web-llm', '@xenova/transformers'],
+        },
+        // Noms de fichiers avec hash pour le cache
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
       }
-    }
+    },
+    // Optimisation des sources maps pour le production
+    sourcemap: false,
+    // Réduire les warnings console en production
+    reportCompressedSize: false,
+  },
+  worker: {
+    format: 'es',
+    plugins: () => [],
   }
 }));

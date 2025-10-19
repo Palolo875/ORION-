@@ -16,7 +16,7 @@ import { TOOL_CONFIG } from '../config/constants';
 console.log("ToolUser Worker (Enhanced) chargé et prêt.");
 
 // === Types d'outils ===
-type ToolFunction = (...args: any[]) => string | Promise<string>;
+type ToolFunction = (...args: unknown[]) => string | Promise<string>;
 
 interface ToolDefinition {
   fn: ToolFunction;
@@ -52,7 +52,6 @@ const tools: Record<string, ToolFunction> = {
       if (sanitized !== expression) {
         throw new Error('Expression contient des caractères non autorisés');
       }
-      // eslint-disable-next-line no-eval
       const result = eval(sanitized);
       return `${expression} = ${result}`;
     } catch (error) {

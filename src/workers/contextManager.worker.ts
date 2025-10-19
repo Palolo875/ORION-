@@ -86,7 +86,7 @@ class EntityExtractor {
     
     // 2. Dates
     const datePatterns = [
-      /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g, // 01/01/2024
+      /\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/g, // 01/01/2024
       /\d{4}-\d{2}-\d{2}/g, // 2024-01-01
       /(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{4}/gi,
       /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+\d{1,2}/gi,

@@ -12,7 +12,7 @@
 import { get, set, keys, del } from 'idb-keyval';
 import { WorkerMessage, MemoryItem, MemoryType } from '../types';
 import { pipeline, env } from '@xenova/transformers';
-import { HierarchicalNSW } from 'hnswlib-wasm';
+import { loadHnswlib, type HierarchicalNSW } from 'hnswlib-wasm';
 import { MEMORY_CONFIG, HNSW_CONFIG } from '../config/constants';
 
 // Configuration de Transformers.js pour une performance optimale dans le navigateur
@@ -52,8 +52,11 @@ class HNSWIndexManager {
     
     console.log("[Memory/HNSW] Initialisation de l'index HNSW...");
     
+    // Charger le module hnswlib-wasm
+    const hnswlibModule = await loadHnswlib();
+    
     // Créer un nouvel index HNSW
-    this.index = new HierarchicalNSW('cosine', this.embeddingDimension);
+    this.index = new hnswlibModule.HierarchicalNSW('cosine', this.embeddingDimension);
     this.index.initIndex(
       MEMORY_CONFIG.BUDGET,
       HNSW_CONFIG.M,

@@ -16,6 +16,7 @@ import { detectDeviceProfile, DeviceProfile } from "@/utils/deviceProfiler";
 import { MODELS, DEFAULT_MODEL } from "@/config/models";
 import { BrowserCompatibilityBanner } from "@/components/BrowserCompatibilityBanner";
 import { ProcessedFile } from "@/utils/fileProcessor";
+import { toast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
