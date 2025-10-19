@@ -9,7 +9,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 export default defineConfig(({ mode }) => ({
   server: {
     host: "0.0.0.0",
-    port: 5000,
+    port: 8080,
     allowedHosts: true,
   },
   plugins: [

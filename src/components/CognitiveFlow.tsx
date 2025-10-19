@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Search, Database, Cpu, MessageSquare, Clock } from 'lucide-react';
+import { Brain, Search, Database, Cpu, MessageSquare, Clock, Users, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Les étapes possibles de notre flux
-export type FlowStep = 'query' | 'tool_search' | 'memory_search' | 'llm_reasoning' | 'final_response' | 'idle';
+export type FlowStep = 'query' | 'tool_search' | 'memory_search' | 'llm_reasoning' | 'final_response' | 'idle' | 'multi_agent_critical' | 'multi_agent_synthesis';
 
 interface CognitiveFlowProps {
   currentStep: FlowStep;
@@ -47,6 +47,16 @@ const stepsConfig: Record<FlowStep, StepConfig> = {
     label: 'Synthèse Finale', 
     icon: <Cpu className="h-4 w-4" />,
     description: 'Préparation de la réponse'
+  },
+  multi_agent_critical: {
+    label: 'Analyse Multi-Agents',
+    icon: <Users className="h-4 w-4" />,
+    description: 'Débat critique entre agents'
+  },
+  multi_agent_synthesis: {
+    label: 'Synthèse Collective',
+    icon: <Sparkles className="h-4 w-4" />,
+    description: 'Fusion des perspectives'
   },
 };
 

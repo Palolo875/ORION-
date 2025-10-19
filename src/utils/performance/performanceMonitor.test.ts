@@ -1,9 +1,5 @@
-/**
- * Tests pour le Performance Monitor
- */
-
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PerformanceMonitor } from '../performanceMonitor';
+import { PerformanceMonitor } from './performanceMonitor';
 
 describe('PerformanceMonitor', () => {
   let monitor: PerformanceMonitor;

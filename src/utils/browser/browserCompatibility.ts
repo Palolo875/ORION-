@@ -76,8 +76,8 @@ function detectWebGL(): { supported: boolean; message: string; version?: 1 | 2 }
     const canvas = document.createElement('canvas');
     
     // Essayer WebGL2 d'abord (meilleur support pour les calculs)
-    let gl = canvas.getContext('webgl2');
-    if (gl) {
+    const gl2 = canvas.getContext('webgl2');
+    if (gl2) {
       return {
         supported: true,
         message: "WebGL 2.0 est disponible (mode fallback optimisé).",
@@ -86,8 +86,8 @@ function detectWebGL(): { supported: boolean; message: string; version?: 1 | 2 }
     }
     
     // Fallback sur WebGL1
-    gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (gl) {
+    const gl1 = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (gl1) {
       return {
         supported: true,
         message: "WebGL 1.0 est disponible (mode fallback de base).",

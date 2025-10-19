@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback } from "react";
 import { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from "@/types";
 import { FlowStep } from "@/components/CognitiveFlow";
-import { DeviceProfile } from "@/utils/deviceProfiler";
+import { DeviceProfile } from "@/utils/performance/deviceProfiler";
 import { ProcessedFile } from "@/utils/fileProcessor";
 
 interface UseOrchestratorWorkerProps {

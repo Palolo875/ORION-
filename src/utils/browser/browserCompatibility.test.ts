@@ -3,7 +3,7 @@ import {
   detectBrowserCompatibility, 
   getBrowserRecommendation, 
   getBrowserInfo 
-} from '../browserCompatibility';
+} from './browserCompatibility';
 
 describe('browserCompatibility', () => {
   beforeEach(() => {

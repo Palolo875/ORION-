@@ -17,7 +17,7 @@ export interface WorkerMessage<T = unknown> {
 /**
  * Type pour les étapes du flux cognitif
  */
-export type FlowStep = 'query' | 'tool_search' | 'memory_search' | 'llm_reasoning' | 'final_response' | 'idle';
+export type FlowStep = 'query' | 'tool_search' | 'memory_search' | 'llm_reasoning' | 'final_response' | 'idle' | 'multi_agent_critical' | 'multi_agent_synthesis';
 
 /**
  * Payload pour les mises à jour de statut du flux cognitif
