@@ -1,4 +1,4 @@
-import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette } from "lucide-react";
+import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, Check, Sparkles, Rocket, ChevronRight } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -6,22 +6,47 @@ import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
-import { useState } from "react";
+import { Badge } from "./ui/badge";
+import { useState, useEffect } from "react";
+import { MODELS, formatBytes, ModelConfig, detectDeviceCapabilities, DeviceCapabilities } from "@/config/models";
+import { cn } from "@/lib/utils";
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  currentModel?: string;
+  onModelChange?: (modelId: string) => void;
 }
 
-export const SettingsPanel = ({ isOpen, onClose }: SettingsPanelProps) => {
+export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: SettingsPanelProps) => {
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [model, setModel] = useState("gpt-4");
+  const [selectedModelKey, setSelectedModelKey] = useState<string>("standard");
+  const [deviceCapabilities, setDeviceCapabilities] = useState<DeviceCapabilities | null>(null);
   const [temperature, setTemperature] = useState([0.7]);
   const [maxTokens, setMaxTokens] = useState([2000]);
   const [language, setLanguage] = useState("fr");
   const [notifications, setNotifications] = useState(true);
   const [soundEffects, setSoundEffects] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
+
+  // Detect device capabilities on mount
+  useEffect(() => {
+    async function loadCapabilities() {
+      const caps = await detectDeviceCapabilities();
+      setDeviceCapabilities(caps);
+    }
+    loadCapabilities();
+  }, []);
+
+  // Sync with current model
+  useEffect(() => {
+    if (currentModel) {
+      const modelEntry = Object.entries(MODELS).find(([_, m]) => m.id === currentModel);
+      if (modelEntry) {
+        setSelectedModelKey(modelEntry[0]);
+      }
+    }
+  }, [currentModel]);
 
   const toggleTheme = (newTheme: "light" | "dark") => {
     setTheme(newTheme);
@@ -88,24 +113,96 @@ export const SettingsPanel = ({ isOpen, onClose }: SettingsPanelProps) => {
                   </p>
                 </div>
 
-                <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-5 sm:space-y-6">
+                <div className="space-y-5 sm:space-y-6">
                   {/* Model Selection */}
-                  <div className="space-y-2 sm:space-y-3">
-                    <Label className="text-xs sm:text-sm font-medium">Modèle d'IA</Label>
-                    <Select value={model} onValueChange={setModel}>
-                      <SelectTrigger className="w-full rounded-xl">
-                        <SelectValue placeholder="Sélectionner un modèle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gpt-4">GPT-4 Turbo (Recommandé)</SelectItem>
-                        <SelectItem value="gpt-3.5">GPT-3.5 Turbo (Rapide)</SelectItem>
-                        <SelectItem value="claude-3">Claude 3 Opus</SelectItem>
-                        <SelectItem value="claude-2">Claude 2.1</SelectItem>
-                        <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs sm:text-sm font-medium">Modèle d'IA Local</Label>
+                      {deviceCapabilities && (
+                        <Badge variant="outline" className="text-xs">
+                          RAM: {deviceCapabilities.ram}GB
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {Object.entries(MODELS).map(([key, model]) => {
+                        const isSelected = selectedModelKey === key;
+                        const isCompatible = !deviceCapabilities || deviceCapabilities.compatibleModels.includes(key);
+                        const isRecommended = deviceCapabilities?.recommendedModel === key;
+                        
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => {
+                              if (isCompatible) {
+                                setSelectedModelKey(key);
+                                onModelChange?.(model.id);
+                              }
+                            }}
+                            disabled={!isCompatible}
+                            className={cn(
+                              "w-full glass rounded-xl p-4 text-left transition-all",
+                              "hover:scale-[1.02] hover:shadow-md",
+                              isSelected && "border-2 border-primary shadow-lg shadow-primary/20",
+                              !isCompatible && "opacity-50 cursor-not-allowed"
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="text-sm font-semibold truncate">{model.name}</h4>
+                                  {model.recommended && (
+                                    <Badge className="text-xs px-1.5 py-0">
+                                      <Sparkles className="h-3 w-3" />
+                                    </Badge>
+                                  )}
+                                  {isRecommended && (
+                                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                                      Optimal
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                                  {model.description}
+                                </p>
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  <span className="px-2 py-0.5 bg-accent/30 rounded">
+                                    {formatBytes(model.size)}
+                                  </span>
+                                  <span className="px-2 py-0.5 bg-accent/30 rounded">
+                                    {model.maxTokens} tokens
+                                  </span>
+                                  <span className="px-2 py-0.5 bg-accent/30 rounded">
+                                    {model.quality === 'basic' && '⭐'}
+                                    {model.quality === 'high' && '⭐⭐'}
+                                    {model.quality === 'very-high' && '⭐⭐⭐'}
+                                    {model.quality === 'ultra' && '⭐⭐⭐⭐'}
+                                  </span>
+                                  <span className="px-2 py-0.5 bg-accent/30 rounded">
+                                    {model.speed === 'very-fast' && '⚡⚡⚡'}
+                                    {model.speed === 'fast' && '⚡⚡'}
+                                    {model.speed === 'moderate' && '⚡'}
+                                    {model.speed === 'slow' && '🐌'}
+                                  </span>
+                                </div>
+                                {!isCompatible && (
+                                  <p className="text-xs text-destructive mt-2">
+                                    ⚠️ RAM insuffisante (min. {model.minRAM}GB)
+                                  </p>
+                                )}
+                              </div>
+                              {isSelected && (
+                                <Check className="h-5 w-5 text-primary flex-shrink-0" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
                     <p className="text-xs text-muted-foreground">
-                      Choisissez le modèle qui correspond le mieux à vos besoins.
+                      💡 Tous les modèles fonctionnent 100% localement. Les modèles incompatibles sont grisés.
                     </p>
                   </div>
 

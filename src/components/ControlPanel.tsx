@@ -12,7 +12,8 @@ import {
   FileJson,
   Zap,
   Info,
-  MessageSquare
+  MessageSquare,
+  Brain
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -40,6 +41,8 @@ interface ControlPanelProps {
   currentDebateMode?: DebateMode;
   onCustomAgentsChange?: (agents: string[]) => void;
   customAgents?: string[];
+  currentModel?: string;
+  onModelChange?: (modelId: string) => void;
   cacheStats?: {
     size: number;
     totalHits: number;
@@ -70,6 +73,8 @@ export const ControlPanel = ({
   currentDebateMode = 'balanced',
   onCustomAgentsChange,
   customAgents = ['synthesizer'],
+  currentModel,
+  onModelChange,
   cacheStats,
   memoryStats
 }: ControlPanelProps) => {
@@ -284,6 +289,30 @@ export const ControlPanel = ({
                     </AlertDescription>
                   </Alert>
                 </div>
+
+                {/* Model Selection */}
+                {currentModel && onModelChange && (
+                  <div className="glass rounded-2xl p-4 sm:p-6 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-4 w-4" />
+                      <h4 className="text-sm font-semibold">Modèle d'IA Local</h4>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="w-full rounded-xl justify-between"
+                      onClick={() => {
+                        // Open settings panel to change model
+                        toast({
+                          title: "Sélection de modèle",
+                          description: "Accédez aux Paramètres > IA pour changer de modèle",
+                        });
+                      }}
+                    >
+                      <span className="text-sm">Modèle actuel</span>
+                      <span className="text-xs text-muted-foreground">Voir dans Paramètres</span>
+                    </Button>
+                  </div>
+                )}
 
                 {/* Metrics */}
                 <div className="glass rounded-2xl p-4 sm:p-6 space-y-4">
