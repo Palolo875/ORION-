@@ -11,6 +11,7 @@ export interface BrowserCompatibility {
   webGL: {
     supported: boolean;
     message: string;
+    version?: 1 | 2;
   };
   speechRecognition: {
     supported: boolean;
@@ -28,6 +29,7 @@ export interface BrowserCompatibility {
     supported: boolean;
     message: string;
   };
+  isMobile: boolean;
   isCompatible: boolean;
   warnings: string[];
   recommendations: string[];
@@ -67,16 +69,29 @@ async function detectWebGPU(): Promise<{ supported: boolean; message: string }> 
 
 /**
  * Détecte la compatibilité WebGL (fallback pour WebGPU)
+ * Teste WebGL2 en priorité, puis WebGL1
  */
-function detectWebGL(): { supported: boolean; message: string } {
+function detectWebGL(): { supported: boolean; message: string; version?: 1 | 2 } {
   try {
     const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     
+    // Essayer WebGL2 d'abord (meilleur support pour les calculs)
+    let gl = canvas.getContext('webgl2');
     if (gl) {
       return {
         supported: true,
-        message: "WebGL est disponible (mode fallback possible)."
+        message: "WebGL 2.0 est disponible (mode fallback optimisé).",
+        version: 2
+      };
+    }
+    
+    // Fallback sur WebGL1
+    gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (gl) {
+      return {
+        supported: true,
+        message: "WebGL 1.0 est disponible (mode fallback de base).",
+        version: 1
       };
     }
     
@@ -210,6 +225,13 @@ export async function detectBrowserCompatibility(): Promise<BrowserCompatibility
 
   // Déterminer si le navigateur est compatible
   const isCompatible = webWorkers.supported && (webGPU.supported || webGL.supported);
+  const isMobile = isMobileDevice();
+  
+  // Avertissements spécifiques mobiles
+  if (isMobile) {
+    warnings.push("ℹ️ Appareil mobile détecté - Modèles légers recommandés");
+    recommendations.push("Sur mobile, utilisez des modèles < 500MB pour de meilleures performances");
+  }
 
   return {
     webGPU,
@@ -218,6 +240,7 @@ export async function detectBrowserCompatibility(): Promise<BrowserCompatibility
     speechSynthesis,
     fileAPI,
     webWorkers,
+    isMobile,
     isCompatible,
     warnings,
     recommendations
@@ -246,12 +269,32 @@ export function getBrowserRecommendation(): string {
 }
 
 /**
+ * Détecte si l'appareil est un mobile
+ */
+export function isMobileDevice(): boolean {
+  const userAgent = navigator.userAgent.toLowerCase();
+  const mobileKeywords = ['android', 'webos', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone'];
+  
+  // Vérifier les mots-clés mobiles
+  const hasMobileKeyword = mobileKeywords.some(keyword => userAgent.includes(keyword));
+  
+  // Vérifier la taille de l'écran
+  const hasSmallScreen = window.innerWidth < 768;
+  
+  // Vérifier l'API touch
+  const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  
+  return hasMobileKeyword || (hasSmallScreen && hasTouchScreen);
+}
+
+/**
  * Obtient des informations détaillées sur le navigateur
  */
 export function getBrowserInfo(): {
   name: string;
   version: string;
   os: string;
+  isMobile: boolean;
 } {
   const userAgent = navigator.userAgent;
   
@@ -279,7 +322,49 @@ export function getBrowserInfo(): {
   else if (userAgent.includes("Mac")) os = "macOS";
   else if (userAgent.includes("Linux")) os = "Linux";
   else if (userAgent.includes("Android")) os = "Android";
-  else if (userAgent.includes("iOS")) os = "iOS";
+  else if (userAgent.includes("iOS") || userAgent.includes("iPhone") || userAgent.includes("iPad")) os = "iOS";
   
-  return { name, version, os };
+  return { name, version, os, isMobile: isMobileDevice() };
+}
+
+/**
+ * Détermine la stratégie d'exécution optimale selon les capacités
+ */
+export function getExecutionStrategy(compatibility: BrowserCompatibility): {
+  useWebGPU: boolean;
+  useWebGL: boolean;
+  useCPU: boolean;
+  recommendedModelSize: 'tiny' | 'small' | 'medium' | 'large';
+  maxTokens: number;
+} {
+  const isMobile = compatibility.isMobile;
+  
+  if (compatibility.webGPU.supported && !isMobile) {
+    return {
+      useWebGPU: true,
+      useWebGL: false,
+      useCPU: false,
+      recommendedModelSize: 'medium',
+      maxTokens: 512
+    };
+  }
+  
+  if (compatibility.webGL.supported) {
+    return {
+      useWebGPU: false,
+      useWebGL: true,
+      useCPU: false,
+      recommendedModelSize: isMobile ? 'tiny' : 'small',
+      maxTokens: isMobile ? 128 : 256
+    };
+  }
+  
+  // Fallback CPU (très lent)
+  return {
+    useWebGPU: false,
+    useWebGL: false,
+    useCPU: true,
+    recommendedModelSize: 'tiny',
+    maxTokens: 64
+  };
 }

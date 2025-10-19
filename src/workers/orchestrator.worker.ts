@@ -10,6 +10,8 @@
 
 import type { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from '../types';
 import { LOGICAL_AGENT, CREATIVE_AGENT, CRITICAL_AGENT, SYNTHESIZER_AGENT, createSynthesisMessage } from '../config/agents';
+import { errorLogger, UserMessages } from '../utils/errorLogger';
+import { withRetry, retryStrategies } from '../utils/retry';
 
 console.log("Orchestrator Worker (Secure) chargé et prêt.");
 
@@ -82,10 +84,14 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
         meta: currentQueryMeta 
       });
 
+      // Déterminer si on doit utiliser le débat multi-agents
+      const useMultiAgent = profile === 'full' || (profile === 'lite' && payload.query.length > 50);
+      console.log(`[Orchestrateur] Mode débat multi-agents: ${useMultiAgent ? 'OUI' : 'NON'}`);
+      
       switch (profile) {
         case 'full':
-          // Comportement normal et complet: ReAct avec LLM
-          console.log("[Orchestrateur] Stratégie 'full': ReAct avec LLM.");
+          // Comportement normal et complet: ReAct avec LLM et débat multi-agents pour les requêtes complexes
+          console.log("[Orchestrateur] Stratégie 'full': ReAct avec LLM et débat multi-agents.");
           toolUserWorker.postMessage({ 
             type: 'find_and_execute_tool', 
             payload: { query: payload.query },
@@ -94,7 +100,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
           break;
 
         case 'lite':
-          // On utilise les outils mais on simplifie le LLM si nécessaire
+          // On utilise les outils et le débat multi-agents pour les questions complexes
           console.log("[Orchestrateur] Stratégie 'lite': Outils + LLM optimisé.");
           toolUserWorker.postMessage({ 
             type: 'find_and_execute_tool', 
@@ -105,7 +111,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
 
         case 'micro':
         default:
-          // Le mode le plus basique : outils uniquement, pas de LLM lourd
+          // Le mode le plus basique : outils uniquement, pas de débat LLM lourd
           console.log("[Orchestrateur] Stratégie 'micro': Outils uniquement, pas de LLM.");
           toolUserWorker.postMessage({ 
             type: 'find_and_execute_tool', 
@@ -163,12 +169,20 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
       console.warn(`[Orchestrateur] Unknown message type: ${type}`);
     }
   } catch (error) {
-    console.error('[Orchestrateur] Error processing message:', error);
+    const err = error as Error;
+    errorLogger.error(
+      'Orchestrator',
+      `Error processing message: ${err.message}`,
+      UserMessages.WORKER_FAILED,
+      err,
+      { type, traceId: meta?.traceId }
+    );
+    
     sendResponse({
-      response: 'Une erreur est survenue lors du traitement de votre demande.',
+      response: UserMessages.WORKER_FAILED + ' Veuillez réessayer.',
       confidence: 0,
-      provenance: {},
-      debug: {}
+      provenance: { fromAgents: ['ErrorHandler'] },
+      debug: { error: err.message }
     });
   }
 };
@@ -234,8 +248,8 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
         0.3
       );
     } else {
-      // Pour 'full' et 'lite', on lance le processus de mémoire et LLM
-      console.log("[Orchestrateur] Aucun outil applicable. Lancement du processus de mémoire et débat.");
+      // Pour 'full' et 'lite', on lance le processus de mémoire et LLM/débat
+      console.log("[Orchestrateur] Aucun outil applicable. Lancement du processus de mémoire et raisonnement.");
       
       // Envoyer une mise à jour de statut : Recherche en mémoire
       self.postMessage({ 
@@ -247,11 +261,8 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
         meta: currentQueryMeta 
       });
       
-      memoryWorker.postMessage({ 
-        type: 'search', 
-        payload: { query: currentQueryContext!.query },
-        meta: currentQueryMeta || undefined
-      });
+      // Rechercher en mémoire avec retry
+      searchMemoryWithRetry();
     }
   } else if (type === 'init_complete') {
     console.log('[Orchestrateur] ToolUser Worker initialisé.');
@@ -479,12 +490,19 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   } else if (type === 'llm_error') {
     // Gérer l'erreur du LLM
     const errorPayload2 = payload as any;
-    console.error(`[Orchestrateur] Erreur LLM: ${errorPayload2.error}`);
+    errorLogger.error(
+      'Orchestrator',
+      `LLM error: ${errorPayload2.error}`,
+      UserMessages.LLM_INFERENCE_FAILED,
+      undefined,
+      { query: currentQueryContext?.query?.substring(0, 100), traceId: meta?.traceId }
+    );
+    
     const errorPayload: FinalResponsePayload = {
-      response: `Désolé, une erreur est survenue lors de la génération de la réponse: ${errorPayload2.error}`,
+      response: UserMessages.LLM_INFERENCE_FAILED,
       confidence: 0,
-      provenance: {},
-      debug: {}
+      provenance: { fromAgents: ['ErrorHandler'] },
+      debug: { error: errorPayload2.error }
     };
     self.postMessage({ 
       type: 'final_response', 
@@ -496,6 +514,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     currentMemoryHits = [];
     currentQueryContext = null;
     currentQueryMeta = null;
+    multiAgentState = { currentStep: 'idle' };
 
   } else if (type === 'llm_load_progress') {
     // Relayer la progression du chargement à l'UI
@@ -540,10 +559,30 @@ function sendSimpleResponse(text: string, confidence: number): void {
 
 /**
  * Lance l'inférence LLM avec le contexte actuel
+ * Utilise le débat multi-agents pour les profils 'full' et les requêtes complexes en 'lite'
  */
 function launchLLMInference(): void {
   console.log(`[Orchestrateur] (traceId: ${currentQueryMeta?.traceId}) Lancement de l'inférence LLM.`);
   
+  const profile = currentQueryContext?.deviceProfile || 'micro';
+  const queryLength = currentQueryContext?.query.length || 0;
+  
+  // Décider si on utilise le débat multi-agents
+  const useMultiAgent = profile === 'full' || (profile === 'lite' && queryLength > 50);
+  
+  if (useMultiAgent) {
+    console.log(`[Orchestrateur] Lancement du débat multi-agents pour une réponse enrichie.`);
+    launchMultiAgentDebate();
+  } else {
+    console.log(`[Orchestrateur] Mode inférence simple (profil: ${profile}).`);
+    launchSimpleLLMInference();
+  }
+}
+
+/**
+ * Lance une inférence LLM simple (sans débat multi-agents)
+ */
+function launchSimpleLLMInference(): void {
   // Envoyer une mise à jour de statut : Raisonnement LLM
   self.postMessage({ 
     type: 'status_update', 
@@ -559,10 +598,61 @@ function launchLLMInference(): void {
     context: currentMemoryHits,
   };
 
-  // Appeler le LLM Worker
+  // Appeler le LLM Worker avec mode simple
+  multiAgentState.currentStep = 'idle'; // Mode simple
   llmWorker.postMessage({ 
     type: 'generate_response', 
     payload: llmPayload,
+    meta: currentQueryMeta || undefined
+  });
+}
+
+/**
+ * Lance le débat multi-agents (4 agents: Logique, Créatif, Critique, Synthétiseur)
+ */
+function launchMultiAgentDebate(): void {
+  console.log(`[Orchestrateur] Démarrage du débat multi-agents...`);
+  
+  // Réinitialiser l'état
+  multiAgentState = {
+    currentStep: 'logical',
+    logicalResponse: undefined,
+    creativeResponse: undefined,
+    criticalResponse: undefined,
+  };
+  
+  // Lancer l'agent logique en premier
+  self.postMessage({ 
+    type: 'status_update', 
+    payload: { 
+      step: 'llm_reasoning', 
+      details: 'Agent Logique : Analyse structurée...' 
+    } as StatusUpdatePayload,
+    meta: currentQueryMeta 
+  });
+  
+  llmWorker.postMessage({ 
+    type: 'generate_response', 
+    payload: {
+      ...currentQueryContext!,
+      context: currentMemoryHits,
+      systemPrompt: LOGICAL_AGENT.systemPrompt,
+      temperature: LOGICAL_AGENT.temperature,
+      maxTokens: LOGICAL_AGENT.maxTokens,
+    },
+    meta: currentQueryMeta || undefined
+  });
+}
+
+/**
+ * Recherche en mémoire avec retry automatique
+ */
+function searchMemoryWithRetry(): void {
+  // Note: Dans un worker, on ne peut pas utiliser async/await dans le scope global
+  // On envoie simplement le message, le retry sera géré côté memory worker si nécessaire
+  memoryWorker.postMessage({ 
+    type: 'search', 
+    payload: { query: currentQueryContext!.query },
     meta: currentQueryMeta || undefined
   });
 }

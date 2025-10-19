@@ -17,6 +17,8 @@
 
 import { WebWorkerMLCEngine, MLCEngine, ChatCompletionRequest } from "@mlc-ai/web-llm";
 import { WorkerMessage, QueryPayload } from '../types';
+import { errorLogger, UserMessages } from '../utils/errorLogger';
+import { withRetry, retryStrategies } from '../utils/retry';
 
 console.log("[LLM] Worker chargé. Prêt à initialiser le moteur.")
 
@@ -55,27 +57,67 @@ class LLMEngine {
       try {
         console.log("[LLM] Initialisation du moteur WebLLM...");
         
-        // Utiliser l'engine WebWorkerMLCEngine directement sans sous-worker pour éviter les problèmes de build
-        // @ts-expect-error - Le type peut ne pas correspondre exactement mais cela fonctionne
-        this.instance = await WebWorkerMLCEngine.create({
-          initProgressCallback: (report: { progress: number; text: string; loaded?: number; total?: number }) => {
-            if (progress_callback) {
-              progress_callback(report);
-            } else {
-              console.log(`[LLM] ${report.text} - ${report.progress.toFixed(1)}%`);
-            }
+        // Utiliser withRetry pour l'initialisation du moteur
+        this.instance = await withRetry(
+          async () => {
+            // Utiliser l'engine WebWorkerMLCEngine directement sans sous-worker pour éviter les problèmes de build
+            // @ts-expect-error - Le type peut ne pas correspondre exactement mais cela fonctionne
+            const engine = await WebWorkerMLCEngine.create({
+              initProgressCallback: (report: { progress: number; text: string; loaded?: number; total?: number }) => {
+                if (progress_callback) {
+                  progress_callback(report);
+                } else {
+                  console.log(`[LLM] ${report.text} - ${report.progress.toFixed(1)}%`);
+                }
+              },
+            });
+            return engine;
           },
-        });
+          {
+            ...retryStrategies.llm,
+            onRetry: (error, attempt) => {
+              console.warn(`[LLM] Tentative ${attempt} échouée, nouvelle tentative...`, error.message);
+              if (progress_callback) {
+                progress_callback({
+                  progress: 0,
+                  text: `Nouvelle tentative (${attempt})...`,
+                  loaded: 0,
+                  total: 0,
+                });
+              }
+            }
+          }
+        );
 
         console.log(`[LLM] Chargement du modèle: ${targetModel}...`);
-        await this.instance.reload(targetModel);
+        
+        // Retry pour le chargement du modèle
+        await withRetry(
+          async () => {
+            await this.instance!.reload(targetModel);
+          },
+          {
+            ...retryStrategies.llm,
+            onRetry: (error, attempt) => {
+              console.warn(`[LLM] Chargement du modèle - Tentative ${attempt} échouée`, error.message);
+            }
+          }
+        );
+        
         this.currentModel = targetModel;
         console.log("[LLM] Moteur et modèle prêts !");
       } catch (error) {
-        console.error("[LLM] Erreur critique lors de l'initialisation:", error);
+        const err = error as Error;
+        errorLogger.critical(
+          'LLMWorker',
+          `Failed to initialize LLM engine: ${err.message}`,
+          UserMessages.LLM_LOAD_FAILED,
+          err,
+          { model: targetModel }
+        );
         this.instance = null;
         this.currentModel = null;
-        throw new Error(`Échec de l'initialisation du moteur LLM: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+        throw new Error(`Échec de l'initialisation du moteur LLM: ${err.message}`);
       }
     }
     return this.instance;
@@ -149,8 +191,26 @@ Réponds à la requête de l'utilisateur de manière concise, intelligente et ut
         top_p: 0.95,
       };
 
-      const llmResponse = await engine.chat.completions.create(request);
-      const responseText = llmResponse.choices[0].message.content || "Je n'ai pas pu formuler de réponse.";
+      // Utiliser retry pour l'inférence
+      const responseText = await withRetry(
+        async () => {
+          const llmResponse = await engine.chat.completions.create(request);
+          const text = llmResponse.choices[0].message.content;
+          if (!text || text.trim().length === 0) {
+            throw new Error('Empty response from LLM');
+          }
+          return text;
+        },
+        {
+          maxAttempts: 2, // Moins de retries pour l'inférence (c'est plus rapide)
+          initialDelay: 1000,
+          maxDelay: 3000,
+          backoffFactor: 1.5,
+          onRetry: (error, attempt) => {
+            console.warn(`[LLM] Inférence - Tentative ${attempt} échouée`, error.message);
+          }
+        }
+      );
 
       self.postMessage({ 
         type: 'llm_response_complete', 
@@ -159,22 +219,29 @@ Réponds à la requête de l'utilisateur de manière concise, intelligente et ut
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      const errorStack = error instanceof Error ? error.stack : undefined;
+      const err = error as Error;
+      const errorMessage = err.message || 'Erreur inconnue';
+      const errorStack = err.stack;
       
-      console.error(`[LLM] Erreur durant l'inférence:`, {
-        message: errorMessage,
-        stack: errorStack,
-        query: payload.query,
-        traceId: meta?.traceId
-      });
+      errorLogger.error(
+        'LLMWorker',
+        `Inference error: ${errorMessage}`,
+        UserMessages.LLM_INFERENCE_FAILED,
+        err,
+        {
+          query: payload.query?.substring(0, 100),
+          traceId: meta?.traceId,
+          systemPrompt: payload.systemPrompt?.substring(0, 50)
+        }
+      );
       
       // Envoyer une erreur détaillée pour le debugging
       self.postMessage({ 
         type: 'llm_error', 
         payload: { 
-          error: errorMessage,
+          error: UserMessages.LLM_INFERENCE_FAILED,
           details: {
+            technicalError: errorMessage,
             stack: errorStack,
             query: payload.query?.substring(0, 100) + '...', // Limiter la taille
             timestamp: Date.now()
