@@ -15,11 +15,14 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(), 
     mode === "development" && componentTagger(),
-    mode === "development" && visualizer({
-      open: true,
+    // Visualizer du bundle - génère un rapport HTML dans dist/
+    visualizer({
+      open: mode === 'development', // Ouvrir automatiquement en dev
       gzipSize: true,
       brotliSize: true,
-      filename: 'dist/stats.html'
+      filename: 'dist/bundle-stats.html',
+      template: 'treemap', // 'treemap', 'sunburst', 'network'
+      sourcemap: true
     }),
     VitePWA({
       registerType: 'autoUpdate',
@@ -166,19 +169,60 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         format: 'es',
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['framer-motion', 'lucide-react'],
-          'radix-ui': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-toast',
-            '@radix-ui/react-tooltip',
-          ],
-          'ml-libs': ['@mlc-ai/web-llm', '@xenova/transformers'],
+        // Code splitting agressif pour un meilleur lazy loading
+        manualChunks: (id) => {
+          // React et dépendances de base
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/react-router-dom')) {
+            return 'router';
+          }
+          
+          // Radix UI (séparer les gros composants)
+          if (id.includes('@radix-ui')) {
+            if (id.includes('dialog') || id.includes('dropdown') || id.includes('popover')) {
+              return 'radix-overlay';
+            }
+            return 'radix-ui';
+          }
+          
+          // UI libraries
+          if (id.includes('framer-motion')) {
+            return 'framer';
+          }
+          if (id.includes('lucide-react')) {
+            return 'icons';
+          }
+          
+          // ML libraries (gros chunks séparés)
+          if (id.includes('@mlc-ai/web-llm')) {
+            return 'web-llm';
+          }
+          if (id.includes('@xenova/transformers')) {
+            return 'transformers';
+          }
+          
+          // Workers (séparés pour lazy loading)
+          if (id.includes('/workers/')) {
+            const workerName = id.split('/workers/')[1]?.split('.')[0];
+            return `worker-${workerName}`;
+          }
+          
+          // Utilitaires
+          if (id.includes('/utils/')) {
+            return 'utils';
+          }
+          
+          // Composants UI
+          if (id.includes('/components/ui/')) {
+            return 'ui-components';
+          }
+          
+          // Autres vendor
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
         },
         // Noms de fichiers avec hash pour le cache
         entryFileNames: 'assets/[name]-[hash].js',
