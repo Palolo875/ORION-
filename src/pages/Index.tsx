@@ -11,6 +11,7 @@ import { ControlPanel } from "@/components/ControlPanel";
 import { ModelSelector } from "@/components/ModelSelector";
 import { ModelLoader } from "@/components/ModelLoader";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { QuickModelSwitcher } from "@/components/QuickModelSwitcher";
 import { FinalResponsePayload } from "@/types";
 import { detectDeviceProfile, DeviceProfile } from "@/utils/performance";
 import { DEFAULT_MODEL } from "@/config/models";
@@ -442,6 +443,15 @@ const Index = () => {
               </Button>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg sm:text-xl font-semibold">ORION</h1>
+                {modelInfo && (
+                  <span 
+                    className="hidden sm:flex text-xs px-2 py-1 rounded-full bg-primary/10 text-primary cursor-pointer hover:bg-primary/20 transition-colors"
+                    onClick={() => setIsSettingsOpen(true)}
+                    title="Cliquer pour changer de modèle"
+                  >
+                    {modelInfo.name}
+                  </span>
+                )}
                 {deviceProfile && (
                   <span className="device-profile text-xs px-2 py-1 rounded-full bg-accent/30 text-accent-foreground">
                     {deviceProfile}
@@ -450,6 +460,11 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <QuickModelSwitcher 
+                currentModel={selectedModel}
+                onModelChange={handleModelSelect}
+                className="hidden md:flex"
+              />
               <ThemeToggle />
               <Button
                 variant="ghost"
@@ -546,7 +561,12 @@ const Index = () => {
       </div>
 
       {/* Settings Panel */}
-      <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsPanel 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)}
+        currentModel={selectedModel}
+        onModelChange={handleModelSelect}
+      />
       
       {/* Control Panel */}
       <ControlPanel 
@@ -565,6 +585,8 @@ const Index = () => {
         currentDebateMode={debateMode}
         onCustomAgentsChange={handleCustomAgentsChange}
         customAgents={customAgents}
+        currentModel={selectedModel}
+        onModelChange={handleModelSelect}
         cacheStats={getCacheStats()}
         memoryStats={memoryStats}
       />
