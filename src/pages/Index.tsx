@@ -391,8 +391,7 @@ const Index = () => {
   
   // Afficher le sélecteur de modèle si aucun modèle n'est sélectionné
   if (!selectedModel) {
-    type ModelType = 'demo' | 'standard' | 'advanced';
-    return <ModelSelector onSelect={handleModelSelect} defaultModel={DEFAULT_MODEL as ModelType} />;
+    return <ModelSelector onSelect={handleModelSelect} defaultModel={DEFAULT_MODEL} />;
   }
   
   // Afficher le loader pendant le chargement du modèle
@@ -546,7 +545,12 @@ const Index = () => {
       </div>
 
       {/* Settings Panel */}
-      <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsPanel 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)}
+        currentModel={selectedModel || undefined}
+        onModelChange={handleModelSelect}
+      />
       
       {/* Control Panel */}
       <ControlPanel 
@@ -565,6 +569,7 @@ const Index = () => {
         currentDebateMode={debateMode}
         onCustomAgentsChange={handleCustomAgentsChange}
         customAgents={customAgents}
+        currentModel={selectedModel || undefined}
         cacheStats={getCacheStats()}
         memoryStats={memoryStats}
       />

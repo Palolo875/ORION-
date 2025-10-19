@@ -1,4 +1,4 @@
-import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette } from "lucide-react";
+import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, GitCompare } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -6,22 +6,38 @@ import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ModelSelector } from "./ModelSelector";
+import { ModelComparison } from "./ModelComparison";
+import { MODELS } from "@/config/models";
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  currentModel?: string;
+  onModelChange?: (modelId: string) => void;
 }
 
-export const SettingsPanel = ({ isOpen, onClose }: SettingsPanelProps) => {
+export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: SettingsPanelProps) => {
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [model, setModel] = useState("gpt-4");
+  const [selectedModelKey, setSelectedModelKey] = useState<string>("");
   const [temperature, setTemperature] = useState([0.7]);
   const [maxTokens, setMaxTokens] = useState([2000]);
   const [language, setLanguage] = useState("fr");
   const [notifications, setNotifications] = useState(true);
   const [soundEffects, setSoundEffects] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
+  const [showComparison, setShowComparison] = useState(false);
+
+  // Trouver la clé du modèle actuel à partir de son ID
+  useEffect(() => {
+    if (currentModel) {
+      const modelEntry = Object.entries(MODELS).find(([_, model]) => model.id === currentModel);
+      if (modelEntry) {
+        setSelectedModelKey(modelEntry[0]);
+      }
+    }
+  }, [currentModel]);
 
   const toggleTheme = (newTheme: "light" | "dark") => {
     setTheme(newTheme);
@@ -91,22 +107,42 @@ export const SettingsPanel = ({ isOpen, onClose }: SettingsPanelProps) => {
                 <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-5 sm:space-y-6">
                   {/* Model Selection */}
                   <div className="space-y-2 sm:space-y-3">
-                    <Label className="text-xs sm:text-sm font-medium">Modèle d'IA</Label>
-                    <Select value={model} onValueChange={setModel}>
-                      <SelectTrigger className="w-full rounded-xl">
-                        <SelectValue placeholder="Sélectionner un modèle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gpt-4">GPT-4 Turbo (Recommandé)</SelectItem>
-                        <SelectItem value="gpt-3.5">GPT-3.5 Turbo (Rapide)</SelectItem>
-                        <SelectItem value="claude-3">Claude 3 Opus</SelectItem>
-                        <SelectItem value="claude-2">Claude 2.1</SelectItem>
-                        <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Choisissez le modèle qui correspond le mieux à vos besoins.
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs sm:text-sm font-medium">Modèle d'IA</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowComparison(!showComparison)}
+                        className="h-8 text-xs"
+                      >
+                        <GitCompare className="h-3 w-3 mr-1" />
+                        {showComparison ? 'Cacher' : 'Comparer'}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Choisissez le modèle qui correspond le mieux à vos besoins. Le changement de modèle nécessitera un rechargement.
                     </p>
+                    
+                    {showComparison ? (
+                      <ModelComparison 
+                        onSelectModel={(modelId) => {
+                          if (onModelChange) {
+                            onModelChange(modelId);
+                            setShowComparison(false);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <ModelSelector 
+                        onSelect={(modelId) => {
+                          if (onModelChange) {
+                            onModelChange(modelId);
+                          }
+                        }} 
+                        defaultModel={selectedModelKey || 'standard'}
+                        compactMode={true}
+                      />
+                    )}
                   </div>
 
                   <Separator />
