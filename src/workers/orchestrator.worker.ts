@@ -9,6 +9,7 @@
  */
 
 import type { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from '../types';
+import { LOGICAL_AGENT, CREATIVE_AGENT, CRITICAL_AGENT, SYNTHESIZER_AGENT, createSynthesisMessage } from '../config/agents';
 
 console.log("Orchestrator Worker (Secure) chargé et prêt.");
 
@@ -40,6 +41,18 @@ let currentQueryContext: QueryPayload | null = null;
 let currentQueryMeta: WorkerMessage['meta'] | null = null;
 let startTime: number = 0;
 let currentMemoryHits: string[] = [];
+
+// Variables pour le débat multi-agents
+interface MultiAgentState {
+  logicalResponse?: string;
+  creativeResponse?: string;
+  criticalResponse?: string;
+  currentStep: 'idle' | 'logical' | 'creative' | 'critical' | 'synthesis';
+}
+
+let multiAgentState: MultiAgentState = {
+  currentStep: 'idle'
+};
 
 // --- Logique principale de l'Orchestrateur ---
 
@@ -321,45 +334,147 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   }
 
   if (type === 'llm_response_complete') {
-    const endTime = performance.now();
-    const inferenceTimeMs = Math.round(endTime - startTime);
-    console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Réponse du LLM reçue en ${inferenceTimeMs}ms.`);
     const llmPayload = payload as any;
-
-    const finalPayload: FinalResponsePayload = {
-      response: llmPayload.response,
-      confidence: 0.9, // À affiner plus tard avec une analyse du LLM
-      provenance: {
-        fromAgents: ['LLMAgent'],
-        memoryHits: currentMemoryHits,
-      },
-      debug: {
-        inferenceTimeMs: inferenceTimeMs,
-      }
-    };
-
-    self.postMessage({ 
-      type: 'final_response', 
-      payload: finalPayload, 
-      meta: currentQueryMeta || undefined
-    });
-
-    console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${meta?.traceId}) en ${inferenceTimeMs}ms.`);
-
-    // Sauvegarder la conversation avec le type approprié
-    if (currentQueryContext) {
-      const memoryToSave = `Q: ${currentQueryContext.query} | A: ${llmPayload.response}`;
-      memoryWorker.postMessage({ 
-        type: 'store', 
-        payload: { content: memoryToSave, type: 'conversation' }, 
+    
+    // Gérer les réponses en fonction de l'état du débat multi-agents
+    if (multiAgentState.currentStep === 'logical') {
+      console.log(`[Orchestrateur] Agent Logique a répondu`);
+      multiAgentState.logicalResponse = llmPayload.response;
+      multiAgentState.currentStep = 'creative';
+      
+      // Lancer l'agent créatif
+      self.postMessage({ 
+        type: 'status_update', 
+        payload: { 
+          step: 'multi_agent_creative', 
+          details: 'Agent Créatif en cours...' 
+        } as StatusUpdatePayload,
+        meta: currentQueryMeta 
+      });
+      
+      llmWorker.postMessage({ 
+        type: 'generate_response', 
+        payload: {
+          ...currentQueryContext!,
+          context: currentMemoryHits,
+          systemPrompt: CREATIVE_AGENT.systemPrompt,
+          temperature: CREATIVE_AGENT.temperature,
+          maxTokens: CREATIVE_AGENT.maxTokens,
+        },
         meta: currentQueryMeta || undefined
       });
-    }
+      
+    } else if (multiAgentState.currentStep === 'creative') {
+      console.log(`[Orchestrateur] Agent Créatif a répondu`);
+      multiAgentState.creativeResponse = llmPayload.response;
+      multiAgentState.currentStep = 'critical';
+      
+      // Lancer l'agent critique
+      self.postMessage({ 
+        type: 'status_update', 
+        payload: { 
+          step: 'multi_agent_critical', 
+          details: 'Agent Critique en cours...' 
+        } as StatusUpdatePayload,
+        meta: currentQueryMeta 
+      });
+      
+      llmWorker.postMessage({ 
+        type: 'generate_response', 
+        payload: {
+          ...currentQueryContext!,
+          context: currentMemoryHits,
+          systemPrompt: CRITICAL_AGENT.systemPrompt,
+          temperature: CRITICAL_AGENT.temperature,
+          maxTokens: CRITICAL_AGENT.maxTokens,
+        },
+        meta: currentQueryMeta || undefined
+      });
+      
+    } else if (multiAgentState.currentStep === 'critical') {
+      console.log(`[Orchestrateur] Agent Critique a répondu`);
+      multiAgentState.criticalResponse = llmPayload.response;
+      multiAgentState.currentStep = 'synthesis';
+      
+      // Lancer l'agent synthétiseur avec toutes les réponses
+      self.postMessage({ 
+        type: 'status_update', 
+        payload: { 
+          step: 'multi_agent_synthesis', 
+          details: 'Synthèse finale en cours...' 
+        } as StatusUpdatePayload,
+        meta: currentQueryMeta 
+      });
+      
+      const contextStr = currentMemoryHits.length > 0 ? currentMemoryHits.join('\n- ') : undefined;
+      const synthesisPrompt = createSynthesisMessage(
+        currentQueryContext!.query,
+        multiAgentState.logicalResponse!,
+        multiAgentState.creativeResponse!,
+        multiAgentState.criticalResponse!,
+        contextStr
+      );
+      
+      llmWorker.postMessage({ 
+        type: 'generate_response', 
+        payload: {
+          query: synthesisPrompt,
+          conversationHistory: currentQueryContext!.conversationHistory,
+          deviceProfile: currentQueryContext!.deviceProfile,
+          context: [],
+          systemPrompt: '', // Le prompt est déjà dans le message
+          temperature: SYNTHESIZER_AGENT.temperature,
+          maxTokens: SYNTHESIZER_AGENT.maxTokens,
+        },
+        meta: currentQueryMeta || undefined
+      });
+      
+    } else if (multiAgentState.currentStep === 'synthesis' || multiAgentState.currentStep === 'idle') {
+      // Réponse finale (synthèse ou mode simple)
+      const endTime = performance.now();
+      const inferenceTimeMs = Math.round(endTime - startTime);
+      console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Réponse finale reçue en ${inferenceTimeMs}ms.`);
 
-    // Réinitialiser
-    currentMemoryHits = [];
-    currentQueryContext = null;
-    currentQueryMeta = null;
+      const fromAgents = multiAgentState.currentStep === 'synthesis' 
+        ? ['Logical', 'Creative', 'Critical', 'Synthesizer']
+        : ['LLMAgent'];
+
+      const finalPayload: FinalResponsePayload = {
+        response: llmPayload.response,
+        confidence: 0.9,
+        provenance: {
+          fromAgents,
+          memoryHits: currentMemoryHits,
+        },
+        debug: {
+          inferenceTimeMs: inferenceTimeMs,
+        }
+      };
+
+      self.postMessage({ 
+        type: 'final_response', 
+        payload: finalPayload, 
+        meta: currentQueryMeta || undefined
+      });
+
+      console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${meta?.traceId}) en ${inferenceTimeMs}ms.`);
+
+      // Sauvegarder la conversation
+      if (currentQueryContext) {
+        const memoryToSave = `Q: ${currentQueryContext.query} | A: ${llmPayload.response}`;
+        memoryWorker.postMessage({ 
+          type: 'store', 
+          payload: { content: memoryToSave, type: 'conversation' }, 
+          meta: currentQueryMeta || undefined
+        });
+      }
+
+      // Réinitialiser
+      currentMemoryHits = [];
+      currentQueryContext = null;
+      currentQueryMeta = null;
+      multiAgentState = { currentStep: 'idle' };
+    }
 
   } else if (type === 'llm_error') {
     // Gérer l'erreur du LLM
