@@ -8,7 +8,7 @@
  * et retourne la réponse finale synthétisée après un débat multi-agents.
  */
 
-import type { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from '../types';
+import type { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload, FeedbackPayload } from '../types';
 import { LOGICAL_AGENT, CREATIVE_AGENT, CRITICAL_AGENT, SYNTHESIZER_AGENT, createSynthesisMessage } from '../config/agents';
 import { errorLogger, UserMessages } from '../utils/errorLogger';
 import { withRetry, retryStrategies } from '../utils/retry';
@@ -134,17 +134,18 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
       console.log('[Orchestrateur] GeniusHour Worker démarré en arrière-plan');
     } else if (type === 'set_model') {
       // Relayer la configuration du modèle au LLM Worker
-      console.log(`[Orchestrateur] Changement de modèle: ${(payload as any).modelId}`);
+      console.log(`[Orchestrateur] Changement de modèle: ${(payload as { modelId: string }).modelId}`);
       llmWorker.postMessage({ type: 'set_model', payload, meta });
     } else if (type === 'feedback') {
-      console.log(`[Orchestrateur] Feedback reçu (${(payload as any).feedback}) pour le message ${(payload as any).messageId}`);
-      console.log(`[Orchestrateur] Query: "${(payload as any).query}"`);
-      console.log(`[Orchestrateur] Response: "${(payload as any).response}"`);
+      const feedbackPayload = payload as FeedbackPayload;
+      console.log(`[Orchestrateur] Feedback reçu (${feedbackPayload.feedback}) pour le message ${feedbackPayload.messageId}`);
+      console.log(`[Orchestrateur] Query: "${feedbackPayload.query}"`);
+      console.log(`[Orchestrateur] Response: "${feedbackPayload.response}"`);
       
       // Relayer le feedback enrichi au Memory Worker
       memoryWorker.postMessage({ 
         type: 'add_feedback', 
-        payload: payload,
+        payload: feedbackPayload,
         meta: meta 
       });
     } else if (type === 'purge_memory') {
@@ -193,6 +194,11 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
 // --- Écouteurs pour les réponses des workers ---
 
 // Écouter les réponses du ToolUserWorker
+interface ToolExecutedPayload {
+  toolName: string;
+  result: string;
+}
+
 toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   const { type, payload } = event.data;
 
@@ -200,7 +206,7 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     // L'outil a été trouvé et exécuté avec succès. On court-circuite le débat.
     const endTime = performance.now();
     const inferenceTimeMs = Math.round(endTime - startTime);
-    const toolPayload = payload as any;
+    const toolPayload = payload as ToolExecutedPayload;
     
     console.log(`[Orchestrateur] Outil '${toolPayload.toolName}' exécuté. Réponse directe.`);
     const responsePayload: FinalResponsePayload = {
@@ -238,7 +244,7 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   } else if (type === 'no_tool_found' || type === 'tool_error') {
     // Aucun outil trouvé ou une erreur est survenue
     if (type === 'tool_error') {
-      console.error(`[Orchestrateur] Erreur du ToolUser: ${(payload as any).error}`);
+      console.error(`[Orchestrateur] Erreur du ToolUser: ${(payload as { error: string }).error}`);
     }
     
     const profile = currentQueryContext?.deviceProfile || 'micro';
@@ -506,7 +512,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
 
   } else if (type === 'llm_error') {
     // Gérer l'erreur du LLM
-    const errorPayload2 = payload as any;
+    const errorPayload2 = payload as { error: string };
     errorLogger.error(
       'Orchestrator',
       `LLM error: ${errorPayload2.error}`,

@@ -280,6 +280,10 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Exposer pour le debugging en développement
+interface WindowWithWorkerManager extends Window {
+  __workerManager?: WorkerManager;
+}
+
 if (import.meta.env.DEV) {
-  (window as any).__workerManager = workerManager;
+  (window as WindowWithWorkerManager).__workerManager = workerManager;
 }
