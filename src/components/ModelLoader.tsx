@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { Brain, Download, Zap, Clock } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { formatBytes, formatTime } from '@/config/models';
+import { useStorageMonitor } from '@/hooks/useStorageMonitor';
+import { StorageAlert } from './StorageAlert';
 
 interface LoadingState {
   stage: 'downloading' | 'loading' | 'ready';
@@ -29,6 +31,16 @@ export const ModelLoader = ({ modelName, modelSize, onProgress }: ModelLoaderPro
 
   const [startTime] = useState(Date.now());
   const [eta, setEta] = useState<number | null>(null);
+  const [storageChecked, setStorageChecked] = useState(false);
+  const [showStorageWarning, setShowStorageWarning] = useState(false);
+
+  // Hook de monitoring du stockage
+  const {
+    storageWarning,
+    canLoadModel,
+    clearCaches,
+    formatBytes: formatStorageBytes,
+  } = useStorageMonitor();
 
   useEffect(() => {
     // Calculer l'ETA basé sur la progression
@@ -44,6 +56,36 @@ export const ModelLoader = ({ modelName, modelSize, onProgress }: ModelLoaderPro
   useEffect(() => {
     onProgress?.(state);
   }, [state, onProgress]);
+
+  // Vérifier le stockage avant de charger le modèle
+  useEffect(() => {
+    const checkStorageBeforeLoad = async () => {
+      if (!storageChecked && modelSize > 0) {
+        const warning = await canLoadModel(modelSize);
+        setStorageChecked(true);
+        
+        // Afficher l'avertissement si niveau warning ou critical
+        if (warning.level === 'warning' || warning.level === 'critical') {
+          setShowStorageWarning(true);
+        }
+      }
+    };
+
+    checkStorageBeforeLoad();
+  }, [modelSize, storageChecked, canLoadModel]);
+
+  // Gérer le nettoyage du cache
+  const handleClearCache = async () => {
+    const freedSpace = await clearCaches();
+    console.log(`Cache vidé : ${formatStorageBytes(freedSpace)} libérés`);
+    setShowStorageWarning(false);
+    // Re-vérifier le stockage
+    setStorageChecked(false);
+  };
+
+  const handleDismissWarning = () => {
+    setShowStorageWarning(false);
+  };
 
   const getStageLabel = () => {
     switch (state.stage) {
@@ -71,6 +113,16 @@ export const ModelLoader = ({ modelName, modelSize, onProgress }: ModelLoaderPro
   return (
     <div className="min-h-screen flex items-center justify-center p-4 glass-subtle">
       <div className="max-w-md w-full space-y-6 glass rounded-3xl p-8 border border-[hsl(var(--glass-border))]">
+        {/* Alerte de stockage */}
+        {showStorageWarning && storageWarning && (
+          <StorageAlert
+            warning={storageWarning}
+            onClearCache={handleClearCache}
+            onDismiss={storageWarning.canProceed ? handleDismissWarning : undefined}
+            showActions={true}
+          />
+        )}
+
         {/* Icon animé */}
         <div className="flex justify-center">
           <div className="relative">
