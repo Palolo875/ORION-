@@ -1,24 +1,27 @@
 // src/workers/orchestrator.worker.ts
 
 /**
- * Orchestrator Worker
+ * Orchestrator Worker - Refactorisé
  * 
- * Ce worker est le chef d'orchestre du Neural Mesh.
- * Il reçoit les requêtes de l'UI, coordonne les autres workers,
- * et retourne la réponse finale synthétisée après un débat multi-agents.
+ * Ce worker est le chef d'orchestre du Neural Mesh d'ORION.
+ * Il a été refactorisé en modules séparés pour une meilleure maintenabilité.
  */
 
 import type { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from '../types';
 import type { SetModelPayload, FeedbackPayload, ToolExecutionPayload, ToolErrorPayload, LLMErrorPayload } from '../types/worker-payloads';
-import { LOGICAL_AGENT, CREATIVE_AGENT, CRITICAL_AGENT, SYNTHESIZER_AGENT, createSynthesisMessage } from '../config/agents';
 import { errorLogger, UserMessages } from '../utils/errorLogger';
-import { withRetry, retryStrategies } from '../utils/retry';
-import { evaluateDebate, evaluateSingleResponse, generateQualityReport, type DebateQuality } from '../utils/debateQuality';
 import { logger } from '../utils/logger';
 
-logger.info('Orchestrator', 'Worker chargé et prêt');
+// Modules refactorisés
+import { MultiAgentCoordinator } from './orchestrator/MultiAgentCoordinator';
+import { ToolExecutionManager } from './orchestrator/ToolExecutionManager';
+import { ResponseFormatter } from './orchestrator/ResponseFormatter';
+import { WorkerHealthMonitor } from './orchestrator/WorkerHealthMonitor';
+import { CircuitBreaker } from './orchestrator/CircuitBreaker';
 
-// Instancier tous les workers
+logger.info('Orchestrator', 'Worker chargé et prêt (version refactorisée)');
+
+// === Instanciation des workers ===
 const llmWorker = new Worker(new URL('./llm.worker.ts', import.meta.url), {
   type: 'module',
 });
@@ -41,600 +44,427 @@ const contextManagerWorker = new Worker(new URL('./contextManager.worker.ts', im
 
 logger.info('Orchestrator', 'Tous les workers instanciés', { workers: ['LLM', 'Memory', 'ToolUser', 'GeniusHour', 'ContextManager'] });
 
-// Variables pour stocker la requête en cours et le tracer
+// === Instanciation des gestionnaires ===
+const multiAgentCoordinator = new MultiAgentCoordinator(llmWorker);
+const toolExecutionManager = new ToolExecutionManager(toolUserWorker);
+const responseFormatter = new ResponseFormatter();
+const healthMonitor = new WorkerHealthMonitor();
+const circuitBreaker = new CircuitBreaker();
+
+// === Variables d'état ===
 let currentQueryContext: QueryPayload | null = null;
 let currentQueryMeta: WorkerMessage['meta'] | null = null;
 let startTime: number = 0;
 let currentMemoryHits: string[] = [];
 
-// Variables pour le débat multi-agents
-interface MultiAgentState {
-  logicalResponse?: string;
-  creativeResponse?: string;
-  criticalResponse?: string;
-  currentStep: 'idle' | 'parallel_generation' | 'critical' | 'synthesis';
-  parallelResponses: { logical: boolean; creative: boolean };
-}
-
-let multiAgentState: MultiAgentState = {
-  currentStep: 'idle',
-  parallelResponses: { logical: false, creative: false }
-};
-
-// --- Logique principale de l'Orchestrateur ---
+// === Gestionnaire de messages principal ===
 
 self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
   const { type, payload, meta } = event.data;
 
   try {
     if (type === 'query') {
-      logger.info('Orchestrator', 'Requête reçue', { 
-        query: payload.query.substring(0, 100),
-        deviceProfile: payload.deviceProfile || 'micro'
-      }, meta?.traceId);
-      
-      // Sauvegarder la requête courante et les métadonnées
-      currentQueryContext = payload;
-      currentQueryMeta = meta || null;
-      startTime = performance.now(); // Démarrer le chronomètre
-      
-      // --- STRATÉGIE DE DÉGRADATION GRACIEUSE ---
-      const profile = payload.deviceProfile || 'micro';
-      
-      // Envoyer une mise à jour de statut : Recherche d'outils
-      self.postMessage({ 
-        type: 'status_update', 
-        payload: { 
-          step: 'tool_search', 
-          details: 'Analyse de la requête pour une action possible...' 
-        } as StatusUpdatePayload,
-        meta: currentQueryMeta 
-      });
-
-      // Déterminer si on doit utiliser le débat multi-agents
-      const useMultiAgent = profile === 'full' || (profile === 'lite' && payload.query.length > 50);
-      logger.debug('Orchestrator', 'Mode débat multi-agents', { enabled: useMultiAgent }, meta?.traceId);
-      
-      switch (profile) {
-        case 'full':
-          // Comportement normal et complet: ReAct avec LLM et débat multi-agents pour les requêtes complexes
-          logger.info('Orchestrator', "Stratégie 'full': ReAct avec LLM et débat multi-agents", undefined, meta?.traceId);
-          toolUserWorker.postMessage({ 
-            type: 'find_and_execute_tool', 
-            payload: { query: payload.query },
-            meta: currentQueryMeta 
-          });
-          break;
-
-        case 'lite':
-          // On utilise les outils et le débat multi-agents pour les questions complexes
-          logger.info('Orchestrator', "Stratégie 'lite': Outils + LLM optimisé", undefined, meta?.traceId);
-          toolUserWorker.postMessage({ 
-            type: 'find_and_execute_tool', 
-            payload: { query: payload.query },
-            meta: currentQueryMeta 
-          });
-          break;
-
-        case 'micro':
-        default:
-          // Le mode le plus basique : outils uniquement, pas de débat LLM lourd
-          logger.info('Orchestrator', "Stratégie 'micro': Outils uniquement, pas de LLM", undefined, meta?.traceId);
-          toolUserWorker.postMessage({ 
-            type: 'find_and_execute_tool', 
-            payload: { query: payload.query },
-            meta: currentQueryMeta 
-          });
-          break;
-      }
+      handleQuery(payload, meta);
     } else if (type === 'init') {
-      logger.info('Orchestrator', 'Initialized');
-      // Initialiser tous les workers
-      llmWorker.postMessage({ type: 'init' });
-      memoryWorker.postMessage({ type: 'init' });
-      toolUserWorker.postMessage({ type: 'init' });
-      contextManagerWorker.postMessage({ type: 'init' });
-      // Le GeniusHourWorker n'a pas besoin d'initialisation, il démarre automatiquement
-      logger.info('Orchestrator', 'GeniusHour Worker démarré en arrière-plan');
+      handleInit();
     } else if (type === 'set_model') {
-      // Relayer la configuration du modèle au LLM Worker
-      const modelPayload = payload as SetModelPayload;
-      logger.info('Orchestrator', `Changement de modèle: ${modelPayload.modelId}`, { modelId: modelPayload.modelId });
-      llmWorker.postMessage({ type: 'set_model', payload, meta });
+      handleSetModel(payload as SetModelPayload, meta);
     } else if (type === 'feedback') {
-      const feedbackPayload = payload as FeedbackPayload;
-      logger.info('Orchestrator', `Feedback reçu`, { 
-        feedback: feedbackPayload.feedback, 
-        messageId: feedbackPayload.messageId,
-        query: feedbackPayload.query.substring(0, 50),
-        response: feedbackPayload.response.substring(0, 50)
-      });
-      
-      // Relayer le feedback enrichi au Memory Worker
-      memoryWorker.postMessage({ 
-        type: 'add_feedback', 
-        payload: payload,
-        meta: meta 
-      });
+      handleFeedback(payload as FeedbackPayload, meta);
     } else if (type === 'purge_memory') {
-      logger.info('Orchestrator', 'Purge de la mémoire demandée', undefined, meta?.traceId);
-      memoryWorker.postMessage({ 
-        type: 'purge_all', 
-        payload: {},
-        meta: meta 
-      });
+      handlePurgeMemory(meta);
     } else if (type === 'export_memory') {
-      logger.info('Orchestrator', 'Export de la mémoire demandée', undefined, meta?.traceId);
-      memoryWorker.postMessage({ 
-        type: 'export_all', 
-        payload: {},
-        meta: meta 
-      });
+      handleExportMemory(meta);
     } else if (type === 'import_memory') {
-      logger.info('Orchestrator', 'Import de la mémoire demandée', undefined, meta?.traceId);
-      memoryWorker.postMessage({ 
-        type: 'import_all', 
-        payload: payload,
-        meta: meta 
-      });
+      handleImportMemory(payload, meta);
     } else {
       logger.warn('Orchestrator', 'Type de message inconnu', { type });
     }
   } catch (error) {
-    const err = error as Error;
-    errorLogger.error(
-      'Orchestrator',
-      `Error processing message: ${err.message}`,
-      UserMessages.WORKER_FAILED,
-      err,
-      { type, traceId: meta?.traceId }
-    );
-    
-    sendResponse({
-      response: UserMessages.WORKER_FAILED + ' Veuillez réessayer.',
-      confidence: 0,
-      provenance: { fromAgents: ['ErrorHandler'] },
-      debug: { error: err.message }
-    });
+    handleError(error as Error, type, meta);
   }
 };
 
-// --- Écouteurs pour les réponses des workers ---
+// === Gestionnaires de messages ===
 
-// Écouter les réponses du ToolUserWorker
+function handleQuery(payload: QueryPayload, meta?: WorkerMessage['meta']): void {
+  logger.info('Orchestrator', 'Requête reçue', { 
+    query: payload.query.substring(0, 100),
+    deviceProfile: payload.deviceProfile || 'micro'
+  }, meta?.traceId);
+
+  // Vérifier le circuit breaker
+  if (!circuitBreaker.canExecute('query_processing')) {
+    const errorResponse = responseFormatter.formatErrorResponse(
+      'Le système est temporairement surchargé. Veuillez réessayer dans quelques instants.',
+      'Circuit breaker ouvert'
+    );
+    self.postMessage({ 
+      type: 'final_response', 
+      payload: errorResponse,
+      meta 
+    });
+    return;
+  }
+
+  // Sauvegarder le contexte
+  currentQueryContext = payload;
+  currentQueryMeta = meta || null;
+  startTime = performance.now();
+
+  // Lancer le traitement avec le ToolExecutionManager
+  try {
+    toolExecutionManager.findAndExecuteTool(payload, meta || null, startTime);
+    healthMonitor.recordSuccess('toolUser');
+    circuitBreaker.recordSuccess('query_processing');
+  } catch (error) {
+    healthMonitor.recordFailure('toolUser', (error as Error).message);
+    circuitBreaker.recordFailure('query_processing', (error as Error).message);
+    throw error;
+  }
+}
+
+function handleInit(): void {
+  logger.info('Orchestrator', 'Initialization');
+  
+  // Initialiser tous les workers avec monitoring
+  const workers = [
+    { worker: llmWorker, name: 'llm' },
+    { worker: memoryWorker, name: 'memory' },
+    { worker: toolUserWorker, name: 'toolUser' },
+    { worker: contextManagerWorker, name: 'contextManager' },
+  ];
+
+  for (const { worker, name } of workers) {
+    try {
+      worker.postMessage({ type: 'init' });
+      healthMonitor.recordSuccess(name);
+    } catch (error) {
+      healthMonitor.recordFailure(name, (error as Error).message);
+      logger.error('Orchestrator', `Erreur d'initialisation de ${name}`, error);
+    }
+  }
+
+  logger.info('Orchestrator', 'GeniusHour Worker démarré en arrière-plan');
+}
+
+function handleSetModel(payload: SetModelPayload, meta?: WorkerMessage['meta']): void {
+  logger.info('Orchestrator', `Changement de modèle: ${payload.modelId}`, { modelId: payload.modelId });
+  
+  try {
+    llmWorker.postMessage({ type: 'set_model', payload, meta });
+    healthMonitor.recordSuccess('llm');
+  } catch (error) {
+    healthMonitor.recordFailure('llm', (error as Error).message);
+    throw error;
+  }
+}
+
+function handleFeedback(payload: FeedbackPayload, meta?: WorkerMessage['meta']): void {
+  logger.info('Orchestrator', `Feedback reçu`, { 
+    feedback: payload.feedback, 
+    messageId: payload.messageId,
+  });
+  
+  try {
+    memoryWorker.postMessage({ 
+      type: 'add_feedback', 
+      payload,
+      meta 
+    });
+    healthMonitor.recordSuccess('memory');
+  } catch (error) {
+    healthMonitor.recordFailure('memory', (error as Error).message);
+    throw error;
+  }
+}
+
+function handlePurgeMemory(meta?: WorkerMessage['meta']): void {
+  logger.info('Orchestrator', 'Purge de la mémoire demandée', undefined, meta?.traceId);
+  memoryWorker.postMessage({ 
+    type: 'purge_all', 
+    payload: {},
+    meta 
+  });
+}
+
+function handleExportMemory(meta?: WorkerMessage['meta']): void {
+  logger.info('Orchestrator', 'Export de la mémoire demandée', undefined, meta?.traceId);
+  memoryWorker.postMessage({ 
+    type: 'export_all', 
+    payload: {},
+    meta 
+  });
+}
+
+function handleImportMemory(payload: unknown, meta?: WorkerMessage['meta']): void {
+  logger.info('Orchestrator', 'Import de la mémoire demandée', undefined, meta?.traceId);
+  memoryWorker.postMessage({ 
+    type: 'import_all', 
+    payload,
+    meta 
+  });
+}
+
+function handleError(error: Error, type: string, meta?: WorkerMessage['meta']): void {
+  errorLogger.error(
+    'Orchestrator',
+    `Error processing message: ${error.message}`,
+    UserMessages.WORKER_FAILED,
+    error,
+    { type, traceId: meta?.traceId }
+  );
+  
+  const errorResponse = responseFormatter.formatErrorResponse(
+    UserMessages.WORKER_FAILED + ' Veuillez réessayer.',
+    error.message
+  );
+  
+  self.postMessage({
+    type: 'final_response',
+    payload: errorResponse,
+    meta
+  });
+}
+
+// === Écouteurs des workers ===
+
+// ToolUser Worker
 toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   const { type, payload } = event.data;
 
-  if (type === 'tool_executed') {
-    // L'outil a été trouvé et exécuté avec succès. On court-circuite le débat.
-    const endTime = performance.now();
-    const inferenceTimeMs = Math.round(endTime - startTime);
-    const toolPayload = payload as ToolExecutionPayload;
-    
-    logger.info('Orchestrator', `Outil exécuté - réponse directe`, { 
-      toolName: toolPayload.toolName,
-      inferenceTimeMs
-    });
-    const responsePayload: FinalResponsePayload = {
-      response: toolPayload.result,
-      confidence: 1.0, // Confiance maximale pour un outil factuel
-      provenance: { 
-        toolUsed: toolPayload.toolName,
-        memoryHits: [],
-        fromAgents: undefined
-      },
-      debug: {
-        totalRounds: 0, // Pas de débat pour un outil
-        inferenceTimeMs: inferenceTimeMs
-      }
-    };
-    self.postMessage({ 
-      type: 'final_response', 
-      payload: responsePayload,
-      meta: currentQueryMeta || undefined
-    });
-    
-    logger.info('Orchestrator', 'Réponse finale envoyée', { inferenceTimeMs }, currentQueryMeta?.traceId);
-
-    // Sauvegarder la conversation avec le type approprié
-    const memoryToSave = `Q: ${currentQueryContext!.query} | A: ${toolPayload.result}`;
-    memoryWorker.postMessage({ 
-      type: 'store', 
-      payload: { content: memoryToSave, type: 'tool_result' },
-      meta: currentQueryMeta || undefined
-    });
-    
-    // Réinitialiser pour la prochaine requête
-    currentMemoryHits = [];
-
-  } else if (type === 'no_tool_found' || type === 'tool_error') {
-    // Aucun outil trouvé ou une erreur est survenue
-    if (type === 'tool_error') {
-      const errorPayload = payload as ToolErrorPayload;
-      logger.error('Orchestrator', 'Erreur du ToolUser', { 
-        error: errorPayload.error,
-        toolName: errorPayload.toolName
-      });
-    }
-    
-    const profile = currentQueryContext?.deviceProfile || 'micro';
-    
-    if (profile === 'micro') {
-      // En mode micro, si aucun outil n'est trouvé, on envoie une réponse simple
-      logger.debug('Orchestrator', "Mode 'micro': Aucun outil trouvé. Réponse simplifiée", undefined, currentQueryMeta?.traceId);
-      sendSimpleResponse(
-        "Je ne peux pas répondre à cette question en mode 'micro' car aucun outil n'est disponible. Les capacités de votre appareil sont limitées, donc je privilégie la réactivité plutôt que la profondeur de raisonnement.",
-        0.3
-      );
-    } else {
-      // Pour 'full' et 'lite', on lance le processus de mémoire et LLM/débat
-      logger.debug('Orchestrator', 'Aucun outil applicable. Lancement du processus de mémoire et raisonnement', undefined, currentQueryMeta?.traceId);
+  try {
+    if (type === 'tool_executed') {
+      const toolPayload = payload as ToolExecutionPayload;
+      const responsePayload = toolExecutionManager.handleToolSuccess(toolPayload, memoryWorker);
       
-      // Envoyer une mise à jour de statut : Recherche en mémoire
       self.postMessage({ 
-        type: 'status_update', 
-        payload: { 
-          step: 'memory_search', 
-          details: 'Recherche dans la mémoire contextuelle...' 
-        } as StatusUpdatePayload,
-        meta: currentQueryMeta 
+        type: 'final_response', 
+        payload: responsePayload,
+        meta: currentQueryMeta || undefined
       });
       
-      // Rechercher en mémoire avec retry
-      searchMemoryWithRetry();
+      resetState();
+      healthMonitor.recordSuccess('toolUser');
+      circuitBreaker.recordSuccess('tool_execution');
+
+    } else if (type === 'no_tool_found' || type === 'tool_error') {
+      const errorPayload = type === 'tool_error' ? payload as ToolErrorPayload : undefined;
+      const result = toolExecutionManager.handleNoTool(errorPayload);
+      
+      if (!result.shouldContinue) {
+        // Envoyer la réponse de fallback
+        self.postMessage({ 
+          type: 'final_response', 
+          payload: result.response!,
+          meta: currentQueryMeta || undefined
+        });
+        resetState();
+      } else {
+        // Continuer avec la recherche en mémoire
+        proceedToMemorySearch();
+      }
+      
+      if (type === 'tool_error') {
+        healthMonitor.recordFailure('toolUser', errorPayload?.error || 'Unknown error');
+        circuitBreaker.recordFailure('tool_execution', errorPayload?.error || 'Unknown error');
+      }
+
+    } else if (type === 'init_complete') {
+      logger.info('Orchestrator', 'ToolUser Worker initialisé');
+      healthMonitor.recordSuccess('toolUser');
     }
-  } else if (type === 'init_complete') {
-    logger.info('Orchestrator', 'ToolUser Worker initialisé');
+  } catch (error) {
+    healthMonitor.recordFailure('toolUser', (error as Error).message);
+    handleError(error as Error, type, currentQueryMeta || undefined);
   }
 };
 
-// --- État pour le LLM ---
-// Plus besoin de l'état de débat, le LLM génère directement la réponse
-
-// Écouter les réponses du MemoryWorker
+// Memory Worker
 memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ content?: string }> }>>) => {
   const { type, payload, meta } = event.data;
 
-  // On vérifie que la réponse correspond à la requête en cours
   if (meta?.traceId !== currentQueryMeta?.traceId && type !== 'init_complete' && type !== 'store_complete') {
     return;
   }
 
-  if (type === 'search_result') {
-    // Stocker les résultats de la mémoire
-    currentMemoryHits = payload.results.map((r) => r.content || '').filter(c => c.length > 0);
-    
-    if (currentMemoryHits.length > 0) {
-      logger.debug('Orchestrator', 'Contexte reçu', { memoryCount: currentMemoryHits.length }, meta?.traceId);
-    } else {
-      logger.debug('Orchestrator', 'Aucun souvenir pertinent trouvé', undefined, meta?.traceId);
+  try {
+    if (type === 'search_result') {
+      currentMemoryHits = payload.results.map((r) => r.content || '').filter(c => c.length > 0);
+      
+      if (currentMemoryHits.length > 0) {
+        logger.debug('Orchestrator', 'Contexte reçu', { memoryCount: currentMemoryHits.length }, meta?.traceId);
+      }
+      
+      // Compresser le contexte si nécessaire
+      if (currentQueryContext && currentQueryContext.conversationHistory.length > 10) {
+        compressContext();
+      } else {
+        launchLLMInference();
+      }
+      
+      healthMonitor.recordSuccess('memory');
+
+    } else if (type === 'store_complete') {
+      logger.debug('Orchestrator', 'Mémoire sauvegardée');
+      healthMonitor.recordSuccess('memory');
+
+    } else if (type === 'init_complete') {
+      logger.info('Orchestrator', 'Memory Worker initialisé');
+      healthMonitor.recordSuccess('memory');
+
+    } else if (type === 'purge_complete' || type === 'export_complete' || type === 'import_complete') {
+      self.postMessage({ type, payload, meta });
+      healthMonitor.recordSuccess('memory');
     }
-    
-    // Compresser l'historique de conversation si nécessaire
-    if (currentQueryContext && currentQueryContext.conversationHistory.length > 10) {
-      logger.debug('Orchestrator', 'Compression du contexte', undefined, meta?.traceId);
-      contextManagerWorker.postMessage({
-        type: 'compress_context',
-        payload: {
-          messages: currentQueryContext.conversationHistory,
-          maxTokens: 3000
-        },
-        meta: currentQueryMeta || undefined
-      });
-    } else {
-      // Si pas besoin de compression, lancer directement l'inférence
-      launchLLMInference();
-    }
-  } else if (type === 'store_complete') {
-    logger.debug('Orchestrator', 'Mémoire sauvegardée');
-  } else if (type === 'init_complete') {
-    logger.info('Orchestrator', 'Memory Worker initialisé');
-  } else if (type === 'purge_complete') {
-    logger.info('Orchestrator', 'Purge de la mémoire terminée');
-    self.postMessage({ 
-      type: 'purge_complete', 
-      payload: {},
-      meta: meta 
-    });
-  } else if (type === 'export_complete') {
-    logger.info('Orchestrator', 'Export de la mémoire terminé');
-    // Relayer l'export à l'UI
-    self.postMessage({ 
-      type: 'export_complete', 
-      payload: payload,
-      meta: meta 
-    });
-  } else if (type === 'import_complete') {
-    logger.info('Orchestrator', 'Import de la mémoire terminé');
-    self.postMessage({ 
-      type: 'import_complete', 
-      payload: {},
-      meta: meta 
-    });
+  } catch (error) {
+    healthMonitor.recordFailure('memory', (error as Error).message);
+    handleError(error as Error, type, meta || undefined);
   }
 };
 
-// Écouteur pour le LLM Worker
+// LLM Worker
 llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   const { type, payload, meta } = event.data;
 
-  // On vérifie que la réponse correspond à la requête en cours
   if (meta?.traceId !== currentQueryMeta?.traceId && type !== 'init_complete' && type !== 'llm_load_progress') {
     return;
   }
 
-  if (type === 'llm_response_complete') {
-    const llmPayload = payload as { response: string; agentType?: string };
-    const agentType = llmPayload.agentType;
-    
-    // Gérer les réponses en fonction de l'état du débat multi-agents
-    if (multiAgentState.currentStep === 'parallel_generation') {
-      // Gérer les réponses parallèles (Logique + Créatif)
-      if (agentType === 'logical') {
-        logger.debug('Orchestrator', 'Agent Logique a répondu (parallèle)', undefined, meta?.traceId);
-        multiAgentState.logicalResponse = llmPayload.response;
-        multiAgentState.parallelResponses.logical = true;
-      } else if (agentType === 'creative') {
-        logger.debug('Orchestrator', 'Agent Créatif a répondu (parallèle)', undefined, meta?.traceId);
-        multiAgentState.creativeResponse = llmPayload.response;
-        multiAgentState.parallelResponses.creative = true;
-      }
+  try {
+    if (type === 'llm_response_complete') {
+      const llmPayload = payload as { response: string; agentType?: string };
       
-      // Si les deux agents ont répondu, lancer l'agent critique
-      if (multiAgentState.parallelResponses.logical && multiAgentState.parallelResponses.creative) {
-        logger.debug('Orchestrator', "Génération parallèle terminée, lancement de l'agent critique", undefined, meta?.traceId);
-        multiAgentState.currentStep = 'critical';
-        
-        // Lancer l'agent critique
-        self.postMessage({ 
-          type: 'status_update', 
-          payload: { 
-            step: 'multi_agent_critical', 
-            details: 'Agent Critique en cours...' 
-          } as StatusUpdatePayload,
-          meta: currentQueryMeta 
-        });
-        
-        llmWorker.postMessage({ 
-          type: 'generate_response', 
-          payload: {
-            ...currentQueryContext!,
-            context: currentMemoryHits,
-            systemPrompt: CRITICAL_AGENT.systemPrompt,
-            temperature: CRITICAL_AGENT.temperature,
-            maxTokens: CRITICAL_AGENT.maxTokens,
-          },
-          meta: currentQueryMeta || undefined
-        });
-      }
-      
-    } else if (multiAgentState.currentStep === 'critical') {
-      logger.debug('Orchestrator', 'Agent Critique a répondu', undefined, meta?.traceId);
-      multiAgentState.criticalResponse = llmPayload.response;
-      multiAgentState.currentStep = 'synthesis';
-      
-      // Lancer l'agent synthétiseur avec toutes les réponses
-      self.postMessage({ 
-        type: 'status_update', 
-        payload: { 
-          step: 'multi_agent_synthesis', 
-          details: 'Synthèse finale en cours...' 
-        } as StatusUpdatePayload,
-        meta: currentQueryMeta 
-      });
-      
-      const contextStr = currentMemoryHits.length > 0 ? currentMemoryHits.join('\n- ') : undefined;
-      const synthesisPrompt = createSynthesisMessage(
-        currentQueryContext!.query,
-        multiAgentState.logicalResponse!,
-        multiAgentState.creativeResponse!,
-        multiAgentState.criticalResponse!,
-        contextStr
+      const isDebateComplete = multiAgentCoordinator.handleAgentResponse(
+        llmPayload.response,
+        llmPayload.agentType
       );
-      
-      llmWorker.postMessage({ 
-        type: 'generate_response', 
-        payload: {
-          query: synthesisPrompt,
-          conversationHistory: currentQueryContext!.conversationHistory,
-          deviceProfile: currentQueryContext!.deviceProfile,
-          context: [],
-          systemPrompt: '', // Le prompt est déjà dans le message
-          temperature: SYNTHESIZER_AGENT.temperature,
-          maxTokens: SYNTHESIZER_AGENT.maxTokens,
-        },
-        meta: currentQueryMeta || undefined
-      });
-      
-    } else if (multiAgentState.currentStep === 'synthesis' || multiAgentState.currentStep === 'idle') {
-      // Réponse finale (synthèse ou mode simple)
-      const endTime = performance.now();
-      const inferenceTimeMs = Math.round(endTime - startTime);
-      logger.info('Orchestrator', 'Réponse finale reçue', { inferenceTimeMs }, meta?.traceId);
 
-      const fromAgents = multiAgentState.currentStep === 'synthesis' 
-        ? ['Logical', 'Creative', 'Critical', 'Synthesizer']
-        : ['LLMAgent'];
-
-      // Évaluer la qualité de la réponse (débat multi-agents OU réponse simple)
-      let debateQuality: DebateQuality | undefined;
-      if (multiAgentState.currentStep === 'synthesis' && 
-          multiAgentState.logicalResponse && 
-          multiAgentState.creativeResponse && 
-          multiAgentState.criticalResponse) {
-        
-        // Mode débat multi-agents
-        logger.debug('Orchestrator', 'Évaluation de la qualité du débat multi-agents', undefined, meta?.traceId);
-        debateQuality = evaluateDebate({
-          logical: multiAgentState.logicalResponse,
-          creative: multiAgentState.creativeResponse,
-          critical: multiAgentState.criticalResponse,
-          synthesis: llmPayload.response
-        });
-        
-        logger.debug('Orchestrator', 'Qualité du débat', { debateQuality }, meta?.traceId);
-        
-        // Générer un rapport si la qualité est faible
-        if (debateQuality.overallScore < 0.6) {
-          logger.warn('Orchestrator', 'Qualité du débat sous le seuil acceptable (< 60%)', { 
-            report: generateQualityReport(debateQuality) 
-          }, meta?.traceId);
-        } else {
-          logger.debug('Orchestrator', 'Qualité du débat acceptable', undefined, meta?.traceId);
-        }
-      } else if (multiAgentState.currentStep === 'idle' && currentQueryContext) {
-        
-        // Mode simple - évaluer quand même la qualité de la réponse
-        logger.debug('Orchestrator', 'Évaluation de la qualité de la réponse simple', undefined, meta?.traceId);
-        debateQuality = evaluateSingleResponse({
-          response: llmPayload.response,
-          query: currentQueryContext.query
-        });
-        
-        logger.debug('Orchestrator', 'Qualité de la réponse', { debateQuality }, meta?.traceId);
-        
-        if (debateQuality.overallScore < 0.6) {
-          logger.warn('Orchestrator', 'Qualité de la réponse sous le seuil acceptable (< 60%)', { 
-            score: (debateQuality.overallScore * 100).toFixed(0) + '%'
-          }, meta?.traceId);
-        }
+      if (isDebateComplete || !multiAgentCoordinator.isDebateActive()) {
+        handleFinalResponse(llmPayload.response);
       }
+      
+      healthMonitor.recordSuccess('llm');
+      circuitBreaker.recordSuccess('llm_inference');
 
-      const finalPayload: FinalResponsePayload = {
-        response: llmPayload.response,
-        confidence: debateQuality ? debateQuality.overallScore : 0.9,
-        provenance: {
-          fromAgents,
-          memoryHits: currentMemoryHits,
-        },
-        debug: {
-          inferenceTimeMs: inferenceTimeMs,
-          debateQuality: debateQuality,
-        }
-      };
+    } else if (type === 'llm_error') {
+      const errorPayload = payload as LLMErrorPayload;
+      handleLLMError(errorPayload, meta);
+      healthMonitor.recordFailure('llm', errorPayload.error);
+      circuitBreaker.recordFailure('llm_inference', errorPayload.error);
 
-      self.postMessage({ 
-        type: 'final_response', 
-        payload: finalPayload, 
-        meta: currentQueryMeta || undefined
-      });
+    } else if (type === 'llm_load_progress') {
+      self.postMessage({ type, payload, meta });
 
-      logger.info('Orchestrator', 'Réponse finale envoyée', { inferenceTimeMs }, meta?.traceId);
-
-      // Sauvegarder la conversation
-      if (currentQueryContext) {
-        const memoryToSave = `Q: ${currentQueryContext.query} | A: ${llmPayload.response}`;
-        memoryWorker.postMessage({ 
-          type: 'store', 
-          payload: { content: memoryToSave, type: 'conversation' }, 
-          meta: currentQueryMeta || undefined
-        });
-      }
-
-      // Réinitialiser
-      currentMemoryHits = [];
-      currentQueryContext = null;
-      currentQueryMeta = null;
-      multiAgentState = { currentStep: 'idle', parallelResponses: { logical: false, creative: false } };
+    } else if (type === 'init_complete') {
+      logger.info('Orchestrator', 'LLM Worker initialisé');
+      healthMonitor.recordSuccess('llm');
     }
-
-  } else if (type === 'llm_error') {
-    // Gérer l'erreur du LLM
-    const errorPayload2 = payload as LLMErrorPayload;
-    errorLogger.error(
-      'Orchestrator',
-      `LLM error: ${errorPayload2.error}`,
-      UserMessages.LLM_INFERENCE_FAILED,
-      undefined,
-      { query: currentQueryContext?.query?.substring(0, 100), traceId: meta?.traceId }
-    );
-    
-    const errorPayload: FinalResponsePayload = {
-      response: UserMessages.LLM_INFERENCE_FAILED,
-      confidence: 0,
-      provenance: { fromAgents: ['ErrorHandler'] },
-      debug: { error: errorPayload2.error }
-    };
-    self.postMessage({ 
-      type: 'final_response', 
-      payload: errorPayload, 
-      meta: currentQueryMeta || undefined
-    });
-
-    // Réinitialiser
-    currentMemoryHits = [];
-    currentQueryContext = null;
-    currentQueryMeta = null;
-    multiAgentState = { currentStep: 'idle', parallelResponses: { logical: false, creative: false } };
-
-  } else if (type === 'llm_load_progress') {
-    // Relayer la progression du chargement à l'UI
-    self.postMessage({
-      type: 'llm_load_progress',
-      payload: payload,
-      meta: meta
-    });
-  } else if (type === 'init_complete') {
-    logger.info('Orchestrator', 'LLM Worker initialisé');
+  } catch (error) {
+    healthMonitor.recordFailure('llm', (error as Error).message);
+    handleError(error as Error, type, meta || undefined);
   }
 };
 
-/**
- * Envoie une réponse au thread principal
- */
-function sendResponse(payload: FinalResponsePayload): void {
-  const message: WorkerMessage<FinalResponsePayload> = {
-    type: 'final_response',
-    payload
-  };
-  self.postMessage(message);
-}
+// ContextManager Worker
+contextManagerWorker.onmessage = (event: MessageEvent) => {
+  const { type, payload, meta } = event.data;
 
-/**
- * Envoie une réponse simple pour les cas de dégradation gracieuse
- */
-function sendSimpleResponse(text: string, confidence: number): void {
-  const endTime = performance.now();
-  const finalPayload: FinalResponsePayload = {
-    response: text,
-    confidence: confidence,
-    provenance: { fromAgents: ['FallbackStrategy'] },
-    debug: { inferenceTimeMs: Math.round(endTime - startTime) }
-  };
+  if (meta?.traceId !== currentQueryMeta?.traceId && type !== 'init_complete') {
+    return;
+  }
+
+  try {
+    if (type === 'context_compressed') {
+      logger.info('Orchestrator', 'Contexte compressé', { 
+        originalCount: payload.originalCount, 
+        compressedCount: payload.compressedCount 
+      }, meta?.traceId);
+      
+      if (currentQueryContext) {
+        currentQueryContext.conversationHistory = payload.compressedMessages;
+      }
+      
+      launchLLMInference();
+      healthMonitor.recordSuccess('contextManager');
+
+    } else if (type === 'init_complete') {
+      logger.info('Orchestrator', 'ContextManager Worker initialisé');
+      healthMonitor.recordSuccess('contextManager');
+
+    } else if (type === 'context_error') {
+      logger.error('Orchestrator', 'Erreur ContextManager', { error: payload.error }, meta?.traceId);
+      launchLLMInference(); // Continuer sans compression
+      healthMonitor.recordFailure('contextManager', payload.error);
+    }
+  } catch (error) {
+    healthMonitor.recordFailure('contextManager', (error as Error).message);
+    handleError(error as Error, type, meta || undefined);
+  }
+};
+
+// === Fonctions auxiliaires ===
+
+function proceedToMemorySearch(): void {
   self.postMessage({ 
-    type: 'final_response', 
-    payload: finalPayload, 
+    type: 'status_update', 
+    payload: { 
+      step: 'memory_search', 
+      details: 'Recherche dans la mémoire contextuelle...' 
+    } as StatusUpdatePayload,
+    meta: currentQueryMeta 
+  });
+  
+  memoryWorker.postMessage({ 
+    type: 'search', 
+    payload: { query: currentQueryContext!.query },
     meta: currentQueryMeta || undefined
   });
 }
 
-/**
- * Lance l'inférence LLM avec le contexte actuel
- * Utilise le débat multi-agents pour les profils 'full' et les requêtes complexes en 'lite'
- */
+function compressContext(): void {
+  logger.debug('Orchestrator', 'Compression du contexte', undefined, currentQueryMeta?.traceId);
+  contextManagerWorker.postMessage({
+    type: 'compress_context',
+    payload: {
+      messages: currentQueryContext!.conversationHistory,
+      maxTokens: 3000
+    },
+    meta: currentQueryMeta || undefined
+  });
+}
+
 function launchLLMInference(): void {
+  if (!circuitBreaker.canExecute('llm_inference')) {
+    const errorResponse = responseFormatter.formatErrorResponse(
+      'Le système LLM est temporairement indisponible. Veuillez réessayer.',
+      'Circuit breaker ouvert pour LLM'
+    );
+    self.postMessage({ 
+      type: 'final_response', 
+      payload: errorResponse,
+      meta: currentQueryMeta || undefined
+    });
+    resetState();
+    return;
+  }
+
   logger.debug('Orchestrator', "Lancement de l'inférence LLM", undefined, currentQueryMeta?.traceId);
   
   const profile = currentQueryContext?.deviceProfile || 'micro';
   const queryLength = currentQueryContext?.query.length || 0;
-  
-  // Décider si on utilise le débat multi-agents
   const useMultiAgent = profile === 'full' || (profile === 'lite' && queryLength > 50);
   
   if (useMultiAgent) {
-    logger.info('Orchestrator', 'Lancement du débat multi-agents pour une réponse enrichie', undefined, currentQueryMeta?.traceId);
-    launchMultiAgentDebate();
+    logger.info('Orchestrator', 'Lancement du débat multi-agents', undefined, currentQueryMeta?.traceId);
+    multiAgentCoordinator.launchDebate(currentQueryContext!, currentQueryMeta, currentMemoryHits);
   } else {
     logger.debug('Orchestrator', 'Mode inférence simple', { profile }, currentQueryMeta?.traceId);
     launchSimpleLLMInference();
   }
 }
 
-/**
- * Lance une inférence LLM simple (sans débat multi-agents)
- */
 function launchSimpleLLMInference(): void {
-  // Envoyer une mise à jour de statut : Raisonnement LLM
   self.postMessage({ 
     type: 'status_update', 
     payload: { 
@@ -644,114 +474,89 @@ function launchSimpleLLMInference(): void {
     meta: currentQueryMeta 
   });
   
-  const llmPayload = {
-    ...currentQueryContext!,
-    context: currentMemoryHits,
-  };
-
-  // Appeler le LLM Worker avec mode simple
-  multiAgentState.currentStep = 'idle'; // Mode simple
   llmWorker.postMessage({ 
     type: 'generate_response', 
-    payload: llmPayload,
+    payload: {
+      ...currentQueryContext!,
+      context: currentMemoryHits,
+    },
     meta: currentQueryMeta || undefined
   });
 }
 
-/**
- * Lance le débat multi-agents (4 agents: Logique, Créatif, Critique, Synthétiseur)
- * Avec parallélisation intelligente: Logique + Créatif en parallèle
- */
-function launchMultiAgentDebate(): void {
-  logger.info('Orchestrator', 'Démarrage du débat multi-agents avec parallélisation', undefined, currentQueryMeta?.traceId);
+function handleFinalResponse(response: string): void {
+  const endTime = performance.now();
+  const inferenceTimeMs = Math.round(endTime - startTime);
   
-  // Réinitialiser l'état
-  multiAgentState = {
-    currentStep: 'parallel_generation',
-    logicalResponse: undefined,
-    creativeResponse: undefined,
-    criticalResponse: undefined,
-    parallelResponses: { logical: false, creative: false }
-  };
-  
-  // Lancer les agents Logique et Créatif en PARALLÈLE (gain de ~5s)
+  logger.info('Orchestrator', 'Réponse finale reçue', { inferenceTimeMs }, currentQueryMeta?.traceId);
+
+  let finalPayload: FinalResponsePayload;
+
+  if (multiAgentCoordinator.isDebateActive()) {
+    const debateResponses = multiAgentCoordinator.getDebateResponses();
+    finalPayload = responseFormatter.formatMultiAgentResponse(
+      response,
+      debateResponses,
+      currentMemoryHits,
+      inferenceTimeMs,
+      currentQueryMeta
+    );
+  } else {
+    finalPayload = responseFormatter.formatSimpleResponse(
+      response,
+      currentQueryContext!,
+      currentMemoryHits,
+      inferenceTimeMs,
+      currentQueryMeta
+    );
+  }
+
   self.postMessage({ 
-    type: 'status_update', 
-    payload: { 
-      step: 'llm_reasoning', 
-      details: 'Agents Logique et Créatif : Analyse parallèle...' 
-    } as StatusUpdatePayload,
-    meta: currentQueryMeta 
-  });
-  
-  // Agent Logique
-  llmWorker.postMessage({ 
-    type: 'generate_response', 
-    payload: {
-      ...currentQueryContext!,
-      context: currentMemoryHits,
-      systemPrompt: LOGICAL_AGENT.systemPrompt,
-      temperature: LOGICAL_AGENT.temperature,
-      maxTokens: LOGICAL_AGENT.maxTokens,
-      agentType: 'logical',
-    },
+    type: 'final_response', 
+    payload: finalPayload, 
     meta: currentQueryMeta || undefined
   });
-  
-  // Agent Créatif (lancé immédiatement après, en parallèle)
-  llmWorker.postMessage({ 
-    type: 'generate_response', 
-    payload: {
-      ...currentQueryContext!,
-      context: currentMemoryHits,
-      systemPrompt: CREATIVE_AGENT.systemPrompt,
-      temperature: CREATIVE_AGENT.temperature,
-      maxTokens: CREATIVE_AGENT.maxTokens,
-      agentType: 'creative',
-    },
-    meta: currentQueryMeta || undefined
-  });
-}
 
-/**
- * Recherche en mémoire avec retry automatique
- */
-function searchMemoryWithRetry(): void {
-  // Note: Dans un worker, on ne peut pas utiliser async/await dans le scope global
-  // On envoie simplement le message, le retry sera géré côté memory worker si nécessaire
-  memoryWorker.postMessage({ 
-    type: 'search', 
-    payload: { query: currentQueryContext!.query },
-    meta: currentQueryMeta || undefined
-  });
-}
-
-// Écouter les réponses du ContextManager
-contextManagerWorker.onmessage = (event: MessageEvent) => {
-  const { type, payload, meta } = event.data;
-
-  if (meta?.traceId !== currentQueryMeta?.traceId && type !== 'init_complete') {
-    return;
+  // Sauvegarder la conversation
+  if (currentQueryContext) {
+    const memoryToSave = `Q: ${currentQueryContext.query} | A: ${response}`;
+    memoryWorker.postMessage({ 
+      type: 'store', 
+      payload: { content: memoryToSave, type: 'conversation' }, 
+      meta: currentQueryMeta || undefined
+    });
   }
 
-  if (type === 'context_compressed') {
-    logger.info('Orchestrator', 'Contexte compressé', { 
-      originalCount: payload.originalCount, 
-      compressedCount: payload.compressedCount 
-    }, meta?.traceId);
-    
-    // Mettre à jour le contexte avec la version compressée
-    if (currentQueryContext) {
-      currentQueryContext.conversationHistory = payload.compressedMessages;
-    }
-    
-    // Lancer l'inférence avec le contexte compressé
-    launchLLMInference();
-  } else if (type === 'init_complete') {
-    logger.info('Orchestrator', 'ContextManager Worker initialisé');
-  } else if (type === 'context_error') {
-    logger.error('Orchestrator', 'Erreur ContextManager', { error: payload.error }, meta?.traceId);
-    // En cas d'erreur, continuer avec le contexte non compressé
-    launchLLMInference();
-  }
-};
+  resetState();
+}
+
+function handleLLMError(errorPayload: LLMErrorPayload, meta?: WorkerMessage['meta']): void {
+  errorLogger.error(
+    'Orchestrator',
+    `LLM error: ${errorPayload.error}`,
+    UserMessages.LLM_INFERENCE_FAILED,
+    undefined,
+    { query: currentQueryContext?.query?.substring(0, 100), traceId: meta?.traceId }
+  );
+  
+  const finalPayload = responseFormatter.formatErrorResponse(
+    UserMessages.LLM_INFERENCE_FAILED,
+    errorPayload.error
+  );
+  
+  self.postMessage({ 
+    type: 'final_response', 
+    payload: finalPayload, 
+    meta: currentQueryMeta || undefined
+  });
+
+  resetState();
+}
+
+function resetState(): void {
+  currentMemoryHits = [];
+  currentQueryContext = null;
+  currentQueryMeta = null;
+  multiAgentCoordinator.reset();
+  toolExecutionManager.reset();
+}

@@ -246,7 +246,7 @@ Duration    6.54s
 **Fichier mis à jour** : `README.md`
 
 **Améliorations** :
-- ✅ Branding complet ORION (remplacement de toutes références EIAM)
+- ✅ Branding complet ORION
 - ✅ Section Architecture détaillée
 - ✅ Guide d'installation complet
 - ✅ Documentation des workers

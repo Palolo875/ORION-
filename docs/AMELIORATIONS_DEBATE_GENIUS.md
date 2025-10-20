@@ -13,7 +13,7 @@ Ce document détaille les améliorations apportées aux systèmes **DebateMetric
 
 1. **DebateMetrics** : Étendre l'utilisation des métriques de qualité à tous les modes (débat multi-agents ET réponses simples)
 2. **Genius Hour** : Enrichir le système d'auto-apprentissage avec des statistiques avancées et des suggestions d'amélioration automatiques
-3. **ORION** : Toutes les références à EIAM ont été vérifiées (déjà remplacées par ORION)
+3. **ORION** : Terminologie cohérente dans toute la documentation
 
 ---
 

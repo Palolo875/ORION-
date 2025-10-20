@@ -2,7 +2,7 @@
 
 ## Résumé
 
-Cette implémentation correspond à l'**Étape 3 (Phase de Durcissement) - Tâche 1 : Sécurisation du ToolUserWorker** du projet ORION (anciennement EIAM).
+Cette implémentation correspond à l'**Étape 3 (Phase de Durcissement) - Tâche 1 : Sécurisation du ToolUserWorker** du projet ORION.
 
 ## Objectif
 
@@ -209,7 +209,7 @@ Error: Tool "eval" is not in the whitelist.
 ✅ **safeToolCall Créé** : Triple vérification de sécurité  
 ✅ **Intégration dans l'Orchestrateur** : Pattern ReAct complet  
 ✅ **Tests Suggérés** : Scénarios de test fournis  
-✅ **Remplacement EIAM → ORION** : Terminologie mise à jour  
+✅ **Terminologie ORION** : Cohérence dans toute la documentation  
 ✅ **Pas d'Erreurs** : Build réussi, pas de problèmes de linting  
 
 ## Build et Déploiement

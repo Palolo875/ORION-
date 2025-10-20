@@ -1,6 +1,6 @@
 # 🚀 Améliorations Implémentées - ORION
 
-Ce document détaille les améliorations prioritaires qui ont été implémentées dans l'application ORION (anciennement EIAM).
+Ce document détaille les améliorations prioritaires qui ont été implémentées dans l'application ORION.
 
 ## ✅ Résumé des Implémentations
 
