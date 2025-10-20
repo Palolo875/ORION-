@@ -1,9 +1,51 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import fs from "fs";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 import { visualizer } from 'rollup-plugin-visualizer';
+import type { Plugin } from 'vite';
+
+// Plugin custom pour servir les modèles locaux en développement
+const serveLocalModels = (): Plugin => ({
+  name: 'serve-local-models',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      // Servir les fichiers depuis /models/
+      if (req.url?.startsWith('/models/')) {
+        const filePath = path.join(__dirname, req.url.replace('/models/', './models/'));
+        
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+          // Déterminer le type MIME
+          let contentType = 'application/octet-stream';
+          if (filePath.endsWith('.json')) {
+            contentType = 'application/json';
+          } else if (filePath.endsWith('.bin')) {
+            contentType = 'application/octet-stream';
+          } else if (filePath.endsWith('.wasm')) {
+            contentType = 'application/wasm';
+          }
+          
+          res.writeHead(200, {
+            'Content-Type': contentType,
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=31536000', // Cache 1 an
+          });
+          
+          const fileStream = fs.createReadStream(filePath);
+          fileStream.pipe(res);
+          return;
+        } else {
+          // Fichier non trouvé - laisser passer pour que le Service Worker gère
+          console.log(`[Models] Fichier local non trouvé: ${filePath}`);
+          console.log(`[Models] Le Service Worker va le télécharger depuis HuggingFace`);
+        }
+      }
+      next();
+    });
+  },
+});
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -11,10 +53,16 @@ export default defineConfig(({ mode }) => ({
     host: "0.0.0.0",
     port: 8080,
     allowedHosts: true,
+    fs: {
+      // Permettre l'accès au dossier models en dehors de src
+      allow: ['..'],
+    },
   },
   plugins: [
     react(), 
     mode === "development" && componentTagger(),
+    // Servir les modèles locaux en développement
+    mode === "development" && serveLocalModels(),
     // Visualizer du bundle - génère un rapport HTML dans dist/
     visualizer({
       open: mode === 'development', // Ouvrir automatiquement en dev

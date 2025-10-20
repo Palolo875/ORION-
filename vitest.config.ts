@@ -9,6 +9,13 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
+    // Inclure les tests unitaires et d'intégration
+    include: [
+      'src/**/*.test.ts',
+      'src/**/*.test.tsx',
+      'src/**/*.spec.ts',
+      'src/**/*.spec.tsx',
+    ],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
@@ -25,10 +32,13 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.*',
         '**/mockData',
+        '**/__mocks__/**', // Exclure les mocks du coverage
         'dist/',
         'e2e/',
       ],
     },
+    // Timeout plus long pour les tests avec vrais modèles
+    testTimeout: process.env.LOAD_REAL_MODELS === 'true' ? 60000 : 10000,
   },
   resolve: {
     alias: {
