@@ -427,6 +427,8 @@ export const ChatInput = ({
                 size="icon"
                 onClick={() => removeAttachment(index)}
                 className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive ml-2"
+                aria-label={`Supprimer ${file.name}`}
+                title={`Supprimer ${file.name}`}
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -454,6 +456,8 @@ export const ChatInput = ({
                 size="icon"
                 className="shrink-0 rounded-xl hover:bg-accent/50 transition-colors h-9 w-9"
                 disabled={disabled || isGenerating}
+                aria-label="Joindre un fichier"
+                title="Joindre un fichier"
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -479,6 +483,8 @@ export const ChatInput = ({
               className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm sm:text-base px-3 py-2 pr-12"
               rows={1}
               disabled={disabled || isGenerating}
+              aria-label="Saisir votre message"
+              aria-multiline="true"
             />
             
             {/* Character count */}
@@ -516,6 +522,9 @@ export const ChatInput = ({
                     : "hover:bg-accent/50"
                 )}
                 disabled={disabled || isGenerating}
+                aria-label={isRecording ? "Arrêter l'enregistrement vocal" : "Démarrer l'enregistrement vocal"}
+                aria-pressed={isRecording}
+                title={isRecording ? "Arrêter l'enregistrement" : "Enregistrement vocal"}
               >
                 <Mic className={cn("h-4 w-4", isRecording && "text-white")} />
               </Button>
@@ -527,6 +536,8 @@ export const ChatInput = ({
                 onClick={onStopGeneration}
                 size="icon"
                 className="shrink-0 rounded-xl bg-destructive hover:bg-destructive/90 transition-all h-9 w-9"
+                aria-label="Arrêter la génération"
+                title="Arrêter la génération de la réponse"
               >
                 <StopCircle className="h-4 w-4" />
               </Button>
@@ -536,6 +547,8 @@ export const ChatInput = ({
                 disabled={(!message.trim() && attachments.length === 0) || disabled || isProcessing}
                 size="icon"
                 className="shrink-0 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-50 transition-all h-9 w-9"
+                aria-label="Envoyer le message"
+                title="Envoyer (Entrée)"
               >
                 <Send className="h-4 w-4" />
               </Button>

@@ -39,6 +39,7 @@ export interface BrowserCompatibility {
  * Détecte la compatibilité WebGPU
  */
 async function detectWebGPU(): Promise<{ supported: boolean; message: string }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (!(navigator as any).gpu) {
     return {
       supported: false,
@@ -47,6 +48,7 @@ async function detectWebGPU(): Promise<{ supported: boolean; message: string }> 
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const adapter = await (navigator as any).gpu.requestAdapter();
     if (!adapter) {
       return {
