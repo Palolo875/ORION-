@@ -45,6 +45,26 @@ interface AlternativePrompt {
   reason: string;
 }
 
+interface GeniusStatistics {
+  totalFailuresAnalyzed: number;
+  totalPatternsDetected: number;
+  mostCommonPattern: string | null;
+  averagePatternOccurrences: number;
+  totalAlternativesGenerated: number;
+  lastAnalysisTimestamp: number;
+  improvementRate: number; // Taux d'amélioration estimé
+}
+
+interface AutoImprovementSuggestion {
+  id: string;
+  type: 'system_prompt' | 'agent_config' | 'temperature' | 'max_tokens';
+  current: string | number;
+  suggested: string | number;
+  reason: string;
+  confidence: number;
+  basedOnPatterns: string[];
+}
+
 // === Singleton pour le pipeline d'embedding ===
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PipelineInstance = any;
@@ -349,6 +369,23 @@ async function analyzeFailures() {
     // Nettoyer les anciens rapports d'amélioration (garder les 50 derniers)
     await cleanupImprovementReports();
     
+    // Mettre à jour les statistiques globales
+    const updatedPatterns = await loadFailurePatterns();
+    const stats = await updateGlobalStatistics(updatedPatterns);
+    logger.info('GeniusHourWorker', '📊 Statistiques mises à jour', { stats });
+    
+    // Générer des suggestions d'auto-amélioration
+    const suggestions = await generateAutoImprovementSuggestions(updatedPatterns);
+    if (suggestions.length > 0) {
+      logger.info('GeniusHourWorker', '💡 Nouvelles suggestions générées', { 
+        count: suggestions.length 
+      });
+    }
+    
+    // Générer et afficher le tableau de bord des insights
+    const dashboard = await generateInsightsDashboard(updatedPatterns, stats, suggestions);
+    logger.info('GeniusHourWorker', 'Tableau de bord ORION Genius', { dashboard });
+    
   } catch (error) {
     logger.error('GeniusHourWorker', 'Erreur lors de l\'analyse des échecs', error);
   }
@@ -382,6 +419,199 @@ async function cleanupImprovementReports() {
     
     logger.debug('GeniusHourWorker', 'Anciens rapports d\'amélioration supprimés', { count: toDelete.length });
   }
+}
+
+/**
+ * Calcule et met à jour les statistiques globales de Genius Hour
+ */
+async function updateGlobalStatistics(patterns: FailurePattern[]): Promise<GeniusStatistics> {
+  const stats: GeniusStatistics = {
+    totalFailuresAnalyzed: 0,
+    totalPatternsDetected: patterns.length,
+    mostCommonPattern: null,
+    averagePatternOccurrences: 0,
+    totalAlternativesGenerated: 0,
+    lastAnalysisTimestamp: Date.now(),
+    improvementRate: 0,
+  };
+
+  if (patterns.length > 0) {
+    // Trouver le pattern le plus fréquent
+    const sortedPatterns = [...patterns].sort((a, b) => b.occurrences - a.occurrences);
+    stats.mostCommonPattern = sortedPatterns[0].pattern;
+    
+    // Calculer la moyenne des occurrences
+    stats.totalFailuresAnalyzed = patterns.reduce((sum, p) => sum + p.occurrences, 0);
+    stats.averagePatternOccurrences = stats.totalFailuresAnalyzed / patterns.length;
+    
+    // Calculer le taux d'amélioration (basé sur la récurrence des patterns)
+    // Plus un pattern se répète, moins le système s'améliore
+    const maxOccurrences = sortedPatterns[0].occurrences;
+    stats.improvementRate = Math.max(0, 1 - (maxOccurrences / 10)); // 10 occurrences = 0% amélioration
+  }
+
+  // Compter les alternatives générées
+  const allKeys = (await keys()) as string[];
+  const improvementKeys = allKeys.filter(key => 
+    typeof key === 'string' && key.startsWith('improvement_')
+  );
+  
+  for (const key of improvementKeys) {
+    const improvement = await get(key);
+    if (improvement?.alternatives) {
+      stats.totalAlternativesGenerated += improvement.alternatives.length;
+    }
+  }
+
+  // Sauvegarder les statistiques
+  await set('genius_statistics', stats);
+  
+  return stats;
+}
+
+/**
+ * Génère des suggestions d'auto-amélioration basées sur les patterns récurrents
+ */
+async function generateAutoImprovementSuggestions(patterns: FailurePattern[]): Promise<AutoImprovementSuggestion[]> {
+  const suggestions: AutoImprovementSuggestion[] = [];
+  
+  // Analyser les patterns pour générer des suggestions
+  const sortedPatterns = [...patterns].sort((a, b) => b.occurrences - a.occurrences);
+  
+  for (const pattern of sortedPatterns.slice(0, 3)) { // Top 3 patterns
+    if (pattern.occurrences >= 3) {
+      // Si le pattern se répète 3+ fois, suggérer des améliorations
+      
+      // Suggestion 1 : Ajuster le prompt système selon le type de pattern
+      if (pattern.pattern.includes('procédurales')) {
+        suggestions.push({
+          id: `suggestion_${Date.now()}_1`,
+          type: 'system_prompt',
+          current: 'Prompt système standard',
+          suggested: 'Ajouter : "Privilégier les réponses étape par étape avec des instructions claires"',
+          reason: `Pattern récurrent détecté : ${pattern.pattern} (${pattern.occurrences} occurrences)`,
+          confidence: Math.min(pattern.occurrences / 10, 0.9),
+          basedOnPatterns: [pattern.pattern],
+        });
+      }
+      
+      if (pattern.pattern.includes('techniques/programmation')) {
+        suggestions.push({
+          id: `suggestion_${Date.now()}_2`,
+          type: 'system_prompt',
+          current: 'Prompt système standard',
+          suggested: 'Ajouter : "Toujours inclure des exemples de code commentés et testables"',
+          reason: `Pattern récurrent détecté : ${pattern.pattern} (${pattern.occurrences} occurrences)`,
+          confidence: Math.min(pattern.occurrences / 10, 0.9),
+          basedOnPatterns: [pattern.pattern],
+        });
+      }
+      
+      if (pattern.pattern.includes('longues/complexes')) {
+        suggestions.push({
+          id: `suggestion_${Date.now()}_3`,
+          type: 'max_tokens',
+          current: 2000,
+          suggested: 3000,
+          reason: `Questions complexes nécessitent plus d'espace de réponse (${pattern.occurrences} occurrences)`,
+          confidence: Math.min(pattern.occurrences / 10, 0.8),
+          basedOnPatterns: [pattern.pattern],
+        });
+      }
+      
+      if (pattern.pattern.includes('courtes/simples')) {
+        suggestions.push({
+          id: `suggestion_${Date.now()}_4`,
+          type: 'temperature',
+          current: 0.7,
+          suggested: 0.5,
+          reason: `Questions simples nécessitent plus de précision, moins de créativité (${pattern.occurrences} occurrences)`,
+          confidence: Math.min(pattern.occurrences / 10, 0.75),
+          basedOnPatterns: [pattern.pattern],
+        });
+      }
+    }
+  }
+  
+  // Sauvegarder les suggestions
+  if (suggestions.length > 0) {
+    await set('genius_suggestions', {
+      timestamp: Date.now(),
+      suggestions,
+    });
+    
+    logger.info('GeniusHourWorker', '🎯 Suggestions d\'auto-amélioration générées', { 
+      count: suggestions.length,
+      highConfidence: suggestions.filter(s => s.confidence > 0.7).length
+    });
+  }
+  
+  return suggestions;
+}
+
+/**
+ * Génère un tableau de bord des insights d'ORION Genius
+ */
+async function generateInsightsDashboard(
+  patterns: FailurePattern[], 
+  stats: GeniusStatistics,
+  suggestions: AutoImprovementSuggestion[]
+): Promise<string> {
+  let dashboard = '╔═══════════════════════════════════════════════════════════╗\n';
+  dashboard +=    '║         ORION GENIUS HOUR - TABLEAU DE BORD INSIGHTS       ║\n';
+  dashboard +=    '╚═══════════════════════════════════════════════════════════╝\n\n';
+  
+  // Section Statistiques
+  dashboard += '📊 STATISTIQUES GLOBALES\n';
+  dashboard += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+  dashboard += `   Échecs analysés         : ${stats.totalFailuresAnalyzed}\n`;
+  dashboard += `   Patterns détectés       : ${stats.totalPatternsDetected}\n`;
+  dashboard += `   Alternatives générées   : ${stats.totalAlternativesGenerated}\n`;
+  dashboard += `   Taux d'amélioration     : ${(stats.improvementRate * 100).toFixed(0)}%\n`;
+  
+  if (stats.mostCommonPattern) {
+    dashboard += `   Pattern le + fréquent   : ${stats.mostCommonPattern}\n`;
+  }
+  
+  dashboard += `   Dernière analyse        : ${new Date(stats.lastAnalysisTimestamp).toLocaleString('fr-FR')}\n\n`;
+  
+  // Section Patterns
+  if (patterns.length > 0) {
+    dashboard += '🎯 TOP PATTERNS D\'ÉCHEC\n';
+    dashboard += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    
+    const topPatterns = [...patterns].sort((a, b) => b.occurrences - a.occurrences).slice(0, 5);
+    topPatterns.forEach((pattern, idx) => {
+      const urgency = pattern.occurrences >= 5 ? '🔴' : pattern.occurrences >= 3 ? '🟡' : '🟢';
+      dashboard += `   ${idx + 1}. ${urgency} ${pattern.pattern}\n`;
+      dashboard += `      Occurrences : ${pattern.occurrences}x | Dernier : ${new Date(pattern.lastSeen).toLocaleDateString('fr-FR')}\n`;
+    });
+    dashboard += '\n';
+  }
+  
+  // Section Suggestions
+  if (suggestions.length > 0) {
+    dashboard += '💡 SUGGESTIONS D\'AUTO-AMÉLIORATION\n';
+    dashboard += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    
+    const topSuggestions = suggestions
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 3);
+    
+    topSuggestions.forEach((suggestion, idx) => {
+      const confidenceBar = '█'.repeat(Math.round(suggestion.confidence * 10));
+      dashboard += `   ${idx + 1}. [${suggestion.type.toUpperCase()}] Confiance: ${confidenceBar} ${(suggestion.confidence * 100).toFixed(0)}%\n`;
+      dashboard += `      ${suggestion.reason}\n`;
+      dashboard += `      Suggéré : ${suggestion.suggested}\n`;
+    });
+    dashboard += '\n';
+  }
+  
+  dashboard += '╔═══════════════════════════════════════════════════════════╗\n';
+  dashboard += '║  ORION apprend de ses erreurs pour mieux vous servir     ║\n';
+  dashboard += '╚═══════════════════════════════════════════════════════════╝\n';
+  
+  return dashboard;
 }
 
 // Configuration du cycle d'analyse

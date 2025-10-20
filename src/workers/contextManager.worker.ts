@@ -494,7 +494,7 @@ self.onmessage = async (event: MessageEvent) => {
         meta,
       });
     } else if (type === 'init') {
-      logger.info('ContextManager', 'Worker initialisé avec extraction d\\'entités');
+      logger.info('ContextManager', 'Worker initialisé avec extraction d\'entités');
       self.postMessage({
         type: 'init_complete',
         payload: { success: true },

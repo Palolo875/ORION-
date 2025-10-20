@@ -32,6 +32,11 @@ export interface Debate {
   synthesis?: string;
 }
 
+export interface SingleResponse {
+  response: string;
+  query: string;
+}
+
 /**
  * Calcule la cohérence entre les réponses des agents
  * Basé sur les mots-clés communs et la similarité de contenu
@@ -324,4 +329,124 @@ Détails :
  */
 export function isDebateQualityAcceptable(quality: DebateQuality): boolean {
   return quality.overallScore >= 0.6;
+}
+
+/**
+ * Évalue la qualité d'une réponse simple (mode non-débat)
+ * Adapte les métriques pour une seule réponse au lieu d'un débat
+ */
+export function evaluateSingleResponse(single: SingleResponse): DebateQuality {
+  logger.debug('DebateQuality', 'Évaluation d\'une réponse simple');
+  
+  const response = single.response;
+  const query = single.query;
+  
+  // Cohérence : mesure la cohérence avec la question
+  const coherence = calculateQueryResponseCoherence(query, response);
+  
+  // Couverture : nombre de concepts dans la réponse
+  const coverage = calculateSingleCoverage(response);
+  
+  // Nouveauté : détecte l'originalité dans la réponse
+  const novelty = detectNovelty(response);
+  
+  // Rigueur : valide la structure de la réponse
+  const rigor = validateRigor(response);
+  
+  // Équilibre : pour une réponse simple, on vérifie la longueur appropriée
+  const balance = calculateResponseBalance(response, query);
+  
+  // Score global avec poids légèrement différents pour mode simple
+  // Cohérence (25%), Couverture (20%), Nouveauté (15%), Rigueur (25%), Équilibre (15%)
+  const overallScore = (coherence * 0.25 + coverage * 0.20 + novelty * 0.15 + rigor * 0.25 + balance * 0.15);
+  
+  const quality: DebateQuality = {
+    coherence: Math.round(coherence * 100) / 100,
+    coverage: Math.round(coverage * 100) / 100,
+    novelty: Math.round(novelty * 100) / 100,
+    rigor: Math.round(rigor * 100) / 100,
+    balance: Math.round(balance * 100) / 100,
+    overallScore: Math.round(overallScore * 100) / 100,
+    details: {
+      coverageCount: new Set(
+        response
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(w => w.length > 5)
+      ).size,
+    }
+  };
+  
+  logger.debug('DebateQuality', 'Résultats (réponse simple)', { quality });
+  
+  return quality;
+}
+
+/**
+ * Calcule la cohérence entre la question et la réponse
+ */
+function calculateQueryResponseCoherence(query: string, response: string): number {
+  // Extraire les mots-clés de la question
+  const extractKeywords = (text: string): Set<string> => {
+    const words = text.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 3);
+    return new Set(words);
+  };
+  
+  const queryKeywords = extractKeywords(query);
+  const responseKeywords = extractKeywords(response);
+  
+  // Intersection : mots-clés communs
+  const intersection = new Set([...queryKeywords].filter(x => responseKeywords.has(x)));
+  
+  // La réponse devrait reprendre au moins 30% des mots-clés de la question
+  const coherence = queryKeywords.size > 0 ? intersection.size / queryKeywords.size : 0;
+  
+  // Normaliser : 0.3+ = excellent
+  return Math.min(coherence / 0.3, 1);
+}
+
+/**
+ * Calcule la couverture pour une réponse simple
+ */
+function calculateSingleCoverage(response: string): number {
+  const concepts = new Set(
+    response.toLowerCase()
+      .replace(/[^\w\sàâäéèêëïîôùûüÿæœç]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 5)
+  );
+  
+  // Pour une réponse simple, 15+ concepts = bonne couverture
+  const coverage = Math.min(concepts.size / 15, 1);
+  
+  return coverage;
+}
+
+/**
+ * Calcule l'équilibre d'une réponse simple
+ * Vérifie que la réponse n'est ni trop courte ni trop longue
+ */
+function calculateResponseBalance(response: string, query: string): number {
+  const responseWordCount = response.split(/\s+/).length;
+  const queryWordCount = query.split(/\s+/).length;
+  
+  // Longueur idéale : entre 30 et 300 mots
+  if (responseWordCount < 10) return 0.3; // Trop court
+  if (responseWordCount > 500) return 0.6; // Trop long
+  
+  // Ratio réponse/question idéal : entre 3 et 20
+  const ratio = responseWordCount / queryWordCount;
+  if (ratio < 2) return 0.5; // Réponse trop courte par rapport à la question
+  if (ratio > 30) return 0.7; // Réponse trop longue par rapport à la question
+  
+  // Longueur optimale
+  if (responseWordCount >= 30 && responseWordCount <= 300) {
+    return 1.0;
+  }
+  
+  // Longueur acceptable
+  return 0.8;
 }
