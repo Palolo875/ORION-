@@ -20,6 +20,7 @@ import { WorkerMessage, QueryPayload } from '../types';
 import { errorLogger, UserMessages } from '../utils/errorLogger';
 import { withRetry, retryStrategies } from '../utils/retry';
 import { logger } from '../utils/logger';
+import { LLMProgressPayloadSchema, validatePayload } from '../types/worker-payloads';
 
 logger.info('LLMWorker', 'Worker chargé. Prêt à initialiser le moteur');
 
@@ -59,6 +60,20 @@ class LLMEngine {
     if (this.instance === null) {
       try {
         logger.info('LLMWorker', 'Initialisation du moteur WebLLM');
+        
+        // Vérifier le support WebGPU
+        const hasWebGPU = 'gpu' in navigator;
+        if (!hasWebGPU) {
+          logger.warn('LLMWorker', 'WebGPU non disponible - tentative avec fallback CPU');
+          if (progress_callback) {
+            progress_callback({
+              progress: 0,
+              text: '⚠️ WebGPU non disponible, utilisation du mode CPU (plus lent)',
+              loaded: 0,
+              total: 0,
+            });
+          }
+        }
         
         // Utiliser withRetry pour l'initialisation du moteur
         this.instance = await withRetry(
@@ -180,17 +195,36 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & {
       LLMEngine.resetContext(payload.agentType);
       
       const engine = await LLMEngine.getInstance(payload.modelId, (progress) => {
-        // Envoyer la progression du chargement à l'UI avec plus de détails
-        self.postMessage({ 
-          type: 'llm_load_progress', 
-          payload: {
-            progress: progress.progress,
-            text: progress.text,
-            loaded: progress.loaded || 0,
-            total: progress.total || 0,
-          }, 
-          meta 
-        });
+        // Valider et envoyer la progression du chargement à l'UI avec plus de détails
+        const progressPayload = {
+          progress: progress.progress,
+          text: progress.text,
+          loaded: progress.loaded || 0,
+          total: progress.total || 0,
+          modelId: payload.modelId,
+        };
+        
+        try {
+          const validatedPayload = validatePayload(
+            LLMProgressPayloadSchema,
+            progressPayload,
+            'LLMWorker.loadProgress'
+          );
+          
+          self.postMessage({ 
+            type: 'llm_load_progress', 
+            payload: validatedPayload, 
+            meta 
+          });
+        } catch (error) {
+          logger.error('LLMWorker', 'Invalid progress payload', error);
+          // Envoyer quand même sans validation en cas d'erreur
+          self.postMessage({ 
+            type: 'llm_load_progress', 
+            payload: progressPayload, 
+            meta 
+          });
+        }
       });
 
       // Utiliser le System Prompt personnalisé ou le prompt par défaut
@@ -210,6 +244,7 @@ Réponds à la requête de l'utilisateur de manière concise, intelligente et ut
         max_tokens: payload.maxTokens || 256,
         temperature: payload.temperature !== undefined ? payload.temperature : 0.7,
         top_p: 0.95,
+        stream: false, // Pour l'instant, streaming désactivé (à implémenter)
       };
 
       // Utiliser retry pour l'inférence

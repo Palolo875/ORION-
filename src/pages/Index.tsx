@@ -438,6 +438,8 @@ const Index = () => {
                 size="icon"
                 onClick={() => setIsSidebarOpen(true)}
                 className="lg:hidden rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
+                aria-label="Ouvrir le menu"
+                title="Menu"
               >
                 <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
@@ -471,6 +473,8 @@ const Index = () => {
                 size="icon"
                 onClick={() => setShowCognitiveFlow(!showCognitiveFlow)}
                 className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
+                aria-label={showCognitiveFlow ? "Masquer le flux cognitif" : "Afficher le flux cognitif"}
+                aria-pressed={showCognitiveFlow}
                 title="Afficher le flux cognitif"
               >
                 <Brain className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -480,6 +484,7 @@ const Index = () => {
                 size="icon"
                 onClick={() => setIsControlPanelOpen(true)}
                 className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
+                aria-label="Ouvrir le panneau de contrôle"
                 title="Panneau de contrôle"
               >
                 <Settings className="h-4 w-4 sm:h-5 sm:w-5" />

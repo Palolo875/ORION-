@@ -13,6 +13,7 @@
 import type { WorkerMessage } from '../types';
 import { TOOL_CONFIG } from '../config/constants';
 import { logger } from '../utils/logger';
+import { evaluate } from 'mathjs';
 
 logger.info('ToolUserWorker', 'Worker chargé et prêt');
 
@@ -48,12 +49,9 @@ const tools: Record<string, ToolFunction> = {
   // Outils de calcul
   calculate: (expression: string) => {
     try {
-      // Sécurité : whitelist des opérateurs autorisés
-      const sanitized = expression.replace(/[^0-9+\-*/(). ]/g, '');
-      if (sanitized !== expression) {
-        throw new Error('Expression contient des caractères non autorisés');
-      }
-      const result = eval(sanitized);
+      // Utiliser mathjs au lieu de eval() pour la sécurité
+      // mathjs parse et évalue de manière sécurisée les expressions mathématiques
+      const result = evaluate(expression);
       return `${expression} = ${result}`;
     } catch (error) {
       return `Erreur de calcul : ${(error as Error).message}`;
