@@ -7,10 +7,9 @@
  * avec notifications utilisateur et stratégies de cache avancées
  */
 
-// @ts-ignore - Module généré par vite-plugin-pwa
 let registerSW: any;
 try {
-  // @ts-ignore
+  // @ts-expect-error - Virtual module créé par vite-plugin-pwa n'a pas de types disponibles
   registerSW = (await import('virtual:pwa-register')).registerSW;
 } catch {
   registerSW = () => ({ updateServiceWorker: () => {} });

@@ -1,6 +1,11 @@
 import { expect, afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
+import { MockLLMWorker } from '../workers/__mocks__/llm.worker';
+import { MockMemoryWorker } from '../workers/__mocks__/memory.worker';
+import { MockToolUserWorker } from '../workers/__mocks__/toolUser.worker';
+import { MockContextManagerWorker } from '../workers/__mocks__/contextManager.worker';
+import { MockGeniusHourWorker } from '../workers/__mocks__/geniusHour.worker';
 
 // Cleanup after each test
 afterEach(() => {
@@ -25,27 +30,22 @@ if (USE_REAL_MODELS) {
     
     // Déterminer quel mock utiliser selon l'URL
     if (urlString.includes('llm.worker')) {
-      const { MockLLMWorker } = require('../workers/__mocks__/llm.worker');
       return new MockLLMWorker();
     }
     
     if (urlString.includes('memory.worker')) {
-      const { MockMemoryWorker } = require('../workers/__mocks__/memory.worker');
       return new MockMemoryWorker();
     }
     
     if (urlString.includes('toolUser.worker')) {
-      const { MockToolUserWorker } = require('../workers/__mocks__/toolUser.worker');
       return new MockToolUserWorker();
     }
     
     if (urlString.includes('contextManager.worker')) {
-      const { MockContextManagerWorker } = require('../workers/__mocks__/contextManager.worker');
       return new MockContextManagerWorker();
     }
     
     if (urlString.includes('geniusHour.worker')) {
-      const { MockGeniusHourWorker } = require('../workers/__mocks__/geniusHour.worker');
       return new MockGeniusHourWorker();
     }
     

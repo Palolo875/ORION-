@@ -25,18 +25,17 @@ const CURRENT_EMBEDDING_MODEL_VERSION = MEMORY_CONFIG.EMBEDDING_MODEL_VERSION;
 const MIGRATION_INTERVAL = 60000; // 60 secondes
 
 // --- Singleton pour le pipeline d'embedding ---
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PipelineInstance = any;
+type PipelineInstance = Awaited<ReturnType<typeof pipeline>>;
 
 class EmbeddingPipeline {
-  static task = 'feature-extraction';
+  static task = 'feature-extraction' as const;
   static model = MEMORY_CONFIG.EMBEDDING_MODEL;
-  static instance: PipelineInstance = null;
+  static instance: PipelineInstance | null = null;
 
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
       logger.info('MigrationWorker', "Initialisation du modèle d'embedding", { model: this.model });
-      this.instance = await pipeline(this.task as any, this.model);
+      this.instance = await pipeline(this.task, this.model);
       logger.info('MigrationWorker', "Modèle d'embedding prêt");
     }
     return this.instance;

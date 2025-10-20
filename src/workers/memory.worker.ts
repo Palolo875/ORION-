@@ -22,18 +22,17 @@ env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 // === Singleton pour le pipeline d'embedding ===
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PipelineInstance = any;
+type PipelineInstance = Awaited<ReturnType<typeof pipeline>>;
 
 class EmbeddingPipeline {
-  static task = 'feature-extraction';
+  static task = 'feature-extraction' as const;
   static model = MEMORY_CONFIG.EMBEDDING_MODEL;
-  static instance: PipelineInstance = null;
+  static instance: PipelineInstance | null = null;
 
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
       logger.info('MemoryWorker', "Initialisation du modèle d'embedding");
-      this.instance = await pipeline(this.task as any, this.model);
+      this.instance = await pipeline(this.task, this.model);
       logger.info('MemoryWorker', "Modèle d'embedding prêt");
     }
     return this.instance;
