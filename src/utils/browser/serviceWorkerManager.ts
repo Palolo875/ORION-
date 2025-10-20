@@ -7,13 +7,19 @@
  * avec notifications utilisateur et stratégies de cache avancées
  */
 
-// @ts-ignore - Module généré par vite-plugin-pwa
-let registerSW: any;
+// @ts-expect-error - Module virtuel généré par vite-plugin-pwa, type non disponible au build
+let registerSW: (options: {
+  immediate?: boolean;
+  onNeedRefresh?: () => void;
+  onOfflineReady?: () => void;
+  onRegistered?: (registration: ServiceWorkerRegistration) => void;
+  onRegisterError?: (error: Error) => void;
+}) => { updateServiceWorker: (reloadPage?: boolean) => Promise<void> };
 try {
-  // @ts-ignore
+  // @ts-expect-error - Import virtuel de vite-plugin-pwa
   registerSW = (await import('virtual:pwa-register')).registerSW;
 } catch {
-  registerSW = () => ({ updateServiceWorker: () => {} });
+  registerSW = () => ({ updateServiceWorker: () => Promise.resolve() });
 }
 
 export interface ServiceWorkerStatus {

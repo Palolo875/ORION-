@@ -18,7 +18,7 @@ describe('PerformanceMonitor', () => {
         // Attendre ~10ms
       }
       
-      endTracking();
+      endTracking({ testData: 'value' });
 
       const metrics = monitor.getMetrics({
         component: 'TestComponent',
