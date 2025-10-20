@@ -151,7 +151,7 @@ Statut : ✅ VALIDÉ (logique implémentée)
 | Créer GeniusHourWorker | ✅ | Worker autonome fonctionnel |
 | Analyse des échecs | ✅ | Cycle automatique toutes les 30s |
 | Logging structuré | ✅ | Format enrichi avec emojis |
-| Remplacer EIAM par ORION | ✅ | Tous les textes adaptés |
+| Terminologie ORION | ✅ | Tous les textes adaptés |
 | Éviter erreurs et crashes | ✅ | Build OK, pas d'erreurs |
 | Adapter au projet existant | ✅ | Intégration transparente |
 

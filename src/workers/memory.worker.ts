@@ -15,6 +15,7 @@ import { pipeline, env } from '@xenova/transformers';
 import { loadHnswlib, type HierarchicalNSW } from 'hnswlib-wasm';
 import { MEMORY_CONFIG, HNSW_CONFIG } from '../config/constants';
 import { logger } from '../utils/logger';
+import { backupManager } from '../utils/persistence/BackupManager';
 
 // Configuration de Transformers.js pour une performance optimale dans le navigateur
 env.allowLocalModels = false;
@@ -399,6 +400,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         hnswIndex.initialize()
       ]).then(() => {
         logger.info('MemoryWorker', 'Système de mémoire et index HNSW prêts');
+        
+        // Démarrer les sauvegardes automatiques
+        backupManager.startAutoBackup();
+        logger.info('MemoryWorker', 'Sauvegardes automatiques démarrées');
+        
         self.postMessage({ type: 'init_complete', payload: { success: true }, meta });
       }).catch(error => {
         logger.error('MemoryWorker', 'Erreur lors de l\'initialisation', error);
@@ -449,6 +455,39 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       }
       
       self.postMessage({ type: 'feedback_saved', payload: { success: true }, meta });
+    }
+    else if (type === 'create_backup') {
+      logger.info('MemoryWorker', 'Création d\'une sauvegarde manuelle');
+      const backupId = await backupManager.createBackup('manual');
+      self.postMessage({ 
+        type: 'backup_created', 
+        payload: { success: !!backupId, backupId }, 
+        meta 
+      });
+    }
+    else if (type === 'restore_backup') {
+      const restorePayload = payload as { backupId: string; clearExisting?: boolean };
+      logger.info('MemoryWorker', 'Restauration d\'une sauvegarde', { backupId: restorePayload.backupId });
+      const success = await backupManager.restoreBackup(restorePayload.backupId, restorePayload.clearExisting);
+      
+      if (success) {
+        // Reconstruire l'index après restauration
+        await hnswIndex.rebuildIndex();
+      }
+      
+      self.postMessage({ 
+        type: 'backup_restored', 
+        payload: { success }, 
+        meta 
+      });
+    }
+    else if (type === 'list_backups') {
+      const backups = await backupManager.listBackups();
+      self.postMessage({ 
+        type: 'backups_listed', 
+        payload: { backups }, 
+        meta 
+      });
     }
     else {
       logger.warn('MemoryWorker', 'Type de message inconnu', { type });

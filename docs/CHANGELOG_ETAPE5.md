@@ -52,7 +52,7 @@
 ### 🎯 Conformité
 
 - ✅ Toutes les exigences de l'Étape 5 remplies
-- ✅ Adaptation au projet ORION (EIAM → ORION)
+- ✅ Adaptation au projet ORION
 - ✅ Aucune erreur, problème ou crash
 - ✅ Architecture évolutive pour la v2
 

@@ -262,7 +262,7 @@ Guide pratique pour :
 | Analyse automatique des échecs | ✅ | Cycle toutes les 30s |
 | Logging clair et lisible | ✅ | Emojis + formatage |
 | Nettoyage automatique | ✅ | Suppression après traitement |
-| Remplacement EIAM → ORION | ✅ | Tous les textes adaptés |
+| Terminologie ORION | ✅ | Tous les textes adaptés |
 | Pas d'erreurs / crashes | ✅ | Build + lint OK |
 | Adaptation au projet existant | ✅ | Intégration transparente |
 

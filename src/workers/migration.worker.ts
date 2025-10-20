@@ -12,13 +12,14 @@ import { get, set, keys } from 'idb-keyval';
 import { MemoryItem } from '../types';
 import { pipeline, env } from '@xenova/transformers';
 import { logger } from '../utils/logger';
+import { MEMORY_CONFIG } from '../config/constants';
 
 // Configuration de Transformers.js
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
-// Version actuelle du modèle d'embedding
-const CURRENT_EMBEDDING_MODEL_VERSION = 'Xenova/all-MiniLM-L6-v2@1.0';
+// Version actuelle du modèle d'embedding (depuis la configuration centrale)
+const CURRENT_EMBEDDING_MODEL_VERSION = MEMORY_CONFIG.EMBEDDING_MODEL_VERSION;
 
 // Intervalle de migration (toutes les minutes)
 const MIGRATION_INTERVAL = 60000; // 60 secondes
@@ -29,12 +30,12 @@ type PipelineInstance = any;
 
 class EmbeddingPipeline {
   static task = 'feature-extraction';
-  static model = 'Xenova/all-MiniLM-L6-v2';
+  static model = MEMORY_CONFIG.EMBEDDING_MODEL;
   static instance: PipelineInstance = null;
 
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
-      logger.info('MigrationWorker', "Initialisation du modèle d'embedding");
+      logger.info('MigrationWorker', "Initialisation du modèle d'embedding", { model: this.model });
       this.instance = await pipeline(this.task as any, this.model);
       logger.info('MigrationWorker', "Modèle d'embedding prêt");
     }
