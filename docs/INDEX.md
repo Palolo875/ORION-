@@ -18,6 +18,7 @@ This directory contains all the project documentation.
 - [Nouvelles Fonctionnalites](./NOUVELLES_FONCTIONNALITES.md)
 
 ### Improvements & Changes
+- [Corrections Qualite Code](./CORRECTIONS_QUALITE_CODE.md) ⭐ **NOUVEAU**
 - [Ameliorations Implementees V2](./AMELIORATIONS_IMPLEMENTEES_V2.md)
 - [Ameliorations Implementees](./AMELIORATIONS_IMPLEMENTEES.md)
 - [Ameliorations Orchestration](./AMELIORATIONS_ORCHESTRATION.md)

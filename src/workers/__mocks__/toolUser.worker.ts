@@ -8,7 +8,7 @@
 import type { WorkerMessage } from '../../types';
 
 export class MockToolUserWorker {
-  private listeners = new Map<string, Function>();
+  private listeners = new Map<string, (event: MessageEvent) => void>();
   
   postMessage(message: WorkerMessage) {
     const { type, payload, meta } = message;
@@ -23,7 +23,7 @@ export class MockToolUserWorker {
     }, 80); // 80ms de délai
   }
   
-  addEventListener(event: string, callback: Function) {
+  addEventListener(event: string, callback: (event: MessageEvent) => void) {
     this.listeners.set(event, callback);
   }
   
@@ -35,7 +35,7 @@ export class MockToolUserWorker {
     this.listeners.clear();
   }
   
-  private generateMockResponse(type: string, payload: any, meta?: WorkerMessage['meta']): WorkerMessage {
+  private generateMockResponse(type: string, payload: Record<string, unknown>, meta?: WorkerMessage['meta']): WorkerMessage {
     if (type === 'init') {
       return {
         type: 'init_complete',

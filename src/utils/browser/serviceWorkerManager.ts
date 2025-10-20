@@ -7,12 +7,22 @@
  * avec notifications utilisateur et stratégies de cache avancées
  */
 
-let registerSW: any;
+type UpdateSWFunction = () => Promise<void>;
+
+type RegisterSWFunction = (options: {
+  immediate?: boolean;
+  onNeedRefresh?: () => void;
+  onOfflineReady?: () => void;
+  onRegistered?: (registration: ServiceWorkerRegistration | undefined) => void;
+  onRegisterError?: (error: unknown) => void;
+}) => UpdateSWFunction;
+
+let registerSW: RegisterSWFunction;
 try {
   // @ts-expect-error - Virtual module créé par vite-plugin-pwa n'a pas de types disponibles
   registerSW = (await import('virtual:pwa-register')).registerSW;
 } catch {
-  registerSW = () => ({ updateServiceWorker: () => {} });
+  registerSW = () => (async () => {});
 }
 
 export interface ServiceWorkerStatus {

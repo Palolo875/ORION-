@@ -19,7 +19,7 @@ import type { WorkerMessage, QueryPayload } from '../../types';
  * Simule les messages et réponses d'un vrai worker
  */
 export class MockLLMWorker {
-  private listeners = new Map<string, Function>();
+  private listeners = new Map<string, (event: MessageEvent) => void>();
   private currentModel = "Phi-3-mini-4k-instruct-q4f16_1-MLC";
   
   postMessage(message: WorkerMessage<QueryPayload & { 
@@ -44,7 +44,7 @@ export class MockLLMWorker {
     }, 100);
   }
   
-  addEventListener(event: string, callback: Function) {
+  addEventListener(event: string, callback: (event: MessageEvent) => void) {
     this.listeners.set(event, callback);
   }
   
@@ -61,7 +61,7 @@ export class MockLLMWorker {
    */
   private generateMockResponse(
     type: string, 
-    payload: any, 
+    payload: Record<string, unknown>, 
     meta?: WorkerMessage['meta']
   ): WorkerMessage {
     if (type === 'set_model') {
