@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Models locaux (fichiers volumineux)
+models/
+!models/.gitkeep
+
+# Coverage
+coverage/
+
+# Build artifacts
+.cache/
