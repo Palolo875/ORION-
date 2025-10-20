@@ -23,4 +23,26 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  // Exceptions pour les fichiers de test - chargement dynamique de mocks
+  {
+    files: ["src/test/setup.ts"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  // Exceptions pour les mocks workers - fichiers de test uniquement
+  {
+    files: ["src/workers/__mocks__/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-function-type": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  // Exceptions pour les tests workers
+  {
+    files: ["src/workers/__tests__/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 );

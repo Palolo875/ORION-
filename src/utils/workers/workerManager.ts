@@ -78,7 +78,8 @@ class WorkerManager {
     }
 
     try {
-      console.log(`[WorkerManager] Creating worker: ${type}`);
+      // Logger structuré au lieu de console.log
+      errorLogger.info('WorkerManager', `Creating worker: ${type}`, `Cr\u00e9ation du worker ${type}`);
       
       // Créer le worker avec lazy loading
       const worker = new Worker(new URL(url, import.meta.url), {
@@ -103,7 +104,7 @@ class WorkerManager {
         );
       };
 
-      console.log(`[WorkerManager] Worker created successfully: ${type}`);
+      errorLogger.info('WorkerManager', `Worker created successfully: ${type}`, `Worker ${type} créé avec succès`);
       return worker;
     } catch (error) {
       const err = error as Error;
@@ -125,7 +126,7 @@ class WorkerManager {
   terminateWorker(type: WorkerType): void {
     const instance = this.workers.get(type);
     if (instance) {
-      console.log(`[WorkerManager] Terminating worker: ${type}`);
+      errorLogger.info('WorkerManager', `Terminating worker: ${type}`, `Arrêt du worker ${type}`);
       instance.worker.terminate();
       this.workers.delete(type);
     }
@@ -177,12 +178,12 @@ class WorkerManager {
 
     // Terminer les workers inactifs
     workersToTerminate.forEach(type => {
-      console.log(`[WorkerManager] Cleaning up inactive worker: ${type}`);
+      errorLogger.info('WorkerManager', `Cleaning up inactive worker: ${type}`, `Nettoyage du worker inactif ${type}`);
       this.terminateWorker(type);
     });
 
     if (workersToTerminate.length > 0) {
-      console.log(`[WorkerManager] Cleaned up ${workersToTerminate.length} inactive worker(s)`);
+      errorLogger.info('WorkerManager', `Cleaned up ${workersToTerminate.length} inactive worker(s)`, `${workersToTerminate.length} worker(s) inactif(s) nettoyé(s)`);
     }
   }
 
@@ -190,7 +191,7 @@ class WorkerManager {
    * Termine tous les workers
    */
   terminateAll(): void {
-    console.log('[WorkerManager] Terminating all workers');
+    errorLogger.info('WorkerManager', 'Terminating all workers', 'Arrêt de tous les workers');
     
     // Arrêter le cleanup
     if (this.cleanupInterval !== null) {
@@ -252,13 +253,13 @@ class WorkerManager {
    * @param types Types de workers à précharger
    */
   async preloadWorkers(types: WorkerType[]): Promise<void> {
-    console.log(`[WorkerManager] Preloading workers: ${types.join(', ')}`);
+    errorLogger.info('WorkerManager', `Preloading workers: ${types.join(', ')}`, `Préchargement des workers: ${types.join(', ')}`);
     
     const promises = types.map(type => this.getWorker(type));
     
     try {
       await Promise.all(promises);
-      console.log(`[WorkerManager] Successfully preloaded ${types.length} worker(s)`);
+      errorLogger.info('WorkerManager', `Successfully preloaded ${types.length} worker(s)`, `${types.length} worker(s) préchargé(s) avec succès`);
     } catch (error) {
       const err = error as Error;
       errorLogger.warning(
@@ -281,5 +282,6 @@ window.addEventListener('beforeunload', () => {
 
 // Exposer pour le debugging en développement
 if (import.meta.env.DEV) {
-  (window as any).__workerManager = workerManager;
+  // @ts-expect-error - Débugging global uniquement en développement, type volontairement flexible
+  window.__workerManager = workerManager;
 }
