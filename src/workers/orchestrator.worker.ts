@@ -13,7 +13,7 @@ import type { SetModelPayload, FeedbackPayload, ToolExecutionPayload, ToolErrorP
 import { LOGICAL_AGENT, CREATIVE_AGENT, CRITICAL_AGENT, SYNTHESIZER_AGENT, createSynthesisMessage } from '../config/agents';
 import { errorLogger, UserMessages } from '../utils/errorLogger';
 import { withRetry, retryStrategies } from '../utils/retry';
-import { evaluateDebate, generateQualityReport, type DebateQuality } from '../utils/debateQuality';
+import { evaluateDebate, evaluateSingleResponse, generateQualityReport, type DebateQuality } from '../utils/debateQuality';
 import { logger } from '../utils/logger';
 
 logger.info('Orchestrator', 'Worker chargé et prêt');
@@ -456,14 +456,15 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
         ? ['Logical', 'Creative', 'Critical', 'Synthesizer']
         : ['LLMAgent'];
 
-      // Évaluer la qualité du débat si on a utilisé le débat multi-agents
+      // Évaluer la qualité de la réponse (débat multi-agents OU réponse simple)
       let debateQuality: DebateQuality | undefined;
       if (multiAgentState.currentStep === 'synthesis' && 
           multiAgentState.logicalResponse && 
           multiAgentState.creativeResponse && 
           multiAgentState.criticalResponse) {
         
-        logger.debug('Orchestrator', 'Évaluation de la qualité du débat', undefined, meta?.traceId);
+        // Mode débat multi-agents
+        logger.debug('Orchestrator', 'Évaluation de la qualité du débat multi-agents', undefined, meta?.traceId);
         debateQuality = evaluateDebate({
           logical: multiAgentState.logicalResponse,
           creative: multiAgentState.creativeResponse,
@@ -480,6 +481,22 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
           }, meta?.traceId);
         } else {
           logger.debug('Orchestrator', 'Qualité du débat acceptable', undefined, meta?.traceId);
+        }
+      } else if (multiAgentState.currentStep === 'idle' && currentQueryContext) {
+        
+        // Mode simple - évaluer quand même la qualité de la réponse
+        logger.debug('Orchestrator', 'Évaluation de la qualité de la réponse simple', undefined, meta?.traceId);
+        debateQuality = evaluateSingleResponse({
+          response: llmPayload.response,
+          query: currentQueryContext.query
+        });
+        
+        logger.debug('Orchestrator', 'Qualité de la réponse', { debateQuality }, meta?.traceId);
+        
+        if (debateQuality.overallScore < 0.6) {
+          logger.warn('Orchestrator', 'Qualité de la réponse sous le seuil acceptable (< 60%)', { 
+            score: (debateQuality.overallScore * 100).toFixed(0) + '%'
+          }, meta?.traceId);
         }
       }
 
