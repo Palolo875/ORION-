@@ -1,4 +1,4 @@
-import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, Check, Sparkles, Rocket, ChevronRight } from "lucide-react";
+import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, Check, Sparkles, Rocket, ChevronRight, Database, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -10,6 +10,8 @@ import { Badge } from "./ui/badge";
 import { useState, useEffect } from "react";
 import { MODELS, formatBytes, ModelConfig, detectDeviceCapabilities, DeviceCapabilities } from "@/config/models";
 import { cn } from "@/lib/utils";
+import { useStorageMonitor } from "@/hooks/useStorageMonitor";
+import { StorageIndicator } from "./StorageAlert";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -28,6 +30,18 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
   const [notifications, setNotifications] = useState(true);
   const [soundEffects, setSoundEffects] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
+  const [recommendations, setRecommendations] = useState<string[]>([]);
+  const [isClearing, setIsClearing] = useState(false);
+
+  // Hook de monitoring du stockage
+  const {
+    storageInfo,
+    storageWarning,
+    clearCaches,
+    getRecommendations,
+    checkStorage,
+    formatBytes: formatStorageBytes,
+  } = useStorageMonitor();
 
   // Detect device capabilities on mount
   useEffect(() => {
@@ -37,6 +51,31 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
     }
     loadCapabilities();
   }, []);
+
+  // Load storage recommendations
+  useEffect(() => {
+    async function loadRecommendations() {
+      const recs = await getRecommendations();
+      setRecommendations(recs);
+    }
+    loadRecommendations();
+  }, [getRecommendations]);
+
+  // Handle cache clearing
+  const handleClearCache = async () => {
+    setIsClearing(true);
+    try {
+      const freedSpace = await clearCaches();
+      console.log(`Cache vidé : ${formatStorageBytes(freedSpace)} libérés`);
+      // Refresh recommendations
+      const recs = await getRecommendations();
+      setRecommendations(recs);
+    } catch (error) {
+      console.error('Erreur lors du nettoyage du cache:', error);
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   // Sync with current model
   useEffect(() => {
@@ -404,6 +443,77 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                     Options avancées et fonctionnalités expérimentales.
                   </p>
                 </div>
+
+                {/* Storage Status Section */}
+                {storageInfo && (
+                  <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
+                        <Database className="h-4 w-4" />
+                        Gestion du stockage
+                      </Label>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={checkStorage}
+                        className="gap-2"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    <StorageIndicator
+                      percentage={storageInfo.percentage}
+                      usage={storageInfo.usage}
+                      quota={storageInfo.quota}
+                      formatBytes={formatStorageBytes}
+                    />
+
+                    {storageWarning && storageWarning.level !== 'info' && (
+                      <div className={cn(
+                        "p-3 rounded-lg text-xs",
+                        storageWarning.level === 'critical' && "bg-destructive/10 text-destructive border border-destructive/20",
+                        storageWarning.level === 'warning' && "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-500/20"
+                      )}>
+                        <p className="font-medium mb-1">{storageWarning.message}</p>
+                        <p className="opacity-90">{storageWarning.recommendation}</p>
+                      </div>
+                    )}
+
+                    {recommendations.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">Recommandations :</p>
+                        <ul className="space-y-1.5 text-xs text-muted-foreground">
+                          {recommendations.map((rec, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-primary mt-0.5">•</span>
+                              <span>{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={handleClearCache}
+                      disabled={isClearing}
+                    >
+                      {isClearing ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Nettoyage en cours...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4" />
+                          Vider le cache
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
 
                 <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-5 sm:space-y-6">
                   {/* Notifications */}

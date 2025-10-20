@@ -67,3 +67,14 @@ export const UI_CONFIG = {
   MESSAGE_FADE_DURATION: 300, // Durée de l'animation de fade
   TOAST_DURATION: 3000, // Durée d'affichage des toasts
 } as const;
+
+// === STOCKAGE ===
+export const STORAGE_CONFIG = {
+  WARNING_THRESHOLD: 0.75, // Alerte à 75% d'utilisation
+  CRITICAL_THRESHOLD: 0.9, // Critique à 90% d'utilisation
+  MODEL_SIZE_SMALL: 500 * 1024 * 1024, // 500 MB
+  MODEL_SIZE_MEDIUM: 2 * 1024 * 1024 * 1024, // 2 GB
+  MODEL_SIZE_LARGE: 5 * 1024 * 1024 * 1024, // 5 GB
+  MONITOR_INTERVAL: 60000, // Vérifier le stockage toutes les minutes
+  AUTO_CLEAR_CACHE_ON_CRITICAL: false, // Ne pas vider automatiquement
+} as const;
