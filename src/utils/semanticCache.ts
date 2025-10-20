@@ -12,6 +12,7 @@
  */
 
 import { DebateQuality } from './debateQuality';
+import { logger } from './logger';
 
 export interface CachedResponse {
   query: string;
@@ -200,7 +201,7 @@ export class SemanticCache {
       .sort((a, b) => b.score - a.score);
     
     if (candidates.length === 0) {
-      console.log('[SemanticCache] Cache miss:', query.substring(0, 50));
+      logger.debug('SemanticCache', 'Cache miss', { query: query.substring(0, 50) });
       return null;
     }
     
@@ -210,14 +211,13 @@ export class SemanticCache {
     best.item.hitCount++;
     this.totalHits++;
     
-    console.log(
-      '[SemanticCache] Cache hit!',
-      `Query similarity: ${(best.querySimilarity * 100).toFixed(1)}%`,
-      `Context similarity: ${(best.contextSimilarity * 100).toFixed(1)}%`,
-      `Score: ${(best.score * 100).toFixed(1)}%`
-    );
-    console.log('[SemanticCache] Original query:', best.item.query.substring(0, 50));
-    console.log('[SemanticCache] Current query:', query.substring(0, 50));
+    logger.debug('SemanticCache', 'Cache hit', {
+      querySimilarity: (best.querySimilarity * 100).toFixed(1) + '%',
+      contextSimilarity: (best.contextSimilarity * 100).toFixed(1) + '%',
+      score: (best.score * 100).toFixed(1) + '%',
+      originalQuery: best.item.query.substring(0, 50),
+      currentQuery: query.substring(0, 50)
+    });
     
     return best.item;
   }
@@ -252,11 +252,10 @@ export class SemanticCache {
       this.evictLeastValuable();
     }
     
-    console.log(
-      '[SemanticCache] Added to cache:',
-      query.substring(0, 50),
-      `TTL: ${(ttl / 1000 / 60).toFixed(0)}min`
-    );
+    logger.debug('SemanticCache', 'Added to cache', {
+      query: query.substring(0, 50),
+      ttlMinutes: (ttl / 1000 / 60).toFixed(0)
+    });
   }
   
   /**
@@ -281,7 +280,7 @@ export class SemanticCache {
     // Garder seulement les MAX_CACHE_SIZE meilleures entrées
     this.cache = scored.slice(0, this.MAX_CACHE_SIZE).map(s => s.item);
     
-    console.log(`[SemanticCache] Evicted ${scored.length - this.MAX_CACHE_SIZE} entries`);
+    logger.debug('SemanticCache', 'Cache eviction', { evictedCount: scored.length - this.MAX_CACHE_SIZE });
   }
   
   /**
@@ -289,7 +288,7 @@ export class SemanticCache {
    */
   invalidate(): void {
     this.cache = [];
-    console.log('[SemanticCache] Cache invalidated');
+    logger.debug('SemanticCache', 'Cache invalidated');
   }
   
   /**
@@ -301,7 +300,7 @@ export class SemanticCache {
       const text = (item.query + ' ' + item.response).toLowerCase();
       return !keywords.some(keyword => text.includes(keyword.toLowerCase()));
     });
-    console.log(`[SemanticCache] Invalidated ${before - this.cache.length} entries matching keywords`);
+    logger.debug('SemanticCache', 'Entries invalidated', { count: before - this.cache.length });
   }
   
   /**
@@ -345,7 +344,7 @@ export class SemanticCache {
         this.cache = data.cache;
         this.totalQueries = data.stats?.totalQueries || 0;
         this.totalHits = data.stats?.totalHits || 0;
-        console.log(`[SemanticCache] Imported ${this.cache.length} entries`);
+        logger.info('SemanticCache', 'Cache imported', { count: this.cache.length });
       }
     } catch (error) {
       console.error('[SemanticCache] Import failed:', error);

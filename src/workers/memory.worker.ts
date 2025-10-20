@@ -14,6 +14,7 @@ import { WorkerMessage, MemoryItem, MemoryType } from '../types';
 import { pipeline, env } from '@xenova/transformers';
 import { loadHnswlib, type HierarchicalNSW } from 'hnswlib-wasm';
 import { MEMORY_CONFIG, HNSW_CONFIG } from '../config/constants';
+import { logger } from '../utils/logger';
 
 // Configuration de Transformers.js pour une performance optimale dans le navigateur
 env.allowLocalModels = false;
@@ -30,9 +31,9 @@ class EmbeddingPipeline {
 
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
-      console.log("[Memory] Initialisation du modèle d'embedding... (peut prendre du temps la première fois)");
+      logger.info('MemoryWorker', "Initialisation du modèle d'embedding");
       this.instance = await pipeline(this.task as any, this.model);
-      console.log("[Memory] Modèle d'embedding prêt.");
+      logger.info('MemoryWorker', "Modèle d'embedding prêt");
     }
     return this.instance;
   }
@@ -50,7 +51,7 @@ class HNSWIndexManager {
   async initialize() {
     if (this.indexInitialized) return;
     
-    console.log("[Memory/HNSW] Initialisation de l'index HNSW...");
+    logger.info('MemoryWorker', "Initialisation de l'index HNSW");
     
     // Charger le module hnswlib-wasm
     const hnswlibModule = await loadHnswlib();
@@ -69,7 +70,7 @@ class HNSWIndexManager {
     await this.loadExistingMemories();
     
     this.indexInitialized = true;
-    console.log("[Memory/HNSW] Index HNSW initialisé avec succès");
+    logger.info('MemoryWorker', 'Index HNSW initialisé avec succès');
   }
 
   private async loadExistingMemories() {
@@ -93,7 +94,7 @@ class HNSWIndexManager {
     }
     
     if (loadedCount > 0) {
-      console.log(`[Memory/HNSW] ${loadedCount} souvenirs chargés dans l'index`);
+      logger.info('MemoryWorker', 'Souvenirs chargés dans l\'index', { count: loadedCount });
     }
   }
 
@@ -111,7 +112,7 @@ class HNSWIndexManager {
 
   async search(queryEmbedding: number[], k: number = MEMORY_CONFIG.MAX_SEARCH_RESULTS): Promise<string[]> {
     if (!this.index) {
-      console.warn("[Memory/HNSW] Index non initialisé, fallback vers recherche linéaire");
+      logger.warn('MemoryWorker', 'Index non initialisé, fallback vers recherche linéaire');
       return [];
     }
 
@@ -156,7 +157,7 @@ class HNSWIndexManager {
   }
 
   async rebuildIndex() {
-    console.log("[Memory/HNSW] Reconstruction de l'index...");
+    logger.info('MemoryWorker', "Reconstruction de l'index");
     this.index = null;
     this.indexInitialized = false;
     this.idToMemoryKey.clear();
@@ -186,7 +187,7 @@ async function getCachedEmbedding(text: string): Promise<number[]> {
   const now = Date.now();
   
   if (cached && (now - cached.timestamp) < CACHE_TTL) {
-    console.log("[Memory] Utilisation de l'embedding en cache");
+    logger.debug('MemoryWorker', "Utilisation de l'embedding en cache");
     return cached.embedding;
   }
   
@@ -238,7 +239,7 @@ async function addMemory(text: string, type: MemoryType, traceId: string) {
   // Ajouter à l'index HNSW
   await hnswIndex.addToIndex(id, embedding);
   
-  console.log(`[Memory] (traceId: ${traceId}) Souvenir de type '${type}' ajouté avec embedding sémantique et indexé HNSW.`);
+  logger.debug('MemoryWorker', 'Souvenir ajouté', { type }, traceId);
 }
 
 async function searchMemory(query: string, traceId: string): Promise<string[]> {
@@ -248,7 +249,7 @@ async function searchMemory(query: string, traceId: string): Promise<string[]> {
   const hnswResults = await hnswIndex.search(queryEmbedding, MEMORY_CONFIG.MAX_SEARCH_RESULTS);
   
   if (hnswResults.length > 0) {
-    console.log(`[Memory/HNSW] (traceId: ${traceId}) Recherche HNSW: ${hnswResults.length} résultats trouvés`);
+    logger.debug('MemoryWorker', 'Recherche HNSW', { resultCount: hnswResults.length }, traceId);
     
     // Récupérer les items et mettre à jour lastAccessed
     const results: string[] = [];
@@ -267,7 +268,7 @@ async function searchMemory(query: string, traceId: string): Promise<string[]> {
   }
   
   // Fallback vers recherche linéaire si HNSW ne retourne rien
-  console.log(`[Memory] (traceId: ${traceId}) Fallback vers recherche linéaire`);
+  logger.debug('MemoryWorker', 'Fallback vers recherche linéaire', undefined, traceId);
   return await linearSearch(queryEmbedding, traceId);
 }
 
@@ -292,7 +293,7 @@ async function linearSearch(queryEmbedding: number[], traceId: string): Promise<
 
   allMemories.sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
 
-  console.log(`[Memory] (traceId: ${traceId}) Recherche linéaire effectuée. Trouvé ${allMemories.length} souvenirs.`);
+  logger.debug('MemoryWorker', 'Recherche linéaire effectuée', { count: allMemories.length }, traceId);
   
   const relevantResults = allMemories
     .filter(item => (item.similarity || 0) > MEMORY_CONFIG.SIMILARITY_THRESHOLD)
@@ -308,16 +309,19 @@ async function linearSearch(queryEmbedding: number[], traceId: string): Promise<
 }
 
 async function runMemoryJanitor(traceId: string) {
-  console.log(`[Memory] (traceId: ${traceId}) Lancement du nettoyeur de mémoire...`);
+  logger.debug('MemoryWorker', 'Lancement du nettoyeur de mémoire', undefined, traceId);
   const allKeys = (await keys()) as string[];
   const memoryKeys = allKeys.filter(key => typeof key === 'string' && key.startsWith('memory_'));
 
   if (memoryKeys.length < MEMORY_CONFIG.BUDGET) {
-    console.log(`[Memory] Budget non atteint (${memoryKeys.length}/${MEMORY_CONFIG.BUDGET}), pas de nettoyage majeur nécessaire.`);
+    logger.debug('MemoryWorker', 'Budget non atteint, pas de nettoyage', { 
+      current: memoryKeys.length, 
+      budget: MEMORY_CONFIG.BUDGET 
+    });
     return;
   }
 
-  console.log(`[Memory] Budget de ${MEMORY_CONFIG.BUDGET} souvenirs atteint. Nettoyage en cours...`);
+  logger.info('MemoryWorker', 'Budget atteint, nettoyage en cours', { budget: MEMORY_CONFIG.BUDGET });
   const allMemories: MemoryItem[] = await Promise.all(
     memoryKeys.map(async key => await get(key))
   );
@@ -333,7 +337,7 @@ async function runMemoryJanitor(traceId: string) {
     await del(item.id);
     await hnswIndex.removeFromIndex(item.id);
     needsIndexRebuild = true;
-    console.log(`[Memory] Souvenir expiré (TTL) supprimé: ${item.id}`);
+    logger.debug('MemoryWorker', 'Souvenir expiré (TTL) supprimé', { id: item.id });
   }
 
   const remainingMemories = allMemories.filter(
@@ -348,7 +352,7 @@ async function runMemoryJanitor(traceId: string) {
       await del(item.id);
       await hnswIndex.removeFromIndex(item.id);
       needsIndexRebuild = true;
-      console.log(`[Memory] Souvenir le moins utilisé (LRU) supprimé: ${item.id}`);
+      logger.debug('MemoryWorker', 'Souvenir le moins utilisé (LRU) supprimé', { id: item.id });
     }
   }
 
@@ -357,7 +361,7 @@ async function runMemoryJanitor(traceId: string) {
     await hnswIndex.rebuildIndex();
   }
 
-  console.log(`[Memory] (traceId: ${traceId}) Nettoyage terminé.`);
+  logger.debug('MemoryWorker', 'Nettoyage terminé', undefined, traceId);
 }
 
 async function getConversationContext(messageId: string): Promise<MemoryItem[]> {
@@ -387,28 +391,28 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
 
   try {
     if (type === 'init') {
-      console.log('[Memory] Initialisation du système de mémoire...');
+      logger.info('MemoryWorker', 'Initialisation du système de mémoire');
       
       // Initialiser l'embedding et HNSW en parallèle
       Promise.all([
         EmbeddingPipeline.getInstance(),
         hnswIndex.initialize()
       ]).then(() => {
-        console.log('[Memory] Système de mémoire et index HNSW prêts.');
+        logger.info('MemoryWorker', 'Système de mémoire et index HNSW prêts');
         self.postMessage({ type: 'init_complete', payload: { success: true }, meta });
       }).catch(error => {
-        console.error('[Memory] Erreur lors de l\'initialisation:', error);
+        logger.error('MemoryWorker', 'Erreur lors de l\'initialisation', error);
         self.postMessage({ type: 'init_error', payload: { error: error.message }, meta });
       });
     }
     else if (type === 'store') {
-      const storePayload = payload as any;
+      const storePayload = payload as { content: string; type?: MemoryType };
       const memoryType: MemoryType = storePayload.type || 'conversation';
       await addMemory(storePayload.content, memoryType, traceId);
       self.postMessage({ type: 'store_complete', payload: { success: true }, meta });
     } 
     else if (type === 'search') {
-      const searchPayload = payload as any;
+      const searchPayload = payload as { query: string; limit?: number };
       const results = await searchMemory(searchPayload.query, traceId);
       self.postMessage({ 
         type: 'search_result', 
@@ -420,7 +424,12 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       });
     }
     else if (type === 'add_feedback') {
-      const feedbackPayload = payload as any;
+      const feedbackPayload = payload as { 
+        messageId: string; 
+        feedback: 'positive' | 'negative'; 
+        query: string; 
+        response: string 
+      };
       const { messageId, feedback, query, response } = feedbackPayload;
       
       const failureReport = {
@@ -434,18 +443,18 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
 
       if (feedback === 'bad') {
         await set(failureReport.id, failureReport);
-        console.log(`[Memory] (traceId: ${traceId}) Rapport d'échec sauvegardé pour ${messageId}`);
+        logger.debug('MemoryWorker', 'Rapport d\'\u00e9chec sauvegardé', { messageId }, traceId);
       } else {
-        console.log(`[Memory] (traceId: ${traceId}) Feedback positif enregistré pour ${messageId}`);
+        logger.debug('MemoryWorker', 'Feedback positif enregistré', { messageId }, traceId);
       }
       
       self.postMessage({ type: 'feedback_saved', payload: { success: true }, meta });
     }
     else {
-      console.warn(`[Memory] Type de message inconnu: ${type}`);
+      logger.warn('MemoryWorker', 'Type de message inconnu', { type });
     }
   } catch (error) {
-    console.error(`[Memory] Erreur dans le worker:`, error);
+    logger.error('MemoryWorker', 'Erreur dans le worker', error);
     self.postMessage({ 
       type: 'memory_error', 
       payload: { error: (error as Error).message }, 

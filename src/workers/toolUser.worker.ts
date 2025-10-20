@@ -12,8 +12,9 @@
 
 import type { WorkerMessage } from '../types';
 import { TOOL_CONFIG } from '../config/constants';
+import { logger } from '../utils/logger';
 
-console.log("ToolUser Worker (Enhanced) chargé et prêt.");
+logger.info('ToolUserWorker', 'Worker chargé et prêt');
 
 // === Types d'outils ===
 type ToolFunction = (...args: unknown[]) => string | Promise<string>;
@@ -439,21 +440,21 @@ async function safeToolCall(toolName: string, args: unknown[] = []): Promise<str
   const toolSpec = TOOL_WHITELIST[toolName];
 
   if (!toolSpec) {
-    console.error(`[ToolUser] Tentative d'appel d'un outil non autorisé: "${toolName}"`);
+    logger.error('ToolUserWorker', 'Tentative d\'appel d\'un outil non autorisé', { toolName });
     throw new Error(`Tool "${toolName}" is not in the whitelist.`);
   }
 
   if (args.length !== toolSpec.argCount) {
-    console.error(`[ToolUser] Nombre d'arguments incorrect pour "${toolName}". Attendu: ${toolSpec.argCount}, Reçu: ${args.length}`);
+    logger.error('ToolUserWorker', 'Nombre d\'arguments incorrect', { toolName, expected: toolSpec.argCount, received: args.length });
     throw new Error(`Invalid number of arguments for tool "${toolName}".`);
   }
 
   if (toolSpec.validator && !toolSpec.validator(args)) {
-    console.error(`[ToolUser] Validation des arguments échouée pour "${toolName}".`);
+    logger.error('ToolUserWorker', 'Validation des arguments échouée', { toolName });
     throw new Error(`Invalid arguments for tool "${toolName}".`);
   }
 
-  console.log(`[ToolUser] Appel sécurisé de l'outil: ${toolName}`, args.length > 0 ? `avec arguments: ${JSON.stringify(args)}` : '');
+  logger.debug('ToolUserWorker', 'Appel sécurisé de l\'outil', { toolName, argsCount: args.length });
   
   // Ajouter un timeout pour l'exécution
   const timeoutPromise = new Promise<string>((_, reject) => {
@@ -471,7 +472,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<{ query: string }>>) =
   const { type, payload } = event.data;
 
   if (type === 'find_and_execute_tool') {
-    console.log(`[ToolUser] Recherche d'outil pour: "${payload.query}"`);
+    logger.debug('ToolUserWorker', 'Recherche d\'outil', { query: payload.query.substring(0, 50) });
     
     const intent = detectIntent(payload.query);
     
@@ -487,21 +488,21 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<{ query: string }>>) =
           } 
         });
       } catch (error) {
-        console.error('[ToolUser] Erreur lors de l\'exécution:', error);
+        logger.error('ToolUserWorker', 'Erreur lors de l\'exécution', error);
         self.postMessage({ 
           type: 'tool_error', 
           payload: { error: (error as Error).message } 
         });
       }
     } else if (intent) {
-      console.log(`[ToolUser] Outil détecté mais confiance faible: ${intent.toolName} (${intent.confidence})`);
+      logger.debug('ToolUserWorker', 'Outil détecté mais confiance faible', { toolName: intent.toolName, confidence: intent.confidence });
       self.postMessage({ type: 'no_tool_found' });
     } else {
-      console.log("[ToolUser] Aucun outil pertinent trouvé pour cette requête.");
+      logger.debug('ToolUserWorker', 'Aucun outil pertinent trouvé');
       self.postMessage({ type: 'no_tool_found' });
     }
   } else if (type === 'init') {
-    console.log('[ToolUser] Initialized with', Object.keys(TOOL_WHITELIST).length, 'tools');
+    logger.info('ToolUserWorker', 'Initialized', { toolCount: Object.keys(TOOL_WHITELIST).length });
     self.postMessage({ type: 'init_complete', payload: { 
       success: true,
       toolCount: Object.keys(TOOL_WHITELIST).length,

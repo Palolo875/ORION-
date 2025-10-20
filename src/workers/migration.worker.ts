@@ -11,6 +11,7 @@
 import { get, set, keys } from 'idb-keyval';
 import { MemoryItem } from '../types';
 import { pipeline, env } from '@xenova/transformers';
+import { logger } from '../utils/logger';
 
 // Configuration de Transformers.js
 env.allowLocalModels = false;
@@ -33,9 +34,9 @@ class EmbeddingPipeline {
 
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
-      console.log("[Migration] Initialisation du modèle d'embedding...");
+      logger.info('MigrationWorker', "Initialisation du modèle d'embedding");
       this.instance = await pipeline(this.task as any, this.model);
-      console.log("[Migration] Modèle d'embedding prêt.");
+      logger.info('MigrationWorker', "Modèle d'embedding prêt");
     }
     return this.instance;
   }
@@ -51,12 +52,12 @@ async function createSemanticEmbedding(text: string): Promise<number[]> {
 // --- Fonction principale de migration ---
 async function runMigration(): Promise<void> {
   try {
-    console.log("[Migration] Vérification des versions d'embeddings...");
+    logger.debug('MigrationWorker', "Vérification des versions d'embeddings");
     const allKeys = (await keys()) as string[];
     const memoryKeys = allKeys.filter(key => typeof key === 'string' && key.startsWith('memory_'));
 
     if (memoryKeys.length === 0) {
-      console.log("[Migration] Aucun souvenir à migrer.");
+      logger.debug('MigrationWorker', 'Aucun souvenir à migrer');
       return;
     }
 
@@ -66,7 +67,7 @@ async function runMigration(): Promise<void> {
       const item = await get(key) as MemoryItem | undefined;
       
       if (item && item.embeddingVersion !== CURRENT_EMBEDDING_MODEL_VERSION) {
-        console.log(`[Migration] Ancien souvenir trouvé (${item.id}). Mise à jour de l'embedding...`);
+        logger.debug('MigrationWorker', 'Ancien souvenir trouvé - mise à jour', { id: item.id });
         
         try {
           // Recalculer l'embedding avec le nouveau modèle
@@ -77,30 +78,29 @@ async function runMigration(): Promise<void> {
           item.embeddingVersion = CURRENT_EMBEDDING_MODEL_VERSION;
           
           await set(item.id, item);
-          console.log(`[Migration] Souvenir ${item.id} mis à jour avec succès.`);
+          logger.debug('MigrationWorker', 'Souvenir mis à jour avec succès', { id: item.id });
           migratedCount++;
           
           // On ne fait qu'un seul item par cycle pour ne pas surcharger le CPU
           break;
         } catch (error) {
-          console.error(`[Migration] Erreur lors de la migration de ${item.id}:`, error);
+          logger.error('MigrationWorker', 'Erreur lors de la migration', { id: item.id, error });
         }
       }
     }
     
     if (migratedCount === 0) {
-      console.log("[Migration] Tous les souvenirs sont à jour.");
+      logger.info('MigrationWorker', 'Tous les souvenirs sont à jour');
     } else {
-      console.log(`[Migration] ${migratedCount} souvenir(s) migré(s) lors de ce cycle.`);
+      logger.info('MigrationWorker', 'Souvenirs migrés', { count: migratedCount });
     }
   } catch (error) {
-    console.error("[Migration] Erreur lors du processus de migration:", error);
+    logger.error('MigrationWorker', 'Erreur lors du processus de migration', error);
   }
 }
 
 // --- Initialisation et démarrage automatique ---
-console.log("[Migration] Migration Worker démarré.");
-console.log(`[Migration] Cycle de migration lancé toutes les ${MIGRATION_INTERVAL / 1000} secondes.`);
+logger.info('MigrationWorker', 'Worker démarré', { intervalSeconds: MIGRATION_INTERVAL / 1000 });
 
 // Première migration après 30 secondes (laisser le temps au système de démarrer)
 setTimeout(() => {
@@ -116,15 +116,15 @@ self.onmessage = async (event: MessageEvent) => {
 
   try {
     if (type === 'trigger_migration') {
-      console.log('[Migration] Migration manuelle déclenchée.');
+      logger.info('MigrationWorker', 'Migration manuelle déclenchée');
       await runMigration();
       self.postMessage({ type: 'migration_complete', payload: { success: true } });
     } else if (type === 'init') {
-      console.log('[Migration] Worker initialisé.');
+      logger.info('MigrationWorker', 'Worker initialisé');
       self.postMessage({ type: 'init_complete', payload: { success: true } });
     }
   } catch (error) {
-    console.error('[Migration] Erreur:', error);
+    logger.error('MigrationWorker', 'Erreur', error);
     self.postMessage({ 
       type: 'migration_error', 
       payload: { error: (error as Error).message } 

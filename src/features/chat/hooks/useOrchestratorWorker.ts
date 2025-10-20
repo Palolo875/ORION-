@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from "react";
 import { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from "@/types";
+import type { LLMProgressPayload, MemoryImportPayload } from "@/types/worker-payloads";
 import { FlowStep } from "@/components/CognitiveFlow";
 import { DeviceProfile } from "@/utils/performance/deviceProfiler";
 import { ProcessedFile } from "@/utils/fileProcessor";
@@ -44,7 +45,7 @@ export function useOrchestratorWorker({
           break;
         }
         case 'llm_load_progress': {
-          const llmPayload = payload as any;
+          const llmPayload = payload as LLMProgressPayload;
           onLoadProgress({
             progress: llmPayload.progress || 0,
             text: llmPayload.text || '',
@@ -169,13 +170,14 @@ export function useOrchestratorWorker({
     });
   }, []);
 
-  const importMemory = useCallback((data: any) => {
+  const importMemory = useCallback((data: string | Record<string, unknown>) => {
     if (!orchestratorWorker.current) return;
 
     const traceId = `trace_import_${Date.now()}`;
+    const importPayload: MemoryImportPayload = { data };
     orchestratorWorker.current.postMessage({
       type: 'import_memory',
-      payload: { data },
+      payload: importPayload,
       meta: { traceId, timestamp: Date.now() }
     });
   }, []);

@@ -248,11 +248,13 @@ function calculateBalance(debate: Debate): number {
   return balance;
 }
 
+import { logger } from './logger';
+
 /**
  * Évalue la qualité globale d'un débat multi-agents
  */
 export function evaluateDebate(debate: Debate): DebateQuality {
-  console.log('[DebateQuality] Évaluation du débat...');
+  logger.debug('DebateQuality', 'Évaluation du débat');
   
   // Calculer chaque métrique
   const coherence = calculateCoherence(debate);
@@ -283,7 +285,7 @@ export function evaluateDebate(debate: Debate): DebateQuality {
     }
   };
   
-  console.log('[DebateQuality] Résultats:', quality);
+  logger.debug('DebateQuality', 'Résultats', { quality });
   
   return quality;
 }
