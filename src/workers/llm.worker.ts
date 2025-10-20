@@ -19,8 +19,9 @@ import { WebWorkerMLCEngine, MLCEngine, ChatCompletionRequest } from "@mlc-ai/we
 import { WorkerMessage, QueryPayload } from '../types';
 import { errorLogger, UserMessages } from '../utils/errorLogger';
 import { withRetry, retryStrategies } from '../utils/retry';
+import { logger } from '../utils/logger';
 
-console.log("[LLM] Worker chargé. Prêt à initialiser le moteur.")
+logger.info('LLMWorker', 'Worker chargé. Prêt à initialiser le moteur');
 
 // Modèle par défaut
 let SELECTED_MODEL = "Phi-3-mini-4k-instruct-q4f16_1-MLC";
@@ -50,14 +51,14 @@ class LLMEngine {
     
     // Si le modèle a changé, réinitialiser l'instance
     if (this.instance !== null && this.currentModel !== targetModel) {
-      console.log(`[LLM] Changement de modèle détecté: ${this.currentModel} → ${targetModel}`);
+      logger.info('LLMWorker', 'Changement de modèle détecté', { from: this.currentModel, to: targetModel });
       this.instance = null;
       this.currentModel = null;
     }
     
     if (this.instance === null) {
       try {
-        console.log("[LLM] Initialisation du moteur WebLLM...");
+        logger.info('LLMWorker', 'Initialisation du moteur WebLLM');
         
         // Utiliser withRetry pour l'initialisation du moteur
         this.instance = await withRetry(
@@ -69,7 +70,7 @@ class LLMEngine {
                 if (progress_callback) {
                   progress_callback(report);
                 } else {
-                  console.log(`[LLM] ${report.text} - ${report.progress.toFixed(1)}%`);
+                  logger.debug('LLMWorker', 'Chargement en cours', { text: report.text, progress: report.progress });
                 }
               },
             });
@@ -78,7 +79,7 @@ class LLMEngine {
           {
             ...retryStrategies.llm,
             onRetry: (error, attempt) => {
-              console.warn(`[LLM] Tentative ${attempt} échouée, nouvelle tentative...`, error.message);
+              logger.warn('LLMWorker', 'Tentative échouée, nouvelle tentative', { attempt, error: error.message });
               if (progress_callback) {
                 progress_callback({
                   progress: 0,
@@ -91,7 +92,7 @@ class LLMEngine {
           }
         );
 
-        console.log(`[LLM] Chargement du modèle: ${targetModel}...`);
+        logger.info('LLMWorker', 'Chargement du modèle', { model: targetModel });
         
         // Retry pour le chargement du modèle
         await withRetry(
@@ -101,13 +102,13 @@ class LLMEngine {
           {
             ...retryStrategies.llm,
             onRetry: (error, attempt) => {
-              console.warn(`[LLM] Chargement du modèle - Tentative ${attempt} échouée`, error.message);
+              logger.warn('LLMWorker', 'Chargement du modèle - Tentative échouée', { attempt, error: error.message });
             }
           }
         );
         
         this.currentModel = targetModel;
-        console.log("[LLM] Moteur et modèle prêts !");
+        logger.info('LLMWorker', 'Moteur et modèle prêts');
       } catch (error) {
         const err = error as Error;
         errorLogger.critical(
@@ -129,7 +130,7 @@ class LLMEngine {
    * Réinitialise l'instance du moteur (utile pour changer de modèle)
    */
   static reset() {
-    console.log("[LLM] Réinitialisation du moteur...");
+    logger.info('LLMWorker', 'Réinitialisation du moteur');
     this.instance = null;
     this.currentModel = null;
     this.lastAgentType = null;
@@ -143,8 +144,7 @@ class LLMEngine {
    */
   static resetContext(agentType?: string) {
     if (agentType && this.lastAgentType && this.lastAgentType !== agentType) {
-      console.log(`[LLM] Changement d'agent détecté: ${this.lastAgentType} → ${agentType}`);
-      console.log("[LLM] Contexte réinitialisé pour éviter la contamination");
+      logger.info('LLMWorker', "Changement d'agent - contexte réinitialisé", { from: this.lastAgentType, to: agentType });
     }
     this.lastAgentType = agentType || null;
   }
@@ -165,7 +165,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & {
   if (type === 'set_model') {
     // Permet de changer le modèle
     SELECTED_MODEL = payload.modelId || SELECTED_MODEL;
-    console.log(`[LLM] Modèle sélectionné: ${SELECTED_MODEL}`);
+    logger.info('LLMWorker', 'Modèle sélectionné', { model: SELECTED_MODEL });
     LLMEngine.reset(); // Forcer le rechargement au prochain appel
     self.postMessage({ 
       type: 'model_set', 
@@ -174,7 +174,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & {
     });
   } else if (type === 'generate_response') {
     try {
-      console.log(`[LLM] (traceId: ${meta?.traceId}) Inférence initiée.`);
+      logger.debug('LLMWorker', 'Inférence initiée', undefined, meta?.traceId);
       
       // Réinitialiser le contexte si on change d'agent (éviter contamination)
       LLMEngine.resetContext(payload.agentType);
@@ -228,7 +228,7 @@ Réponds à la requête de l'utilisateur de manière concise, intelligente et ut
           maxDelay: 3000,
           backoffFactor: 1.5,
           onRetry: (error, attempt) => {
-            console.warn(`[LLM] Inférence - Tentative ${attempt} échouée`, error.message);
+            logger.warn('LLMWorker', 'Inférence - Tentative échouée', { attempt, error: error.message }, meta?.traceId);
           }
         }
       );
@@ -275,7 +275,7 @@ Réponds à la requête de l'utilisateur de manière concise, intelligente et ut
       });
     }
   } else if (type === 'init') {
-    console.log('[LLM] Worker initialized');
+    logger.info('LLMWorker', 'Worker initialized');
     self.postMessage({ 
       type: 'init_complete',
       payload: {},

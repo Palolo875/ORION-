@@ -9,12 +9,14 @@
  */
 
 import type { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from '../types';
+import type { SetModelPayload, FeedbackPayload, ToolExecutionPayload, ToolErrorPayload, LLMErrorPayload } from '../types/worker-payloads';
 import { LOGICAL_AGENT, CREATIVE_AGENT, CRITICAL_AGENT, SYNTHESIZER_AGENT, createSynthesisMessage } from '../config/agents';
 import { errorLogger, UserMessages } from '../utils/errorLogger';
 import { withRetry, retryStrategies } from '../utils/retry';
 import { evaluateDebate, generateQualityReport, type DebateQuality } from '../utils/debateQuality';
+import { logger } from '../utils/logger';
 
-console.log("Orchestrator Worker (Secure) chargé et prêt.");
+logger.info('Orchestrator', 'Worker chargé et prêt');
 
 // Instancier tous les workers
 const llmWorker = new Worker(new URL('./llm.worker.ts', import.meta.url), {
@@ -37,7 +39,7 @@ const contextManagerWorker = new Worker(new URL('./contextManager.worker.ts', im
   type: 'module',
 });
 
-console.log("[Orchestrateur] Tous les workers ont été instanciés (LLM, Memory, ToolUser, GeniusHour, ContextManager).");
+logger.info('Orchestrator', 'Tous les workers instanciés', { workers: ['LLM', 'Memory', 'ToolUser', 'GeniusHour', 'ContextManager'] });
 
 // Variables pour stocker la requête en cours et le tracer
 let currentQueryContext: QueryPayload | null = null;
@@ -66,8 +68,10 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
 
   try {
     if (type === 'query') {
-      console.log(`[Orchestrateur] Requête reçue (traceId: ${meta?.traceId}): "${payload.query}"`);
-      console.log(`[Orchestrateur] Profil d'appareil: '${payload.deviceProfile || 'micro'}'`);
+      logger.info('Orchestrator', 'Requête reçue', { 
+        query: payload.query.substring(0, 100),
+        deviceProfile: payload.deviceProfile || 'micro'
+      }, meta?.traceId);
       
       // Sauvegarder la requête courante et les métadonnées
       currentQueryContext = payload;
@@ -89,12 +93,12 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
 
       // Déterminer si on doit utiliser le débat multi-agents
       const useMultiAgent = profile === 'full' || (profile === 'lite' && payload.query.length > 50);
-      console.log(`[Orchestrateur] Mode débat multi-agents: ${useMultiAgent ? 'OUI' : 'NON'}`);
+      logger.debug('Orchestrator', 'Mode débat multi-agents', { enabled: useMultiAgent }, meta?.traceId);
       
       switch (profile) {
         case 'full':
           // Comportement normal et complet: ReAct avec LLM et débat multi-agents pour les requêtes complexes
-          console.log("[Orchestrateur] Stratégie 'full': ReAct avec LLM et débat multi-agents.");
+          logger.info('Orchestrator', "Stratégie 'full': ReAct avec LLM et débat multi-agents", undefined, meta?.traceId);
           toolUserWorker.postMessage({ 
             type: 'find_and_execute_tool', 
             payload: { query: payload.query },
@@ -104,7 +108,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
 
         case 'lite':
           // On utilise les outils et le débat multi-agents pour les questions complexes
-          console.log("[Orchestrateur] Stratégie 'lite': Outils + LLM optimisé.");
+          logger.info('Orchestrator', "Stratégie 'lite': Outils + LLM optimisé", undefined, meta?.traceId);
           toolUserWorker.postMessage({ 
             type: 'find_and_execute_tool', 
             payload: { query: payload.query },
@@ -115,7 +119,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
         case 'micro':
         default:
           // Le mode le plus basique : outils uniquement, pas de débat LLM lourd
-          console.log("[Orchestrateur] Stratégie 'micro': Outils uniquement, pas de LLM.");
+          logger.info('Orchestrator', "Stratégie 'micro': Outils uniquement, pas de LLM", undefined, meta?.traceId);
           toolUserWorker.postMessage({ 
             type: 'find_and_execute_tool', 
             payload: { query: payload.query },
@@ -124,22 +128,27 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
           break;
       }
     } else if (type === 'init') {
-      console.log('[Orchestrateur] Initialized');
+      logger.info('Orchestrator', 'Initialized');
       // Initialiser tous les workers
       llmWorker.postMessage({ type: 'init' });
       memoryWorker.postMessage({ type: 'init' });
       toolUserWorker.postMessage({ type: 'init' });
       contextManagerWorker.postMessage({ type: 'init' });
       // Le GeniusHourWorker n'a pas besoin d'initialisation, il démarre automatiquement
-      console.log('[Orchestrateur] GeniusHour Worker démarré en arrière-plan');
+      logger.info('Orchestrator', 'GeniusHour Worker démarré en arrière-plan');
     } else if (type === 'set_model') {
       // Relayer la configuration du modèle au LLM Worker
-      console.log(`[Orchestrateur] Changement de modèle: ${(payload as any).modelId}`);
+      const modelPayload = payload as SetModelPayload;
+      logger.info('Orchestrator', `Changement de modèle: ${modelPayload.modelId}`, { modelId: modelPayload.modelId });
       llmWorker.postMessage({ type: 'set_model', payload, meta });
     } else if (type === 'feedback') {
-      console.log(`[Orchestrateur] Feedback reçu (${(payload as any).feedback}) pour le message ${(payload as any).messageId}`);
-      console.log(`[Orchestrateur] Query: "${(payload as any).query}"`);
-      console.log(`[Orchestrateur] Response: "${(payload as any).response}"`);
+      const feedbackPayload = payload as FeedbackPayload;
+      logger.info('Orchestrator', `Feedback reçu`, { 
+        feedback: feedbackPayload.feedback, 
+        messageId: feedbackPayload.messageId,
+        query: feedbackPayload.query.substring(0, 50),
+        response: feedbackPayload.response.substring(0, 50)
+      });
       
       // Relayer le feedback enrichi au Memory Worker
       memoryWorker.postMessage({ 
@@ -148,28 +157,28 @@ self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
         meta: meta 
       });
     } else if (type === 'purge_memory') {
-      console.log('[Orchestrateur] Purge de la mémoire demandée');
+      logger.info('Orchestrator', 'Purge de la mémoire demandée', undefined, meta?.traceId);
       memoryWorker.postMessage({ 
         type: 'purge_all', 
         payload: {},
         meta: meta 
       });
     } else if (type === 'export_memory') {
-      console.log('[Orchestrateur] Export de la mémoire demandée');
+      logger.info('Orchestrator', 'Export de la mémoire demandée', undefined, meta?.traceId);
       memoryWorker.postMessage({ 
         type: 'export_all', 
         payload: {},
         meta: meta 
       });
     } else if (type === 'import_memory') {
-      console.log('[Orchestrateur] Import de la mémoire demandée');
+      logger.info('Orchestrator', 'Import de la mémoire demandée', undefined, meta?.traceId);
       memoryWorker.postMessage({ 
         type: 'import_all', 
         payload: payload,
         meta: meta 
       });
     } else {
-      console.warn(`[Orchestrateur] Unknown message type: ${type}`);
+      logger.warn('Orchestrator', 'Type de message inconnu', { type });
     }
   } catch (error) {
     const err = error as Error;
@@ -200,9 +209,12 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     // L'outil a été trouvé et exécuté avec succès. On court-circuite le débat.
     const endTime = performance.now();
     const inferenceTimeMs = Math.round(endTime - startTime);
-    const toolPayload = payload as any;
+    const toolPayload = payload as ToolExecutionPayload;
     
-    console.log(`[Orchestrateur] Outil '${toolPayload.toolName}' exécuté. Réponse directe.`);
+    logger.info('Orchestrator', `Outil exécuté - réponse directe`, { 
+      toolName: toolPayload.toolName,
+      inferenceTimeMs
+    });
     const responsePayload: FinalResponsePayload = {
       response: toolPayload.result,
       confidence: 1.0, // Confiance maximale pour un outil factuel
@@ -222,7 +234,7 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
       meta: currentQueryMeta || undefined
     });
     
-    console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${currentQueryMeta?.traceId}) en ${inferenceTimeMs}ms.`);
+    logger.info('Orchestrator', 'Réponse finale envoyée', { inferenceTimeMs }, currentQueryMeta?.traceId);
 
     // Sauvegarder la conversation avec le type approprié
     const memoryToSave = `Q: ${currentQueryContext!.query} | A: ${toolPayload.result}`;
@@ -238,21 +250,25 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
   } else if (type === 'no_tool_found' || type === 'tool_error') {
     // Aucun outil trouvé ou une erreur est survenue
     if (type === 'tool_error') {
-      console.error(`[Orchestrateur] Erreur du ToolUser: ${(payload as any).error}`);
+      const errorPayload = payload as ToolErrorPayload;
+      logger.error('Orchestrator', 'Erreur du ToolUser', { 
+        error: errorPayload.error,
+        toolName: errorPayload.toolName
+      });
     }
     
     const profile = currentQueryContext?.deviceProfile || 'micro';
     
     if (profile === 'micro') {
       // En mode micro, si aucun outil n'est trouvé, on envoie une réponse simple
-      console.log("[Orchestrateur] Mode 'micro': Aucun outil trouvé. Réponse simplifiée.");
+      logger.debug('Orchestrator', "Mode 'micro': Aucun outil trouvé. Réponse simplifiée", undefined, currentQueryMeta?.traceId);
       sendSimpleResponse(
         "Je ne peux pas répondre à cette question en mode 'micro' car aucun outil n'est disponible. Les capacités de votre appareil sont limitées, donc je privilégie la réactivité plutôt que la profondeur de raisonnement.",
         0.3
       );
     } else {
       // Pour 'full' et 'lite', on lance le processus de mémoire et LLM/débat
-      console.log("[Orchestrateur] Aucun outil applicable. Lancement du processus de mémoire et raisonnement.");
+      logger.debug('Orchestrator', 'Aucun outil applicable. Lancement du processus de mémoire et raisonnement', undefined, currentQueryMeta?.traceId);
       
       // Envoyer une mise à jour de statut : Recherche en mémoire
       self.postMessage({ 
@@ -268,7 +284,7 @@ toolUserWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
       searchMemoryWithRetry();
     }
   } else if (type === 'init_complete') {
-    console.log('[Orchestrateur] ToolUser Worker initialisé.');
+    logger.info('Orchestrator', 'ToolUser Worker initialisé');
   }
 };
 
@@ -289,14 +305,14 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
     currentMemoryHits = payload.results.map((r) => r.content || '').filter(c => c.length > 0);
     
     if (currentMemoryHits.length > 0) {
-      console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Contexte reçu: ${currentMemoryHits.length} souvenir(s).`);
+      logger.debug('Orchestrator', 'Contexte reçu', { memoryCount: currentMemoryHits.length }, meta?.traceId);
     } else {
-      console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Aucun souvenir pertinent trouvé.`);
+      logger.debug('Orchestrator', 'Aucun souvenir pertinent trouvé', undefined, meta?.traceId);
     }
     
     // Compresser l'historique de conversation si nécessaire
     if (currentQueryContext && currentQueryContext.conversationHistory.length > 10) {
-      console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Compression du contexte...`);
+      logger.debug('Orchestrator', 'Compression du contexte', undefined, meta?.traceId);
       contextManagerWorker.postMessage({
         type: 'compress_context',
         payload: {
@@ -310,18 +326,18 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
       launchLLMInference();
     }
   } else if (type === 'store_complete') {
-    console.log("[Orchestrateur] Mémoire sauvegardée.");
+    logger.debug('Orchestrator', 'Mémoire sauvegardée');
   } else if (type === 'init_complete') {
-    console.log('[Orchestrateur] Memory Worker initialisé.');
+    logger.info('Orchestrator', 'Memory Worker initialisé');
   } else if (type === 'purge_complete') {
-    console.log('[Orchestrateur] Purge de la mémoire terminée.');
+    logger.info('Orchestrator', 'Purge de la mémoire terminée');
     self.postMessage({ 
       type: 'purge_complete', 
       payload: {},
       meta: meta 
     });
   } else if (type === 'export_complete') {
-    console.log('[Orchestrateur] Export de la mémoire terminé.');
+    logger.info('Orchestrator', 'Export de la mémoire terminé');
     // Relayer l'export à l'UI
     self.postMessage({ 
       type: 'export_complete', 
@@ -329,7 +345,7 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
       meta: meta 
     });
   } else if (type === 'import_complete') {
-    console.log('[Orchestrateur] Import de la mémoire terminé.');
+    logger.info('Orchestrator', 'Import de la mémoire terminé');
     self.postMessage({ 
       type: 'import_complete', 
       payload: {},
@@ -355,18 +371,18 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     if (multiAgentState.currentStep === 'parallel_generation') {
       // Gérer les réponses parallèles (Logique + Créatif)
       if (agentType === 'logical') {
-        console.log(`[Orchestrateur] Agent Logique a répondu (parallèle)`);
+        logger.debug('Orchestrator', 'Agent Logique a répondu (parallèle)', undefined, meta?.traceId);
         multiAgentState.logicalResponse = llmPayload.response;
         multiAgentState.parallelResponses.logical = true;
       } else if (agentType === 'creative') {
-        console.log(`[Orchestrateur] Agent Créatif a répondu (parallèle)`);
+        logger.debug('Orchestrator', 'Agent Créatif a répondu (parallèle)', undefined, meta?.traceId);
         multiAgentState.creativeResponse = llmPayload.response;
         multiAgentState.parallelResponses.creative = true;
       }
       
       // Si les deux agents ont répondu, lancer l'agent critique
       if (multiAgentState.parallelResponses.logical && multiAgentState.parallelResponses.creative) {
-        console.log(`[Orchestrateur] Génération parallèle terminée, lancement de l'agent critique`);
+        logger.debug('Orchestrator', "Génération parallèle terminée, lancement de l'agent critique", undefined, meta?.traceId);
         multiAgentState.currentStep = 'critical';
         
         // Lancer l'agent critique
@@ -393,7 +409,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
       }
       
     } else if (multiAgentState.currentStep === 'critical') {
-      console.log(`[Orchestrateur] Agent Critique a répondu`);
+      logger.debug('Orchestrator', 'Agent Critique a répondu', undefined, meta?.traceId);
       multiAgentState.criticalResponse = llmPayload.response;
       multiAgentState.currentStep = 'synthesis';
       
@@ -434,7 +450,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
       // Réponse finale (synthèse ou mode simple)
       const endTime = performance.now();
       const inferenceTimeMs = Math.round(endTime - startTime);
-      console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Réponse finale reçue en ${inferenceTimeMs}ms.`);
+      logger.info('Orchestrator', 'Réponse finale reçue', { inferenceTimeMs }, meta?.traceId);
 
       const fromAgents = multiAgentState.currentStep === 'synthesis' 
         ? ['Logical', 'Creative', 'Critical', 'Synthesizer']
@@ -447,7 +463,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
           multiAgentState.creativeResponse && 
           multiAgentState.criticalResponse) {
         
-        console.log('[Orchestrateur] Évaluation de la qualité du débat...');
+        logger.debug('Orchestrator', 'Évaluation de la qualité du débat', undefined, meta?.traceId);
         debateQuality = evaluateDebate({
           logical: multiAgentState.logicalResponse,
           creative: multiAgentState.creativeResponse,
@@ -455,14 +471,15 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
           synthesis: llmPayload.response
         });
         
-        console.log('[Orchestrateur] Qualité du débat:', debateQuality);
+        logger.debug('Orchestrator', 'Qualité du débat', { debateQuality }, meta?.traceId);
         
         // Générer un rapport si la qualité est faible
         if (debateQuality.overallScore < 0.6) {
-          console.warn('[Orchestrateur] ⚠️ Qualité du débat sous le seuil acceptable (< 60%)');
-          console.warn(generateQualityReport(debateQuality));
+          logger.warn('Orchestrator', 'Qualité du débat sous le seuil acceptable (< 60%)', { 
+            report: generateQualityReport(debateQuality) 
+          }, meta?.traceId);
         } else {
-          console.log('[Orchestrateur] ✓ Qualité du débat acceptable');
+          logger.debug('Orchestrator', 'Qualité du débat acceptable', undefined, meta?.traceId);
         }
       }
 
@@ -485,7 +502,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
         meta: currentQueryMeta || undefined
       });
 
-      console.log(`[Orchestrateur] Réponse finale envoyée (traceId: ${meta?.traceId}) en ${inferenceTimeMs}ms.`);
+      logger.info('Orchestrator', 'Réponse finale envoyée', { inferenceTimeMs }, meta?.traceId);
 
       // Sauvegarder la conversation
       if (currentQueryContext) {
@@ -506,7 +523,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
 
   } else if (type === 'llm_error') {
     // Gérer l'erreur du LLM
-    const errorPayload2 = payload as any;
+    const errorPayload2 = payload as LLMErrorPayload;
     errorLogger.error(
       'Orchestrator',
       `LLM error: ${errorPayload2.error}`,
@@ -541,7 +558,7 @@ llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
       meta: meta
     });
   } else if (type === 'init_complete') {
-    console.log('[Orchestrateur] LLM Worker initialisé.');
+    logger.info('Orchestrator', 'LLM Worker initialisé');
   }
 };
 
@@ -579,7 +596,7 @@ function sendSimpleResponse(text: string, confidence: number): void {
  * Utilise le débat multi-agents pour les profils 'full' et les requêtes complexes en 'lite'
  */
 function launchLLMInference(): void {
-  console.log(`[Orchestrateur] (traceId: ${currentQueryMeta?.traceId}) Lancement de l'inférence LLM.`);
+  logger.debug('Orchestrator', "Lancement de l'inférence LLM", undefined, currentQueryMeta?.traceId);
   
   const profile = currentQueryContext?.deviceProfile || 'micro';
   const queryLength = currentQueryContext?.query.length || 0;
@@ -588,10 +605,10 @@ function launchLLMInference(): void {
   const useMultiAgent = profile === 'full' || (profile === 'lite' && queryLength > 50);
   
   if (useMultiAgent) {
-    console.log(`[Orchestrateur] Lancement du débat multi-agents pour une réponse enrichie.`);
+    logger.info('Orchestrator', 'Lancement du débat multi-agents pour une réponse enrichie', undefined, currentQueryMeta?.traceId);
     launchMultiAgentDebate();
   } else {
-    console.log(`[Orchestrateur] Mode inférence simple (profil: ${profile}).`);
+    logger.debug('Orchestrator', 'Mode inférence simple', { profile }, currentQueryMeta?.traceId);
     launchSimpleLLMInference();
   }
 }
@@ -629,7 +646,7 @@ function launchSimpleLLMInference(): void {
  * Avec parallélisation intelligente: Logique + Créatif en parallèle
  */
 function launchMultiAgentDebate(): void {
-  console.log(`[Orchestrateur] Démarrage du débat multi-agents avec parallélisation...`);
+  logger.info('Orchestrator', 'Démarrage du débat multi-agents avec parallélisation', undefined, currentQueryMeta?.traceId);
   
   // Réinitialiser l'état
   multiAgentState = {
@@ -701,7 +718,10 @@ contextManagerWorker.onmessage = (event: MessageEvent) => {
   }
 
   if (type === 'context_compressed') {
-    console.log(`[Orchestrateur] (traceId: ${meta?.traceId}) Contexte compressé: ${payload.originalCount} → ${payload.compressedCount} messages`);
+    logger.info('Orchestrator', 'Contexte compressé', { 
+      originalCount: payload.originalCount, 
+      compressedCount: payload.compressedCount 
+    }, meta?.traceId);
     
     // Mettre à jour le contexte avec la version compressée
     if (currentQueryContext) {
@@ -711,9 +731,9 @@ contextManagerWorker.onmessage = (event: MessageEvent) => {
     // Lancer l'inférence avec le contexte compressé
     launchLLMInference();
   } else if (type === 'init_complete') {
-    console.log('[Orchestrateur] ContextManager Worker initialisé.');
+    logger.info('Orchestrator', 'ContextManager Worker initialisé');
   } else if (type === 'context_error') {
-    console.error(`[Orchestrateur] Erreur ContextManager: ${payload.error}`);
+    logger.error('Orchestrator', 'Erreur ContextManager', { error: payload.error }, meta?.traceId);
     // En cas d'erreur, continuer avec le contexte non compressé
     launchLLMInference();
   }

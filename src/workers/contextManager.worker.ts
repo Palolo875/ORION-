@@ -11,6 +11,7 @@
  */
 
 import { CONTEXT_CONFIG } from '../config/constants';
+import { logger } from '../utils/logger';
 
 interface ConversationMessage {
   sender: 'user' | 'orion';
@@ -480,10 +481,12 @@ self.onmessage = async (event: MessageEvent) => {
         request.maxTokens
       );
       
-      console.log(
-        `[ContextManager] Compression: ${result.originalCount} → ${result.compressedCount} messages ` +
-        `(${result.tokensSaved} tokens économisés, ${result.entities.length} entités extraites)`
-      );
+      logger.info('ContextManager', 'Compression effectuée', {
+        originalCount: result.originalCount,
+        compressedCount: result.compressedCount,
+        tokensSaved: result.tokensSaved,
+        entitiesExtracted: result.entities.length
+      });
       
       self.postMessage({
         type: 'context_compressed',
@@ -491,7 +494,7 @@ self.onmessage = async (event: MessageEvent) => {
         meta,
       });
     } else if (type === 'init') {
-      console.log('[ContextManager] Worker initialisé avec extraction d\'entités');
+      logger.info('ContextManager', 'Worker initialisé avec extraction d\\'entités');
       self.postMessage({
         type: 'init_complete',
         payload: { success: true },
@@ -499,7 +502,7 @@ self.onmessage = async (event: MessageEvent) => {
       });
     }
   } catch (error) {
-    console.error('[ContextManager] Erreur:', error);
+    logger.error('ContextManager', 'Erreur', error);
     self.postMessage({
       type: 'context_error',
       payload: { error: (error as Error).message },

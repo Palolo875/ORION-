@@ -14,11 +14,12 @@
 import { get, keys, del, set } from 'idb-keyval';
 import { pipeline, env } from '@xenova/transformers';
 import { GENIUS_HOUR_CONFIG, MEMORY_CONFIG } from '../config/constants';
+import { logger } from '../utils/logger';
 
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
-console.log("Genius Hour Worker (Advanced Failure Analyzer) chargé et prêt.");
+logger.info('GeniusHourWorker', 'Worker chargé et prêt');
 
 interface FailureReport {
   id: string;
@@ -55,9 +56,9 @@ class EmbeddingPipeline {
 
   static async getInstance(): Promise<PipelineInstance> {
     if (this.instance === null) {
-      console.log("[GeniusHour] Initialisation du modèle d'embedding...");
+      logger.info('GeniusHourWorker', "Initialisation du modèle d'embedding");
       this.instance = await pipeline(this.task as any, this.model);
-      console.log("[GeniusHour] Modèle d'embedding prêt.");
+      logger.info('GeniusHourWorker', "Modèle d'embedding prêt");
     }
     return this.instance;
   }
@@ -118,7 +119,7 @@ async function detectPattern(
       const similarity = cosineSimilarity(queryEmbedding, pattern.embedding);
       
       if (similarity >= GENIUS_HOUR_CONFIG.MIN_SIMILARITY_FOR_PATTERN) {
-        console.log(`[GeniusHour] 🎯 Pattern détecté: "${pattern.pattern}" (similarité: ${(similarity * 100).toFixed(1)}%)`);
+        logger.debug('GeniusHourWorker', 'Pattern détecté', { pattern: pattern.pattern, similarity: (similarity * 100).toFixed(1) + '%' });
         return pattern;
       }
     }
@@ -143,7 +144,7 @@ async function createNewPattern(report: FailureReport): Promise<FailurePattern> 
   };
 
   await set(pattern.id, pattern);
-  console.log(`[GeniusHour] 📊 Nouveau pattern créé: "${pattern.pattern}"`);
+  logger.debug('GeniusHourWorker', 'Nouveau pattern créé', { pattern: pattern.pattern });
   
   return pattern;
 }
@@ -160,7 +161,7 @@ async function updatePattern(pattern: FailurePattern, report: FailureReport) {
   }
   
   await set(pattern.id, pattern);
-  console.log(`[GeniusHour] 📈 Pattern mis à jour: "${pattern.pattern}" (${pattern.occurrences} occurrences)`);
+  logger.debug('GeniusHourWorker', 'Pattern mis à jour', { pattern: pattern.pattern, occurrences: pattern.occurrences });
 }
 
 /**
@@ -285,7 +286,7 @@ function generateImprovementReport(
  * Analyse les rapports d'échec stockés en mémoire
  */
 async function analyzeFailures() {
-  console.log("[GeniusHour] 🔍 Début du cycle d'analyse des échecs...");
+  logger.info('GeniusHourWorker', "Début du cycle d'analyse des échecs");
   
   try {
     const allKeys = (await keys()) as string[];
@@ -294,24 +295,22 @@ async function analyzeFailures() {
     );
 
     if (failureReportKeys.length === 0) {
-      console.log("[GeniusHour] ✅ Aucun rapport d'échec à analyser. Cycle terminé.");
+      logger.debug('GeniusHourWorker', 'Aucun rapport d\'\u00e9chec à analyser. Cycle terminé');
       return;
     }
 
-    console.log(`[GeniusHour] 📊 ${failureReportKeys.length} rapport(s) d'échec trouvé(s).`);
+    logger.info('GeniusHourWorker', 'Rapports d\'\u00e9chec trouvés', { count: failureReportKeys.length });
 
     // Charger les patterns existants
     const existingPatterns = await loadFailurePatterns();
-    console.log(`[GeniusHour] 📚 ${existingPatterns.length} pattern(s) d'échec en mémoire.`);
+    logger.info('GeniusHourWorker', 'Patterns d\'\u00e9chec en mémoire', { count: existingPatterns.length });
 
     for (const key of failureReportKeys) {
       const report = await get(key) as FailureReport;
       
       if (!report) continue;
 
-      console.log("\n╔══════════════════════════════════════════════════════════╗");
-      console.log("║       ANALYSE AVANCÉE D'ÉCHEC PAR ORION GENIUS          ║");
-      console.log("╚══════════════════════════════════════════════════════════╝");
+      logger.info('GeniusHourWorker', '===== ANALYSE AVANCÉE D\'\u00c9CHEC PAR ORION GENIUS =====');
       
       // 1. Détection de pattern
       const matchedPattern = await detectPattern(report, existingPatterns);
@@ -327,7 +326,7 @@ async function analyzeFailures() {
       
       // 3. Génération du rapport d'amélioration
       const improvementReport = generateImprovementReport(report, matchedPattern, alternatives);
-      console.log(improvementReport);
+      logger.info('GeniusHourWorker', 'Rapport d\'amélioration', { report: improvementReport.substring(0, 500) });
       
       // 4. Sauvegarder le rapport d'amélioration
       const improvementId = `improvement_${Date.now()}`;
@@ -342,16 +341,16 @@ async function analyzeFailures() {
       
       // 5. Supprimer le rapport d'échec traité
       await del(key);
-      console.log(`[GeniusHour] ♻️  Rapport ${report.id} analysé et archivé.`);
+      logger.debug('GeniusHourWorker', 'Rapport analysé et archivé', { reportId: report.id });
     }
 
-    console.log(`\n[GeniusHour] ✨ Cycle d'analyse terminé. ${failureReportKeys.length} rapport(s) traité(s).`);
+    logger.info('GeniusHourWorker', 'Cycle d\'analyse terminé', { processedReports: failureReportKeys.length });
     
     // Nettoyer les anciens rapports d'amélioration (garder les 50 derniers)
     await cleanupImprovementReports();
     
   } catch (error) {
-    console.error("[GeniusHour] ❌ Erreur lors de l'analyse des échecs:", error);
+    logger.error('GeniusHourWorker', 'Erreur lors de l\'analyse des échecs', error);
   }
 }
 
@@ -381,16 +380,16 @@ async function cleanupImprovementReports() {
       await del(item.key);
     }
     
-    console.log(`[GeniusHour] 🧹 ${toDelete.length} ancien(s) rapport(s) d'amélioration supprimé(s).`);
+    logger.debug('GeniusHourWorker', 'Anciens rapports d\'amélioration supprimés', { count: toDelete.length });
   }
 }
 
 // Configuration du cycle d'analyse
-console.log(`[GeniusHour] ⚙️  Cycle d'analyse configuré: toutes les ${GENIUS_HOUR_CONFIG.ANALYSIS_INTERVAL / 1000} secondes`);
+logger.info('GeniusHourWorker', 'Cycle d\'analyse configuré', { intervalSeconds: GENIUS_HOUR_CONFIG.ANALYSIS_INTERVAL / 1000 });
 
 setInterval(analyzeFailures, GENIUS_HOUR_CONFIG.ANALYSIS_INTERVAL);
 
 // Lancer une première analyse au démarrage
 setTimeout(analyzeFailures, GENIUS_HOUR_CONFIG.INITIAL_DELAY);
 
-console.log("[GeniusHour] 🚀 Worker initialisé et en attente du premier cycle d'analyse.");
+logger.info('GeniusHourWorker', 'Worker initialisé et en attente du premier cycle d\'analyse');
