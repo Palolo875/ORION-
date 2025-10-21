@@ -12,6 +12,7 @@ import { MODELS, formatBytes, ModelConfig, detectDeviceCapabilities, DeviceCapab
 import { cn } from "@/lib/utils";
 import { useStorageMonitor } from "@/hooks/useStorageMonitor";
 import { StorageIndicator } from "./StorageAlert";
+import { isEncryptionSupported, secureStorage } from "@/utils/security";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -32,6 +33,9 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
   const [autoSave, setAutoSave] = useState(true);
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [isClearing, setIsClearing] = useState(false);
+  const [encryptionSupported, setEncryptionSupported] = useState<boolean>(false);
+  const [encryptionActive, setEncryptionActive] = useState<boolean>(false);
+  const [isEnablingEncryption, setIsEnablingEncryption] = useState<boolean>(false);
 
   // Hook de monitoring du stockage
   const {
@@ -50,6 +54,18 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
       setDeviceCapabilities(caps);
     }
     loadCapabilities();
+  }, []);
+
+  // Detect encryption capability and status on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      setEncryptionSupported(isEncryptionSupported());
+      const stored = localStorage.getItem('orion_encryption_enabled');
+      setEncryptionActive(stored === 'true');
+    } catch {
+      setEncryptionSupported(false);
+    }
   }, []);
 
   // Load storage recommendations
@@ -74,6 +90,22 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
       console.error('Erreur lors du nettoyage du cache:', error);
     } finally {
       setIsClearing(false);
+    }
+  };
+
+  const handleEnableEncryption = async () => {
+    if (!encryptionSupported || encryptionActive) return;
+    setIsEnablingEncryption(true);
+    try {
+      await secureStorage.initialize();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('orion_encryption_enabled', 'true');
+      }
+      setEncryptionActive(true);
+    } catch (error) {
+      console.error('Erreur lors de l\'activation du chiffrement:', error);
+    } finally {
+      setIsEnablingEncryption(false);
     }
   };
 
@@ -442,6 +474,54 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                   <p className="text-xs sm:text-sm text-muted-foreground">
                     Options avancées et fonctionnalités expérimentales.
                   </p>
+                </div>
+
+                {/* Security & Encryption */}
+                <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Sécurité et chiffrement
+                    </Label>
+                  </div>
+                  <div className="text-xs sm:text-sm text-muted-foreground space-y-2">
+                    <div className="flex justify-between">
+                      <span>Support du chiffrement</span>
+                      <span className={cn("font-medium", encryptionSupported ? "text-green-600 dark:text-green-400" : "text-destructive")}>{encryptionSupported ? 'Oui' : 'Non'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Statut</span>
+                      <span className="font-medium">{encryptionActive ? 'Activé' : 'Désactivé (par défaut)'}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Le chiffrement n'est pas activé par défaut. Il dépend des capacités de sécurité du navigateur. Utilisez un navigateur à jour pour une compatibilité maximale.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={encryptionActive ? "outline" : "default"}
+                      className="rounded-xl"
+                      onClick={handleEnableEncryption}
+                      disabled={!encryptionSupported || encryptionActive || isEnablingEncryption}
+                    >
+                      {isEnablingEncryption ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                          Activation...
+                        </>
+                      ) : encryptionActive ? (
+                        <>
+                          <Shield className="h-4 w-4 mr-2" />
+                          Chiffrement activé
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="h-4 w-4 mr-2" />
+                          Activer le chiffrement
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Storage Status Section */}
