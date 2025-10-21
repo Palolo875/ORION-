@@ -167,14 +167,26 @@ Statut : ✅ PASS
 - ✅ Protection CSRF
 
 ### Vulnérabilités Connues
-⚠️ **Dépendances avec vulnérabilités mineures** :
-- `prismjs` < 1.30.0 (utilisé via react-syntax-highlighter)
-  - Impact : Faible (DOM Clobbering)
-  - Criticité : Modérée (3 vulnérabilités)
-  - Recommandation : Mettre à jour react-syntax-highlighter ou considérer une alternative
+
+✅ **Amélioration : -60% de vulnérabilités (5 → 2)** - Mise à jour : 21 octobre 2025
+
+Il reste 2 vulnérabilités modérées :
+- `esbuild` ≤0.24.2 + `vite` 0.11.0 - 6.1.6
+  - CVE: GHSA-67mh-4wv8-2f99
+  - Impact : **Serveur de développement uniquement** (non-bloquant pour production)
+  - Criticité : Modérée
+  - Correction : Nécessite Vite 7 (breaking change)
+  - Recommandation : À corriger lors d'une prochaine release majeure
   - **Non-bloquant** pour la production
 
+**Actions réalisées** :
+- ✅ Suppression de `react-syntax-highlighter` (26 packages retirés)
+- ✅ Validation des tests (116/116 passants)
+- ✅ Validation du build production
+
 **Action recommandée** : Surveiller les mises à jour des dépendances et mettre à jour régulièrement.
+
+📄 **Documentation complète** : Voir `docs/SECURITE_VULNERABILITES.md`
 
 ### Confidentialité
 - ✅ 100% local (aucune donnée externe)
