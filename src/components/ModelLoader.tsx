@@ -33,6 +33,8 @@ export const ModelLoader = ({ modelName, modelSize, onProgress }: ModelLoaderPro
   const [eta, setEta] = useState<number | null>(null);
   const [storageChecked, setStorageChecked] = useState(false);
   const [showStorageWarning, setShowStorageWarning] = useState(false);
+  const [downloadSpeed, setDownloadSpeed] = useState<number>(0);
+  const [currentTip, setCurrentTip] = useState<string>("");
 
   // Hook de monitoring du stockage
   const {
@@ -43,15 +45,38 @@ export const ModelLoader = ({ modelName, modelSize, onProgress }: ModelLoaderPro
   } = useStorageMonitor();
 
   useEffect(() => {
-    // Calculer l'ETA basé sur la progression
+    // Calculer l'ETA et la vitesse basés sur la progression
     if (state.loaded > 0 && state.total > 0) {
       const elapsedTime = (Date.now() - startTime) / 1000; // en secondes
       const speed = state.loaded / elapsedTime; // bytes par seconde
+      setDownloadSpeed(speed);
       const remainingBytes = state.total - state.loaded;
       const estimatedSeconds = remainingBytes / speed;
       setEta(estimatedSeconds);
     }
   }, [state.loaded, state.total, startTime]);
+
+  // Rotation des astuces toutes les 5 secondes
+  useEffect(() => {
+    const tips = [
+      "💡 Le modèle sera mis en cache. Les prochains chargements seront instantanés !",
+      "🔒 Tout reste dans votre navigateur. Vos données sont 100% privées.",
+      "⚡ ORION fonctionne entièrement hors ligne une fois le modèle chargé.",
+      "🧠 Le modèle utilise WebGPU pour des performances optimales.",
+      "🌍 Aucune donnée n'est envoyée à des serveurs externes.",
+      "🚀 Les modèles sont optimisés pour fonctionner dans votre navigateur.",
+      "💾 Le cache utilise IndexedDB pour un stockage persistant.",
+      "🎯 Changez de modèle à tout moment dans les paramètres.",
+    ];
+    
+    setCurrentTip(tips[Math.floor(Math.random() * tips.length)]);
+    
+    const interval = setInterval(() => {
+      setCurrentTip(tips[Math.floor(Math.random() * tips.length)]);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     onProgress?.(state);
@@ -100,14 +125,20 @@ export const ModelLoader = ({ modelName, modelSize, onProgress }: ModelLoaderPro
     }
   };
 
-  const getTips = () => {
-    const tips = [
-      "💡 Le modèle sera mis en cache. Les prochains chargements seront instantanés !",
-      "🔒 Tout reste dans votre navigateur. Vos données sont 100% privées.",
-      "⚡ ORION fonctionne entièrement hors ligne une fois le modèle chargé.",
-      "🧠 Le modèle utilise WebGPU pour des performances optimales.",
-    ];
-    return tips[Math.floor(Math.random() * tips.length)];
+  const getProgressColor = () => {
+    if (state.progress < 30) return 'from-blue-500 to-cyan-500';
+    if (state.progress < 60) return 'from-cyan-500 to-green-500';
+    if (state.progress < 90) return 'from-green-500 to-yellow-500';
+    return 'from-yellow-500 to-green-600';
+  };
+
+  const getStageEmoji = () => {
+    switch (state.stage) {
+      case 'downloading': return '📥';
+      case 'loading': return '⚙️';
+      case 'ready': return '✅';
+      default: return '⏳';
+    }
   };
 
   return (
@@ -141,14 +172,25 @@ export const ModelLoader = ({ modelName, modelSize, onProgress }: ModelLoaderPro
           </p>
         </div>
 
-        {/* Barre de progression */}
+        {/* Barre de progression améliorée */}
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">{getStageLabel()}</span>
-            <span className="text-muted-foreground">{state.progress.toFixed(1)}%</span>
+            <span className="font-medium flex items-center gap-2">
+              <span className="text-xl">{getStageEmoji()}</span>
+              {getStageLabel()}
+            </span>
+            <span className="text-muted-foreground font-mono text-lg font-bold">{state.progress.toFixed(1)}%</span>
           </div>
           
-          <Progress value={state.progress} className="h-3" />
+          {/* Barre de progression avec gradient animé */}
+          <div className="relative h-4 bg-muted rounded-full overflow-hidden">
+            <div 
+              className={`h-full bg-gradient-to-r ${getProgressColor()} transition-all duration-300 ease-out relative`}
+              style={{ width: `${state.progress}%` }}
+            >
+              <div className="absolute inset-0 bg-white/20 animate-shimmer" />
+            </div>
+          </div>
           
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
@@ -167,36 +209,64 @@ export const ModelLoader = ({ modelName, modelSize, onProgress }: ModelLoaderPro
         </div>
 
         {/* Statistiques */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="glass rounded-xl p-3 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="glass rounded-xl p-3 text-center border border-primary/10 hover:border-primary/30 transition-colors">
             <div className="text-xs text-muted-foreground mb-1">Vitesse</div>
-            <div className="text-sm font-semibold flex items-center justify-center gap-1">
-              <Zap className="h-3.5 w-3.5" />
-              {state.loaded > 0 
-                ? formatBytes((state.loaded / ((Date.now() - startTime) / 1000))) + '/s'
+            <div className="text-sm font-bold flex items-center justify-center gap-1 text-primary">
+              <Zap className="h-4 w-4 animate-pulse" />
+              {downloadSpeed > 0 
+                ? formatBytes(downloadSpeed) + '/s'
                 : '0 B/s'
               }
             </div>
           </div>
           
-          <div className="glass rounded-xl p-3 text-center">
+          <div className="glass rounded-xl p-3 text-center border border-blue-500/10 hover:border-blue-500/30 transition-colors">
             <div className="text-xs text-muted-foreground mb-1">Taille</div>
-            <div className="text-sm font-semibold">
+            <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
               {formatBytes(modelSize)}
             </div>
           </div>
           
-          <div className="glass rounded-xl p-3 text-center">
+          <div className="glass rounded-xl p-3 text-center border border-green-500/10 hover:border-green-500/30 transition-colors">
             <div className="text-xs text-muted-foreground mb-1">Cache</div>
-            <div className="text-sm font-semibold text-green-600">
+            <div className="text-sm font-bold text-green-600 dark:text-green-400">
               ✓ Actif
+            </div>
+          </div>
+          
+          <div className="glass rounded-xl p-3 text-center border border-yellow-500/10 hover:border-yellow-500/30 transition-colors">
+            <div className="text-xs text-muted-foreground mb-1">ETA</div>
+            <div className="text-sm font-bold text-yellow-600 dark:text-yellow-400">
+              {eta !== null && eta > 0 && eta < 3600 
+                ? formatTime(eta)
+                : '--'
+              }
             </div>
           </div>
         </div>
 
-        {/* Astuce */}
-        <div className="glass-subtle rounded-xl p-4 text-sm text-muted-foreground border border-primary/10">
-          {getTips()}
+        {/* Astuce avec animation */}
+        <div className="glass-subtle rounded-xl p-4 text-sm text-muted-foreground border border-primary/10 animate-fade-in">
+          <div key={currentTip} className="animate-fade-in">
+            {currentTip}
+          </div>
+        </div>
+        
+        {/* Progression détaillée */}
+        <div className="glass rounded-xl p-3 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Téléchargé</span>
+            <span className="font-mono font-medium">{formatBytes(state.loaded)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Restant</span>
+            <span className="font-mono font-medium">{formatBytes(state.total - state.loaded)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Total</span>
+            <span className="font-mono font-medium">{formatBytes(state.total)}</span>
+          </div>
         </div>
       </div>
     </div>

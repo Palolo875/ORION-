@@ -99,6 +99,47 @@ export const MODELS: Record<string, ModelConfig> = {
     minRAM: 4,
     capabilities: ['code', 'debugging', 'code-generation', 'code-explanation'],
   },
+  
+  // Modèles multimodaux (vision + texte)
+  llava: {
+    id: 'llava-1.5-7b-hf-q4f16_1-MLC',
+    name: 'LLaVA 7B Vision',
+    size: 4.2 * 1024 * 1024 * 1024, // 4.2GB
+    quality: 'ultra',
+    speed: 'moderate',
+    description: 'Modèle multimodal pour analyser images et texte',
+    maxTokens: 4096,
+    recommended: false,
+    minRAM: 8,
+    minGPU: 'RTX 3060 ou équivalent',
+    capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'advanced-reasoning'],
+  },
+  
+  phi3vision: {
+    id: 'Phi-3-vision-128k-instruct-q4f16_1-MLC',
+    name: 'Phi-3 Vision',
+    size: 2.4 * 1024 * 1024 * 1024, // 2.4GB
+    quality: 'very-high',
+    speed: 'fast',
+    description: 'Vision compacte et performante de Microsoft',
+    maxTokens: 128000,
+    recommended: false,
+    minRAM: 6,
+    capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'reasoning', 'long-context'],
+  },
+  
+  bakllava: {
+    id: 'bakllava-1-q4f16_1-MLC',
+    name: 'BakLLaVA 7B',
+    size: 4.0 * 1024 * 1024 * 1024, // 4.0GB
+    quality: 'very-high',
+    speed: 'moderate',
+    description: 'Vision améliorée basée sur Mistral',
+    maxTokens: 4096,
+    recommended: false,
+    minRAM: 8,
+    capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'advanced-reasoning'],
+  },
 };
 
 export const DEFAULT_MODEL = 'standard';

@@ -1,4 +1,4 @@
-import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, Check, Sparkles, Rocket, ChevronRight, Database, Trash2, RefreshCw } from "lucide-react";
+import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, Check, Sparkles, Rocket, ChevronRight, Database, Trash2, RefreshCw, Eye, Image as ImageIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -196,11 +196,12 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                       )}
                     </div>
                     
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {Object.entries(MODELS).map(([key, model]) => {
                         const isSelected = selectedModelKey === key;
                         const isCompatible = !deviceCapabilities || deviceCapabilities.compatibleModels.includes(key);
                         const isRecommended = deviceCapabilities?.recommendedModel === key;
+                        const isVisionModel = model.capabilities?.includes('vision') || model.capabilities?.includes('multimodal');
                         
                         return (
                           <button
@@ -213,24 +214,35 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                             }}
                             disabled={!isCompatible}
                             className={cn(
-                              "w-full glass rounded-xl p-4 text-left transition-all",
-                              "hover:scale-[1.02] hover:shadow-md",
-                              isSelected && "border-2 border-primary shadow-lg shadow-primary/20",
-                              !isCompatible && "opacity-50 cursor-not-allowed"
+                              "w-full glass rounded-xl p-4 text-left transition-all relative overflow-hidden",
+                              "hover:scale-[1.01] hover:shadow-lg hover:border-primary/30",
+                              isSelected && "border-2 border-primary shadow-lg shadow-primary/20 bg-primary/5",
+                              !isCompatible && "opacity-50 cursor-not-allowed",
+                              "group"
                             )}
-                          >
+                          >                            {isVisionModel && (
+                              <div className="absolute top-2 left-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
+                                <Eye className="h-3 w-3" />
+                                Vision
+                              </div>
+                            )}
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
                                   <h4 className="text-sm font-semibold truncate">{model.name}</h4>
                                   {model.recommended && (
-                                    <Badge className="text-xs px-1.5 py-0">
+                                    <Badge className="text-xs px-1.5 py-0 bg-gradient-to-r from-yellow-500 to-orange-500 border-0">
                                       <Sparkles className="h-3 w-3" />
                                     </Badge>
                                   )}
                                   {isRecommended && (
-                                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                                    <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-green-500/20 text-green-700 dark:text-green-300">
                                       Optimal
+                                    </Badge>
+                                  )}
+                                  {isVisionModel && (
+                                    <Badge variant="outline" className="text-xs px-1.5 py-0 border-purple-500/50 text-purple-600 dark:text-purple-400">
+                                      <ImageIcon className="h-3 w-3" />
                                     </Badge>
                                   )}
                                 </div>
@@ -238,19 +250,19 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                                   {model.description}
                                 </p>
                                 <div className="flex flex-wrap gap-2 text-xs">
-                                  <span className="px-2 py-0.5 bg-accent/30 rounded">
+                                  <span className="px-2 py-1 bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded-md font-medium border border-blue-500/20">
                                     {formatBytes(model.size)}
                                   </span>
-                                  <span className="px-2 py-0.5 bg-accent/30 rounded">
-                                    {model.maxTokens} tokens
+                                  <span className="px-2 py-1 bg-green-500/10 text-green-700 dark:text-green-300 rounded-md font-medium border border-green-500/20">
+                                    {model.maxTokens.toLocaleString()} tokens
                                   </span>
-                                  <span className="px-2 py-0.5 bg-accent/30 rounded">
+                                  <span className="px-2 py-1 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 rounded-md font-medium border border-yellow-500/20">
                                     {model.quality === 'basic' && '⭐'}
                                     {model.quality === 'high' && '⭐⭐'}
                                     {model.quality === 'very-high' && '⭐⭐⭐'}
                                     {model.quality === 'ultra' && '⭐⭐⭐⭐'}
                                   </span>
-                                  <span className="px-2 py-0.5 bg-accent/30 rounded">
+                                  <span className="px-2 py-1 bg-purple-500/10 text-purple-700 dark:text-purple-300 rounded-md font-medium border border-purple-500/20">
                                     {model.speed === 'very-fast' && '⚡⚡⚡'}
                                     {model.speed === 'fast' && '⚡⚡'}
                                     {model.speed === 'moderate' && '⚡'}
