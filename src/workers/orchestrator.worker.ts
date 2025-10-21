@@ -76,18 +76,18 @@ let currentMemoryHits: string[] = [];
 
 // === Gestionnaire de messages principal ===
 
-self.onmessage = (event: MessageEvent<WorkerMessage<QueryPayload>>) => {
+self.onmessage = (event: MessageEvent<WorkerMessage<unknown>>) => {
   const { type, payload, meta } = event.data;
 
   try {
     if (type === 'query') {
-      handleQuery(payload, meta);
+      handleQuery(payload as QueryPayload, meta);
     } else if (type === 'init') {
       handleInit();
     } else if (type === 'set_model') {
-      handleSetModel(payload as SetModelPayload, meta);
+      handleSetModel(payload as unknown as SetModelPayload, meta);
     } else if (type === 'feedback') {
-      handleFeedback(payload as FeedbackPayload, meta);
+      handleFeedback(payload as unknown as FeedbackPayload, meta);
     } else if (type === 'purge_memory') {
       handlePurgeMemory(meta);
     } else if (type === 'export_memory') {

@@ -45,7 +45,7 @@ export function useOrchestratorWorker({
           break;
         }
         case 'llm_load_progress': {
-          const llmPayload = payload as LLMProgressPayload;
+          const llmPayload = payload as unknown as LLMProgressPayload;
           onLoadProgress({
             progress: llmPayload.progress || 0,
             text: llmPayload.text || '',

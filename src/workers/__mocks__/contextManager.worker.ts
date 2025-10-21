@@ -18,7 +18,7 @@ export class MockContextManagerWorker {
       
       const listener = this.listeners.get('message');
       if (listener) {
-        listener({ data: mockResponse });
+        listener({ data: mockResponse } as MessageEvent);
       }
     }, 60); // 60ms de délai
   }
@@ -35,7 +35,7 @@ export class MockContextManagerWorker {
     this.listeners.clear();
   }
   
-  private generateMockResponse(type: string, payload: Record<string, unknown>, meta?: WorkerMessage['meta']): WorkerMessage {
+  private generateMockResponse(type: string, payload: unknown, meta?: WorkerMessage['meta']): WorkerMessage {
     if (type === 'init') {
       return {
         type: 'init_complete',
@@ -45,18 +45,19 @@ export class MockContextManagerWorker {
     }
     
     if (type === 'compress_context') {
-      const messages = payload.messages || [];
-      const originalCount = messages.length;
+      const payloadData = payload as Record<string, unknown>;
+      const messages = (payloadData.messages || []) as unknown[];
+      const originalCount = Array.isArray(messages) ? messages.length : 0;
       
       // Simuler une compression (garder seulement les messages les plus récents)
-      const maxTokens = payload.maxTokens || 3000;
+      const maxTokens = (payloadData.maxTokens as number) || 3000;
       const compressionRatio = 0.6; // Garder 60% des messages
       const targetCount = Math.max(
-        Math.floor(messages.length * compressionRatio),
+        Math.floor(originalCount * compressionRatio),
         5 // Minimum 5 messages
       );
       
-      const compressedMessages = messages.slice(-targetCount);
+      const compressedMessages = Array.isArray(messages) ? messages.slice(-targetCount) : [];
       
       return {
         type: 'context_compressed',

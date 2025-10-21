@@ -18,7 +18,7 @@ export class MockToolUserWorker {
       
       const listener = this.listeners.get('message');
       if (listener) {
-        listener({ data: mockResponse });
+        listener({ data: mockResponse } as MessageEvent);
       }
     }, 80); // 80ms de délai
   }
@@ -35,7 +35,7 @@ export class MockToolUserWorker {
     this.listeners.clear();
   }
   
-  private generateMockResponse(type: string, payload: Record<string, unknown>, meta?: WorkerMessage['meta']): WorkerMessage {
+  private generateMockResponse(type: string, payload: unknown, meta?: WorkerMessage['meta']): WorkerMessage {
     if (type === 'init') {
       return {
         type: 'init_complete',
@@ -45,7 +45,8 @@ export class MockToolUserWorker {
     }
     
     if (type === 'find_and_execute_tool') {
-      const query = payload.query?.toLowerCase() || '';
+      const payloadData = payload as Record<string, unknown>;
+      const query = ((payloadData.query as string) || '').toLowerCase();
       
       // Simuler la détection d'outils basée sur la requête
       if (query.includes('calcul') || query.includes('math')) {
@@ -88,7 +89,7 @@ export class MockToolUserWorker {
       return {
         type: 'no_tool_found',
         payload: {
-          query: payload.query,
+          query: (payloadData.query as string) || '',
           reason: '[Mock] Aucun outil détecté pour cette requête'
         },
         meta

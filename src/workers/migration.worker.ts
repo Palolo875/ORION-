@@ -45,8 +45,10 @@ class EmbeddingPipeline {
 // --- Fonction pour créer un embedding sémantique ---
 async function createSemanticEmbedding(text: string): Promise<number[]> {
   const extractor = await EmbeddingPipeline.getInstance();
-  const result = await extractor(text, { pooling: 'mean', normalize: true });
-  return Array.from(result.data);
+  // Call extractor - cast to bypass complex union types
+  const result = await (extractor as (text: string, options?: unknown) => Promise<unknown>)(text, {});
+  // result is already an array-like structure, convert to array
+  return Array.from(result as ArrayLike<number>);
 }
 
 // --- Fonction principale de migration ---

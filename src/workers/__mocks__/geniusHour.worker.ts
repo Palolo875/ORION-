@@ -18,7 +18,7 @@ export class MockGeniusHourWorker {
       
       const listener = this.listeners.get('message');
       if (listener) {
-        listener({ data: mockResponse });
+        listener({ data: mockResponse } as MessageEvent);
       }
     }, 40);
   }
@@ -35,7 +35,7 @@ export class MockGeniusHourWorker {
     this.listeners.clear();
   }
   
-  private generateMockResponse(type: string, payload: Record<string, unknown>, meta?: WorkerMessage['meta']): WorkerMessage {
+  private generateMockResponse(type: string, payload: unknown, meta?: WorkerMessage['meta']): WorkerMessage {
     if (type === 'init') {
       return {
         type: 'init_complete',

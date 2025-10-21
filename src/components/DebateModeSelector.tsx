@@ -6,6 +6,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { DEBATE_MODES, AVAILABLE_AGENTS, DebateMode, DebateModeConfig } from '@/utils/debateModeConstants';
 
+// Re-export DebateMode for convenience
+export type { DebateMode };
+
 interface DebateModeSelectorProps {
   currentMode: DebateMode;
   onModeChange: (mode: DebateMode) => void;

@@ -22,14 +22,7 @@ export class MockLLMWorker {
   private listeners = new Map<string, (event: MessageEvent) => void>();
   private currentModel = "Phi-3-mini-4k-instruct-q4f16_1-MLC";
   
-  postMessage(message: WorkerMessage<QueryPayload & { 
-    context?: string[]; 
-    modelId?: string; 
-    systemPrompt?: string;
-    temperature?: number;
-    maxTokens?: number;
-    agentType?: string;
-  }>) {
+  postMessage(message: WorkerMessage<unknown>) {
     const { type, payload, meta } = message;
     
     // Simuler un délai asynchrone (100ms au lieu de 5s)
@@ -39,7 +32,7 @@ export class MockLLMWorker {
       // Appeler le listener onmessage
       const listener = this.listeners.get('message');
       if (listener) {
-        listener({ data: mockResponse });
+        listener({ data: mockResponse } as MessageEvent);
       }
     }, 100);
   }
@@ -61,11 +54,12 @@ export class MockLLMWorker {
    */
   private generateMockResponse(
     type: string, 
-    payload: Record<string, unknown>, 
+    payload: unknown, 
     meta?: WorkerMessage['meta']
   ): WorkerMessage {
+    const payloadData = payload as Record<string, unknown>;
     if (type === 'set_model') {
-      this.currentModel = payload.modelId || this.currentModel;
+      this.currentModel = (payloadData.modelId as string) || this.currentModel;
       return {
         type: 'model_set',
         payload: { modelId: this.currentModel },
@@ -99,7 +93,7 @@ export class MockLLMWorker {
               },
               meta
             }
-          });
+          } as MessageEvent);
         }, 10);
         
         setTimeout(() => {
@@ -115,18 +109,18 @@ export class MockLLMWorker {
               },
               meta
             }
-          });
+          } as MessageEvent);
         }, 50);
       }
       
       // Générer la réponse basée sur le contexte
-      const response = this.generateIntelligentResponse(payload);
+      const response = this.generateIntelligentResponse(payloadData);
       
       return {
         type: 'llm_response_complete',
         payload: {
           response,
-          agentType: payload.agentType
+          agentType: payloadData.agentType as string | undefined
         },
         meta
       };
@@ -146,13 +140,11 @@ export class MockLLMWorker {
   /**
    * Génère une réponse intelligente basée sur le system prompt et la requête
    */
-  private generateIntelligentResponse(payload: {
-    query: string;
-    systemPrompt?: string;
-    agentType?: string;
-    context?: string[];
-  }): string {
-    const { query, systemPrompt = '', agentType, context } = payload;
+  private generateIntelligentResponse(payload: Record<string, unknown>): string {
+    const query = (payload.query as string) || '';
+    const systemPrompt = (payload.systemPrompt as string) || '';
+    const agentType = payload.agentType as string | undefined;
+    const context = payload.context as string[] | undefined;
     const lowerQuery = query.toLowerCase();
     const lowerPrompt = systemPrompt.toLowerCase();
     

@@ -27,7 +27,7 @@ export class MockMemoryWorker {
       
       const listener = this.listeners.get('message');
       if (listener) {
-        listener({ data: mockResponse });
+        listener({ data: mockResponse } as MessageEvent);
       }
     }, 50); // 50ms de délai
   }
@@ -45,7 +45,7 @@ export class MockMemoryWorker {
     this.memories = [];
   }
   
-  private generateMockResponse(type: string, payload: Record<string, unknown>, meta?: WorkerMessage['meta']): WorkerMessage {
+  private generateMockResponse(type: string, payload: unknown, meta?: WorkerMessage['meta']): WorkerMessage {
     if (type === 'init') {
       return {
         type: 'init_complete',
@@ -56,7 +56,8 @@ export class MockMemoryWorker {
     
     if (type === 'search') {
       // Rechercher dans les mémoires mockées
-      const query = payload.query?.toLowerCase() || '';
+      const payloadData = payload as Record<string, unknown>;
+      const query = ((payloadData.query as string) || '').toLowerCase();
       const results = this.memories
         .filter(m => m.content.toLowerCase().includes(query.substring(0, 20)))
         .slice(0, 3) // Max 3 résultats
@@ -71,9 +72,10 @@ export class MockMemoryWorker {
     
     if (type === 'store') {
       // Stocker une nouvelle mémoire
+      const payloadData = payload as Record<string, unknown>;
       this.memories.push({
-        content: payload.content,
-        type: payload.type || 'conversation',
+        content: (payloadData.content as string) || '',
+        type: (payloadData.type as string) || 'conversation',
         timestamp: Date.now()
       });
       
@@ -113,7 +115,9 @@ export class MockMemoryWorker {
     }
     
     if (type === 'import_all') {
-      this.memories = payload.memories || [];
+      const payloadData = payload as Record<string, unknown>;
+      const memories = (payloadData.memories as Array<{ content: string; type: string; timestamp: number }>) || [];
+      this.memories = memories;
       return {
         type: 'import_complete',
         payload: { 
