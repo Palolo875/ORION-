@@ -24,10 +24,10 @@ export class MultiAgentCoordinator {
   private currentQueryContext: QueryPayload | null = null;
   private currentQueryMeta: WorkerMessage['meta'] | null = null;
   private currentMemoryHits: string[] = [];
-  private llmWorker: Worker;
+  private getLLMWorker: () => Worker;
 
-  constructor(llmWorker: Worker) {
-    this.llmWorker = llmWorker;
+  constructor(getLLMWorker: () => Worker) {
+    this.getLLMWorker = getLLMWorker;
     this.state = {
       currentStep: 'idle',
       parallelResponses: { logical: false, creative: false }
@@ -68,7 +68,8 @@ export class MultiAgentCoordinator {
     });
     
     // Lancer les agents Logique et Créatif en PARALLÈLE
-    this.llmWorker.postMessage({ 
+    const llmWorker = this.getLLMWorker();
+    llmWorker.postMessage({ 
       type: 'generate_response', 
       payload: {
         ...queryContext,
@@ -81,7 +82,7 @@ export class MultiAgentCoordinator {
       meta: this.currentQueryMeta || undefined
     });
     
-    this.llmWorker.postMessage({ 
+    llmWorker.postMessage({ 
       type: 'generate_response', 
       payload: {
         ...queryContext,
@@ -149,7 +150,8 @@ export class MultiAgentCoordinator {
       meta: this.currentQueryMeta 
     });
     
-    this.llmWorker.postMessage({ 
+    const llmWorker = this.getLLMWorker();
+    llmWorker.postMessage({ 
       type: 'generate_response', 
       payload: {
         ...this.currentQueryContext!,
@@ -186,7 +188,8 @@ export class MultiAgentCoordinator {
       contextStr
     );
     
-    this.llmWorker.postMessage({ 
+    const llmWorker = this.getLLMWorker();
+    llmWorker.postMessage({ 
       type: 'generate_response', 
       payload: {
         query: synthesisPrompt,

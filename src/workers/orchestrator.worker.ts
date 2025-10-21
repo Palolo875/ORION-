@@ -21,11 +21,11 @@ import { CircuitBreaker } from './orchestrator/CircuitBreaker';
 
 logger.info('Orchestrator', 'Worker chargé et prêt (version refactorisée)');
 
-// === Instanciation des workers ===
-const llmWorker = new Worker(new URL('./llm.worker.ts', import.meta.url), {
-  type: 'module',
-});
+// === Lazy worker instances ===
+// LLM worker is lazily loaded to avoid loading 5.4MB @mlc-ai/web-llm until actually needed
+let llmWorker: Worker | null = null;
 
+// Other workers are created immediately as they are lightweight
 const memoryWorker = new Worker(new URL('./memory.worker.ts', import.meta.url), {
   type: 'module',
 });
@@ -42,10 +42,27 @@ const contextManagerWorker = new Worker(new URL('./contextManager.worker.ts', im
   type: 'module',
 });
 
-logger.info('Orchestrator', 'Tous les workers instanciés', { workers: ['LLM', 'Memory', 'ToolUser', 'GeniusHour', 'ContextManager'] });
+logger.info('Orchestrator', 'Workers essentiels instanciés (LLM en lazy loading)', { workers: ['Memory', 'ToolUser', 'GeniusHour', 'ContextManager'] });
+
+/**
+ * Lazy loader pour le LLM worker
+ * Ne charge le worker que quand il est vraiment nécessaire
+ */
+function getLLMWorker(): Worker {
+  if (llmWorker === null) {
+    logger.info('Orchestrator', 'Chargement lazy du LLM Worker (~5.4MB)');
+    llmWorker = new Worker(new URL('./llm.worker.ts', import.meta.url), {
+      type: 'module',
+    });
+    setupLLMWorkerListener();
+    logger.info('Orchestrator', 'LLM Worker chargé avec succès');
+  }
+  return llmWorker;
+}
 
 // === Instanciation des gestionnaires ===
-const multiAgentCoordinator = new MultiAgentCoordinator(llmWorker);
+// Le MultiAgentCoordinator reçoit une fonction pour obtenir le worker
+const multiAgentCoordinator = new MultiAgentCoordinator(getLLMWorker);
 const toolExecutionManager = new ToolExecutionManager(toolUserWorker);
 const responseFormatter = new ResponseFormatter();
 const healthMonitor = new WorkerHealthMonitor();
@@ -127,9 +144,8 @@ function handleQuery(payload: QueryPayload, meta?: WorkerMessage['meta']): void 
 function handleInit(): void {
   logger.info('Orchestrator', 'Initialization');
   
-  // Initialiser tous les workers avec monitoring
+  // Initialiser tous les workers sauf LLM (lazy loaded) avec monitoring
   const workers = [
-    { worker: llmWorker, name: 'llm' },
     { worker: memoryWorker, name: 'memory' },
     { worker: toolUserWorker, name: 'toolUser' },
     { worker: contextManagerWorker, name: 'contextManager' },
@@ -146,13 +162,16 @@ function handleInit(): void {
   }
 
   logger.info('Orchestrator', 'GeniusHour Worker démarré en arrière-plan');
+  logger.info('Orchestrator', 'LLM Worker sera chargé à la première utilisation (lazy loading)');
 }
 
 function handleSetModel(payload: SetModelPayload, meta?: WorkerMessage['meta']): void {
   logger.info('Orchestrator', `Changement de modèle: ${payload.modelId}`, { modelId: payload.modelId });
   
   try {
-    llmWorker.postMessage({ type: 'set_model', payload, meta });
+    // Charger le LLM worker si nécessaire
+    const worker = getLLMWorker();
+    worker.postMessage({ type: 'set_model', payload, meta });
     healthMonitor.recordSuccess('llm');
   } catch (error) {
     healthMonitor.recordFailure('llm', (error as Error).message);
@@ -323,48 +342,55 @@ memoryWorker.onmessage = (event: MessageEvent<WorkerMessage<{ results: Array<{ c
   }
 };
 
-// LLM Worker
-llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-  const { type, payload, meta } = event.data;
+/**
+ * Configure l'écouteur pour le LLM Worker
+ * Appelé après la création lazy du worker
+ */
+function setupLLMWorkerListener(): void {
+  if (!llmWorker) return;
+  
+  llmWorker.onmessage = (event: MessageEvent<WorkerMessage>) => {
+    const { type, payload, meta } = event.data;
 
-  if (meta?.traceId !== currentQueryMeta?.traceId && type !== 'init_complete' && type !== 'llm_load_progress') {
-    return;
-  }
-
-  try {
-    if (type === 'llm_response_complete') {
-      const llmPayload = payload as { response: string; agentType?: string };
-      
-      const isDebateComplete = multiAgentCoordinator.handleAgentResponse(
-        llmPayload.response,
-        llmPayload.agentType
-      );
-
-      if (isDebateComplete || !multiAgentCoordinator.isDebateActive()) {
-        handleFinalResponse(llmPayload.response);
-      }
-      
-      healthMonitor.recordSuccess('llm');
-      circuitBreaker.recordSuccess('llm_inference');
-
-    } else if (type === 'llm_error') {
-      const errorPayload = payload as LLMErrorPayload;
-      handleLLMError(errorPayload, meta);
-      healthMonitor.recordFailure('llm', errorPayload.error);
-      circuitBreaker.recordFailure('llm_inference', errorPayload.error);
-
-    } else if (type === 'llm_load_progress') {
-      self.postMessage({ type, payload, meta });
-
-    } else if (type === 'init_complete') {
-      logger.info('Orchestrator', 'LLM Worker initialisé');
-      healthMonitor.recordSuccess('llm');
+    if (meta?.traceId !== currentQueryMeta?.traceId && type !== 'init_complete' && type !== 'llm_load_progress') {
+      return;
     }
-  } catch (error) {
-    healthMonitor.recordFailure('llm', (error as Error).message);
-    handleError(error as Error, type, meta || undefined);
-  }
-};
+
+    try {
+      if (type === 'llm_response_complete') {
+        const llmPayload = payload as { response: string; agentType?: string };
+        
+        const isDebateComplete = multiAgentCoordinator.handleAgentResponse(
+          llmPayload.response,
+          llmPayload.agentType
+        );
+
+        if (isDebateComplete || !multiAgentCoordinator.isDebateActive()) {
+          handleFinalResponse(llmPayload.response);
+        }
+        
+        healthMonitor.recordSuccess('llm');
+        circuitBreaker.recordSuccess('llm_inference');
+
+      } else if (type === 'llm_error') {
+        const errorPayload = payload as LLMErrorPayload;
+        handleLLMError(errorPayload, meta);
+        healthMonitor.recordFailure('llm', errorPayload.error);
+        circuitBreaker.recordFailure('llm_inference', errorPayload.error);
+
+      } else if (type === 'llm_load_progress') {
+        self.postMessage({ type, payload, meta });
+
+      } else if (type === 'init_complete') {
+        logger.info('Orchestrator', 'LLM Worker initialisé');
+        healthMonitor.recordSuccess('llm');
+      }
+    } catch (error) {
+      healthMonitor.recordFailure('llm', (error as Error).message);
+      handleError(error as Error, type, meta || undefined);
+    }
+  };
+}
 
 // ContextManager Worker
 contextManagerWorker.onmessage = (event: MessageEvent) => {
@@ -474,7 +500,9 @@ function launchSimpleLLMInference(): void {
     meta: currentQueryMeta 
   });
   
-  llmWorker.postMessage({ 
+  // Charger le LLM worker si nécessaire
+  const worker = getLLMWorker();
+  worker.postMessage({ 
     type: 'generate_response', 
     payload: {
       ...currentQueryContext!,

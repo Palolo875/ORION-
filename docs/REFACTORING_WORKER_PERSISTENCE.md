@@ -362,7 +362,7 @@ function handleQuery(payload, meta) {
 
 ## 📚 5. Documentation et Nettoyage
 
-### 🔄 Remplacement EIAM → ORION
+### ✅ Nomenclature : ORION
 
 Tous les fichiers de documentation ont été nettoyés :
 - ✅ `IMPLEMENTATION_SECURISATION.md`
@@ -375,7 +375,7 @@ Tous les fichiers de documentation ont été nettoyés :
 
 **Changement type** :
 ```diff
-- Projet ORION (anciennement EIAM)
+- Projet ORION
 + Projet ORION
 ```
 
@@ -450,7 +450,7 @@ Cette refactorisation majeure améliore significativement la qualité du code OR
 ✅ **Refactorisation** : orchestrator.worker.ts divisé en 5 modules réutilisables  
 ✅ **Gestion d'erreurs** : WorkerHealthMonitor + CircuitBreaker pour la robustesse  
 ✅ **Persistance** : Sauvegardes automatiques + export/import + gestion des versions  
-✅ **Documentation** : Nettoyage complet (EIAM → ORION)  
+✅ **Documentation** : Nomenclature cohérente (ORION)  
 ✅ **Tests** : Build et lint réussis sans nouvelles erreurs  
 
 Le système est maintenant **plus maintenable**, **plus robuste** et **plus fiable** ! 🚀
