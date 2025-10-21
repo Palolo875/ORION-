@@ -7,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 interface MemoryHandlersProps {
   purgeMemory: () => void;
   exportMemory: () => void;
-  importMemory: (data: any) => void;
+  importMemory: (data: Record<string, unknown>) => void;
   exportCache: () => string;
   importCache: (content: string) => void;
   resetStats: () => void;
