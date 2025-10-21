@@ -265,7 +265,7 @@ export const useMemoryHandlers = ({
 Assurer la cohérence de la nomenclature (ORION) dans toute la documentation.
 
 ### 🔧 Vérifications effectuées
-- ✅ Fichiers TypeScript/React : Aucune référence à "EIAM"
+- ✅ Fichiers TypeScript/React : Toutes les références "EIAM" remplacées par "ORION"
 - ✅ Documentation Markdown : Références historiques uniquement (corrections déjà effectuées)
 - ✅ README principal : Déjà à jour avec "ORION"
 
