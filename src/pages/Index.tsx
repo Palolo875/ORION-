@@ -129,7 +129,8 @@ const Index = () => {
         finalPayload.response,
         finalPayload.confidence,
         finalPayload.provenance,
-        finalPayload.debug
+        finalPayload.debug,
+        finalPayload.reasoningSteps
       );
       
       // Update inference statistics

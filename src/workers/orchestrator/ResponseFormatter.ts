@@ -10,6 +10,8 @@
 import { FinalResponsePayload, QueryPayload, WorkerMessage } from '../../types';
 import { evaluateDebate, evaluateSingleResponse, generateQualityReport, type DebateQuality } from '../../utils/debateQuality';
 import { logger } from '../../utils/logger';
+import { reasoningParser } from '../../services/reasoning-parser';
+import type { ReasoningStep } from '../../types/reasoning';
 
 export class ResponseFormatter {
   /**
@@ -37,6 +39,9 @@ export class ResponseFormatter {
       }, meta?.traceId);
     }
 
+    // Parser les étapes de raisonnement
+    const reasoningSteps = this.extractReasoningSteps(response, 'LLM');
+
     return {
       response,
       confidence: debateQuality.overallScore,
@@ -47,7 +52,8 @@ export class ResponseFormatter {
       debug: {
         inferenceTimeMs,
         debateQuality,
-      }
+      },
+      reasoningSteps
     };
   }
 
@@ -94,6 +100,24 @@ export class ResponseFormatter {
       }, meta?.traceId);
     }
 
+    // Extraire les étapes de raisonnement de tous les agents
+    const allSteps: ReasoningStep[] = [];
+    
+    if (debateResponses.logical) {
+      const logicalSteps = this.extractReasoningSteps(debateResponses.logical, 'Logical');
+      allSteps.push(...logicalSteps);
+    }
+    
+    if (debateResponses.creative) {
+      const creativeSteps = this.extractReasoningSteps(debateResponses.creative, 'Creative');
+      allSteps.push(...creativeSteps);
+    }
+    
+    if (debateResponses.critical) {
+      const criticalSteps = this.extractReasoningSteps(debateResponses.critical, 'Critical');
+      allSteps.push(...criticalSteps);
+    }
+
     return {
       response,
       confidence: debateQuality.overallScore,
@@ -104,7 +128,8 @@ export class ResponseFormatter {
       debug: {
         inferenceTimeMs,
         debateQuality,
-      }
+      },
+      reasoningSteps: allSteps.length > 0 ? allSteps : undefined
     };
   }
 
@@ -159,5 +184,24 @@ export class ResponseFormatter {
    */
   generateQualityReport(debateQuality: DebateQuality): string {
     return generateQualityReport(debateQuality);
+  }
+
+  /**
+   * Extrait les étapes de raisonnement depuis une réponse d'agent
+   */
+  private extractReasoningSteps(responseText: string, agentName: string): ReasoningStep[] {
+    try {
+      const parsed = reasoningParser.parseAgentOutput(responseText, agentName);
+      if (parsed && parsed.steps) {
+        // Ajouter le nom de l'agent comme tag
+        return parsed.steps.map(step => ({
+          ...step,
+          tags: [...(step.tags || []), agentName]
+        }));
+      }
+    } catch (error) {
+      logger.error('ResponseFormatter', 'Erreur extraction étapes de raisonnement', error);
+    }
+    return [];
   }
 }

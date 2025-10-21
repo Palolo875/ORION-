@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Copy, Check, ThumbsUp, ThumbsDown, MoreHorizontal, RotateCcw, Wrench, Database, Brain, Target, Clock, Users, Volume2, VolumeX, Pause } from "lucide-react";
+import { Copy, Check, ThumbsUp, ThumbsDown, MoreHorizontal, RotateCcw, Wrench, Database, Brain, Target, Clock, Users, Volume2, VolumeX, Pause, ChevronDown, ChevronUp, ListOrdered } from "lucide-react";
 import { Button } from "./ui/button";
 import { 
   DropdownMenu, 
@@ -16,6 +16,7 @@ import { getTTSInstance, isTTSSupported } from "@/utils/textToSpeech";
 import { SafeMessage } from "./SafeMessage";
 import { DebateMetrics } from "./DebateMetrics";
 import { DebateQuality } from "@/utils/debateQuality";
+import type { ReasoningStep } from "@/types/reasoning";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -36,6 +37,7 @@ interface ChatMessageProps {
     memoryHits?: string[];
     toolUsed?: string;
   };
+  reasoningSteps?: ReasoningStep[];
 }
 
 export const ChatMessage = ({ 
@@ -48,13 +50,15 @@ export const ChatMessage = ({
   onDislike,
   confidence,
   debug,
-  provenance
+  provenance,
+  reasoningSteps
 }: ChatMessageProps) => {
   const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState(false);
   const [disliked, setDisliked] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [showReasoningSteps, setShowReasoningSteps] = useState(false);
   const isUser = role === "user";
   const ttsSupported = isTTSSupported();
 
@@ -428,6 +432,66 @@ export const ChatMessage = ({
                     )}
                   </TooltipProvider>
                 </div>
+              </div>
+            )}
+
+            {/* Étapes de Raisonnement */}
+            {reasoningSteps && reasoningSteps.length > 0 && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowReasoningSteps(!showReasoningSteps)}
+                  className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  <ListOrdered className="h-4 w-4" />
+                  <span>Étapes de raisonnement ({reasoningSteps.length})</span>
+                  {showReasoningSteps ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </button>
+                
+                {showReasoningSteps && (
+                  <div className="mt-3 space-y-2">
+                    {reasoningSteps.map((step, idx) => (
+                      <div 
+                        key={step.id} 
+                        className="glass-subtle rounded-lg p-3 border border-border/50"
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="flex-shrink-0 mt-0.5">
+                            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
+                              {step.stepNumber}
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={cn(
+                                "text-xs px-2 py-0.5 rounded-full font-medium",
+                                step.type === 'observation' && "bg-blue-500/10 text-blue-600",
+                                step.type === 'analysis' && "bg-purple-500/10 text-purple-600",
+                                step.type === 'hypothesis' && "bg-yellow-500/10 text-yellow-600",
+                                step.type === 'conclusion' && "bg-green-500/10 text-green-600",
+                                step.type === 'critique' && "bg-red-500/10 text-red-600",
+                                step.type === 'perspective' && "bg-orange-500/10 text-orange-600"
+                              )}>
+                                {step.type}
+                              </span>
+                              {step.tags && step.tags.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  • {step.tags.join(', ')}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-foreground/90">
+                              {step.content}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
