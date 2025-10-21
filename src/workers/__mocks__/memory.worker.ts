@@ -8,7 +8,7 @@
 import type { WorkerMessage } from '../../types';
 
 export class MockMemoryWorker {
-  private listeners = new Map<string, Function>();
+  private listeners = new Map<string, (event: MessageEvent) => void>();
   private memories: Array<{ content: string; type: string; timestamp: number }> = [];
   
   constructor() {
@@ -32,7 +32,7 @@ export class MockMemoryWorker {
     }, 50); // 50ms de délai
   }
   
-  addEventListener(event: string, callback: Function) {
+  addEventListener(event: string, callback: (event: MessageEvent) => void) {
     this.listeners.set(event, callback);
   }
   
@@ -45,7 +45,7 @@ export class MockMemoryWorker {
     this.memories = [];
   }
   
-  private generateMockResponse(type: string, payload: any, meta?: WorkerMessage['meta']): WorkerMessage {
+  private generateMockResponse(type: string, payload: Record<string, unknown>, meta?: WorkerMessage['meta']): WorkerMessage {
     if (type === 'init') {
       return {
         type: 'init_complete',
