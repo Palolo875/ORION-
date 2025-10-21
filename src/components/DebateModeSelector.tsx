@@ -4,57 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-
-export type DebateMode = 'fast' | 'balanced' | 'thorough' | 'custom';
-
-export interface DebateModeConfig {
-  name: string;
-  icon: string;
-  description: string;
-  agents: string[];
-  estimatedTime: string;
-  quality: 'basic' | 'good' | 'excellent' | 'custom';
-  color: string;
-}
-
-export const DEBATE_MODES: Record<DebateMode, DebateModeConfig> = {
-  fast: {
-    name: 'Rapide',
-    icon: '⚡',
-    description: 'Réponse directe avec synthèse uniquement',
-    agents: ['synthesizer'],
-    estimatedTime: '3-5s',
-    quality: 'basic',
-    color: 'blue'
-  },
-  balanced: {
-    name: 'Équilibré',
-    icon: '⚖️',
-    description: 'Débat simplifié (Logique + Synthèse)',
-    agents: ['logical', 'synthesizer'],
-    estimatedTime: '8-10s',
-    quality: 'good',
-    color: 'green'
-  },
-  thorough: {
-    name: 'Approfondi',
-    icon: '🧠',
-    description: 'Débat complet avec tous les agents',
-    agents: ['logical', 'creative', 'critical', 'synthesizer'],
-    estimatedTime: '14-16s',
-    quality: 'excellent',
-    color: 'purple'
-  },
-  custom: {
-    name: 'Personnalisé',
-    icon: '⚙️',
-    description: 'Choisir manuellement les agents',
-    agents: [],
-    estimatedTime: 'variable',
-    quality: 'custom',
-    color: 'gray'
-  }
-};
+import { DEBATE_MODES, AVAILABLE_AGENTS, DebateMode, DebateModeConfig } from '@/utils/debateModeConstants';
 
 interface DebateModeSelectorProps {
   currentMode: DebateMode;
@@ -69,12 +19,6 @@ interface CustomAgentSelectorProps {
   onAgentsChange: (agents: string[]) => void;
 }
 
-const AVAILABLE_AGENTS = [
-  { id: 'logical', name: 'Agent Logique', description: 'Analyse rigoureuse et structurée' },
-  { id: 'creative', name: 'Agent Créatif', description: 'Pensée divergente et exploration' },
-  { id: 'critical', name: 'Agent Critique', description: 'Analyse sceptique et validation' },
-  { id: 'synthesizer', name: 'Synthétiseur', description: 'Synthèse finale équilibrée', required: true }
-];
 
 const CustomAgentSelector: React.FC<CustomAgentSelectorProps> = ({ selectedAgents, onAgentsChange }) => {
   const handleToggle = (agentId: string, required: boolean) => {

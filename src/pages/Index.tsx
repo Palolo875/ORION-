@@ -1,23 +1,21 @@
 import { useState, useEffect } from "react";
-import { Settings, Menu, Brain } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ChatInput";
 import { SuggestionChips } from "@/components/SuggestionChips";
 import { SettingsPanel } from "@/components/SettingsPanel";
-import { ChatMessage } from "@/components/ChatMessage";
 import { Sidebar } from "@/components/Sidebar";
-import { CognitiveFlow, FlowStep } from "@/components/CognitiveFlow";
+import { CognitiveFlow } from "@/components/CognitiveFlow";
+import { FlowStep } from "@/utils/cognitiveFlowConstants";
 import { ControlPanel } from "@/components/ControlPanel";
 import { ModelSelector } from "@/components/ModelSelector";
 import { ModelLoader } from "@/components/ModelLoader";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { QuickModelSwitcher } from "@/components/QuickModelSwitcher";
+import { Header } from "@/components/Header";
+import { WelcomeScreen } from "@/components/WelcomeScreen";
+import { ChatMessages } from "@/components/ChatMessages";
 import { FinalResponsePayload } from "@/types";
 import { detectDeviceProfile, DeviceProfile } from "@/utils/performance";
 import { DEFAULT_MODEL } from "@/config/models";
 import { BrowserCompatibilityBanner } from "@/components/BrowserCompatibilityBanner";
 import { ProcessedFile } from "@/utils/fileProcessor";
-import { toast } from "@/hooks/use-toast";
 import { 
   useConversations, 
   useModelManagement, 
@@ -26,8 +24,9 @@ import {
   useChatMessages,
   useMemoryStats
 } from "@/features/chat/hooks";
-import { Message } from "@/features/chat/types";
 import { useSemanticCache } from "@/hooks/useSemanticCache";
+import { useConversationHandlers } from "@/hooks/useConversationHandlers";
+import { useMemoryHandlers } from "@/hooks/useMemoryHandlers";
 
 const Index = () => {
   // UI state
@@ -164,29 +163,26 @@ const Index = () => {
     initialize();
   }, []);
 
+  // Initialize conversation handlers
+  const conversationHandlers = useConversationHandlers({
+    messages,
+    addUserMessage,
+    removeAssistantMessages,
+    getLastUserMessage,
+    getConversationHistory,
+    updateConversationTitle,
+    updateConversation,
+    sendQuery,
+    sendFeedback,
+    incrementLikes,
+    incrementDislikes,
+    setFlowState,
+  });
+
   const handleSendMessage = (content: string, attachments?: ProcessedFile[]) => {
-    // Add user message to UI
-    const userMessage = addUserMessage(content, attachments);
-    
-    // Update cognitive flow
-    setFlowState({
-      currentStep: 'query',
-      stepDetails: 'Analyse de votre question en cours...'
-    });
-
-    // Update conversation title if it's the first message
-    if (messages.length === 0) {
-      const title = content.length > 30 ? content.substring(0, 30) + "..." : content;
-      updateConversationTitle(currentConversationId, title);
-    }
-
-    // Update conversation with user message
-    updateConversation(currentConversationId, userMessage);
-
-    // Send query to worker
-    sendQuery(
-      content, 
-      getConversationHistory(), 
+    conversationHandlers.handleSendMessage(
+      content,
+      currentConversationId,
       deviceProfile,
       attachments
     );
@@ -212,9 +208,8 @@ const Index = () => {
   };
 
   const handleRegenerate = () => {
-    const lastUserMessage = getLastUserMessage();
+    const lastUserMessage = conversationHandlers.handleRegenerate();
     if (lastUserMessage) {
-      removeAssistantMessages();
       handleSendMessage(lastUserMessage.content, lastUserMessage.attachments);
     }
   };
@@ -223,152 +218,22 @@ const Index = () => {
     handleSendMessage(suggestion);
   };
 
-  const handleLike = (messageId: string) => {
-    console.log(`[UI] Feedback positif reçu pour le message ${messageId}`);
-    
-    const messageIndex = messages.findIndex(msg => msg.id === messageId);
-    if (messageIndex > 0) {
-      const response = messages[messageIndex].content;
-      const query = messages[messageIndex - 1].content;
-
-      sendFeedback(messageId, 'good', query, response);
-      incrementLikes();
-    }
-  };
-
-  const handleDislike = (messageId: string) => {
-    console.log(`[UI] Feedback négatif reçu pour le message ${messageId}`);
-    
-    const messageIndex = messages.findIndex(msg => msg.id === messageId);
-    if (messageIndex > 0) {
-      const response = messages[messageIndex].content;
-      const query = messages[messageIndex - 1].content;
-
-      sendFeedback(messageId, 'bad', query, response);
-      incrementDislikes();
-    }
-  };
-
-  const handlePurgeMemory = () => {
-    purgeMemory();
-    resetStats();
-  };
-
-  const handleExportMemory = () => {
-    exportMemory();
-  };
+  // Initialize memory handlers
+  const memoryHandlers = useMemoryHandlers({
+    purgeMemory,
+    exportMemory,
+    importMemory,
+    exportCache,
+    importCache,
+    resetStats,
+  });
 
   const handleExportConversation = () => {
-    // Exporter la conversation actuelle en JSON
-    const currentConversation = conversations.find(conv => conv.id === currentConversationId);
-    const exportData = {
-      conversation: currentConversation,
-      messages: messages,
-      exportedAt: new Date().toISOString(),
-      version: '1.0'
-    };
-
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `orion-conversation-${currentConversation?.title.replace(/[^a-z0-9]/gi, '_')}-${Date.now()}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportMemory = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const data = JSON.parse(content);
-        importMemory(data);
-      } catch (error) {
-        console.error('[UI] Erreur lors de l\'import:', error);
-        toast({
-          title: "Erreur d'import",
-          description: "Le fichier n'est pas valide",
-          variant: "destructive",
-        });
-      }
-    };
-    reader.readAsText(file);
+    conversationHandlers.handleExportConversation(conversations, currentConversationId);
   };
 
   const handleImportConversation = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const data = JSON.parse(content);
-        
-        // Valider la structure du fichier
-        if (!data.conversation || !data.messages || !Array.isArray(data.messages)) {
-          throw new Error('Structure de fichier invalide');
-        }
-        
-        toast({
-          title: "Import réussi",
-          description: `Conversation "${data.conversation.title}" importée avec ${data.messages.length} messages`,
-        });
-      } catch (error) {
-        console.error('[UI] Erreur lors de l\'import de conversation:', error);
-        toast({
-          title: "Erreur d'import",
-          description: error instanceof Error ? error.message : "Le fichier n'est pas valide",
-          variant: "destructive",
-        });
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleExportCache = () => {
-    try {
-      const cacheData = exportCache();
-      const dataBlob = new Blob([cacheData], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `orion-cache-${Date.now()}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('[UI] Erreur lors de l\'export du cache:', error);
-      toast({
-        title: "Erreur d'export",
-        description: "Impossible d'exporter le cache",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleImportCache = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        importCache(content);
-        toast({
-          title: "Import réussi",
-          description: "Le cache a été importé avec succès",
-        });
-      } catch (error) {
-        console.error('[UI] Erreur lors de l\'import du cache:', error);
-        toast({
-          title: "Erreur d'import",
-          description: "Le fichier n'est pas valide",
-          variant: "destructive",
-        });
-      }
-    };
-    reader.readAsText(file);
+    conversationHandlers.handleImportConversation(file);
   };
 
   const handleProfileChange = (profile: 'full' | 'lite' | 'micro') => {
@@ -430,68 +295,16 @@ const Index = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="sticky top-0 z-30 glass border-b border-[hsl(var(--glass-border))]">
-          <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsSidebarOpen(true)}
-                className="lg:hidden rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
-                aria-label="Ouvrir le menu"
-                title="Menu"
-              >
-                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
-              </Button>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-semibold">ORION</h1>
-                {modelInfo && (
-                  <span 
-                    className="hidden sm:flex text-xs px-2 py-1 rounded-full bg-primary/10 text-primary cursor-pointer hover:bg-primary/20 transition-colors"
-                    onClick={() => setIsSettingsOpen(true)}
-                    title="Cliquer pour changer de modèle"
-                  >
-                    {modelInfo.name}
-                  </span>
-                )}
-                {deviceProfile && (
-                  <span className="device-profile text-xs px-2 py-1 rounded-full bg-accent/30 text-accent-foreground">
-                    {deviceProfile}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <QuickModelSwitcher 
-                currentModel={selectedModel}
-                onModelChange={handleModelSelect}
-                className="hidden md:flex"
-              />
-              <ThemeToggle />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowCognitiveFlow(!showCognitiveFlow)}
-                className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
-                aria-label={showCognitiveFlow ? "Masquer le flux cognitif" : "Afficher le flux cognitif"}
-                aria-pressed={showCognitiveFlow}
-                title="Afficher le flux cognitif"
-              >
-                <Brain className="h-4 w-4 sm:h-5 sm:w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsControlPanelOpen(true)}
-                className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
-                aria-label="Ouvrir le panneau de contrôle"
-                title="Panneau de contrôle"
-              >
-                <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-              </Button>
-            </div>
-          </div>
-        </header>
+        <Header
+          onMenuClick={() => setIsSidebarOpen(true)}
+          onCognitiveFlowToggle={() => setShowCognitiveFlow(!showCognitiveFlow)}
+          onSettingsClick={() => setIsControlPanelOpen(true)}
+          showCognitiveFlow={showCognitiveFlow}
+          selectedModel={selectedModel}
+          onModelChange={handleModelSelect}
+          modelInfo={modelInfo}
+          deviceProfile={deviceProfile}
+        />
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col">
@@ -506,47 +319,15 @@ const Index = () => {
           )}
 
           {showWelcome ? (
-            <div className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4">
-              <div className="text-center space-y-4 sm:space-y-8 mb-8 sm:mb-12 max-w-2xl">
-                <h2 className="text-2xl sm:text-4xl md:text-5xl font-light tracking-tight">
-                  Comment puis-je vous aider ?
-                </h2>
-                <p className="text-sm sm:text-lg text-muted-foreground font-light">
-                  Posez une question ou choisissez une suggestion ci-dessous
-                </p>
-              </div>
-              <div className="w-full max-w-4xl mb-6 sm:mb-8">
-                <SuggestionChips onSelect={handleSuggestionSelect} />
-              </div>
-            </div>
+            <WelcomeScreen onSuggestionSelect={handleSuggestionSelect} />
           ) : (
-            <div className="flex-1 overflow-y-auto">
-              <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl">
-                {messages.map((message) => (
-                  <ChatMessage 
-                    key={message.id} 
-                    role={message.role} 
-                    content={message.content}
-                    timestamp={message.timestamp}
-                    isTyping={message.isTyping}
-                    onRegenerate={message.role === "assistant" ? handleRegenerate : undefined}
-                    onLike={message.role === "assistant" ? () => handleLike(message.id) : undefined}
-                    onDislike={message.role === "assistant" ? () => handleDislike(message.id) : undefined}
-                    confidence={message.confidence}
-                    debug={message.debug}
-                    provenance={message.provenance}
-                  />
-                ))}
-                {isGenerating && (
-                  <ChatMessage 
-                    role="assistant" 
-                    content="" 
-                    timestamp={new Date()}
-                    isTyping={true}
-                  />
-                )}
-              </div>
-            </div>
+            <ChatMessages
+              messages={messages}
+              isGenerating={isGenerating}
+              onRegenerate={handleRegenerate}
+              onLike={conversationHandlers.handleLike}
+              onDislike={conversationHandlers.handleDislike}
+            />
           )}
 
           {/* Chat Input - Fixed at bottom */}
@@ -577,13 +358,13 @@ const Index = () => {
       <ControlPanel 
         isOpen={isControlPanelOpen} 
         onClose={() => setIsControlPanelOpen(false)}
-        onPurgeMemory={handlePurgeMemory}
-        onExportMemory={handleExportMemory}
+        onPurgeMemory={memoryHandlers.handlePurgeMemory}
+        onExportMemory={memoryHandlers.handleExportMemory}
         onExportConversation={handleExportConversation}
-        onImportMemory={handleImportMemory}
+        onImportMemory={memoryHandlers.handleImportMemory}
         onImportConversation={handleImportConversation}
-        onExportCache={handleExportCache}
-        onImportCache={handleImportCache}
+        onExportCache={memoryHandlers.handleExportCache}
+        onImportCache={memoryHandlers.handleImportCache}
         onProfileChange={handleProfileChange}
         currentProfile={deviceProfile || 'micro'}
         onDebateModeChange={handleDebateModeChange}

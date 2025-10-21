@@ -2,9 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Brain, Search, Database, Cpu, MessageSquare, Clock, Users, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-// Les étapes possibles de notre flux
-export type FlowStep = 'query' | 'tool_search' | 'memory_search' | 'llm_reasoning' | 'final_response' | 'idle' | 'multi_agent_critical' | 'multi_agent_synthesis';
+import { FlowStep } from '@/utils/cognitiveFlowConstants';
 
 interface CognitiveFlowProps {
   currentStep: FlowStep;

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback } from "react";
 import { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePayload } from "@/types";
 import type { LLMProgressPayload, MemoryImportPayload } from "@/types/worker-payloads";
-import { FlowStep } from "@/components/CognitiveFlow";
+import { FlowStep } from "@/utils/cognitiveFlowConstants";
 import { DeviceProfile } from "@/utils/performance/deviceProfiler";
 import { ProcessedFile } from "@/utils/fileProcessor";
 
