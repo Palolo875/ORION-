@@ -127,7 +127,7 @@ export class MemoryMonitor {
 
     // Modèles chargés (via événements custom)
     try {
-      const modelLoader = (window as any).__modelLoader;
+      const modelLoader = (window as Window & { __modelLoader?: { getStats: () => { loadedModels: number; totalMemoryUsage: number } } }).__modelLoader;
       if (modelLoader) {
         const stats = modelLoader.getStats();
         snapshot.loadedModelsCount = stats.loadedModels;

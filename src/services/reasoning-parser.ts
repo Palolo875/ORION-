@@ -75,13 +75,16 @@ class ReasoningParser {
         return null;
       }
       
-      const steps: ReasoningStep[] = parsed.steps.map((s: any, idx: number) => ({
-        id: `step-${idx}`,
-        stepNumber: idx + 1,
-        type: s.type || 'analysis',
-        content: s.content || '',
-        tags: s.tags || []
-      }));
+      const steps: ReasoningStep[] = parsed.steps.map((s: unknown, idx: number) => {
+        const step = s as { type?: string; content?: string; tags?: string[] };
+        return {
+          id: `step-${idx}`,
+          stepNumber: idx + 1,
+          type: (step.type as ReasoningStepType | undefined) || 'analysis',
+          content: step.content || '',
+          tags: step.tags || []
+        };
+      });
       
       return {
         steps,
@@ -100,7 +103,7 @@ class ReasoningParser {
     try {
       const steps: ReasoningStep[] = [];
       let conclusion = '';
-      let confidence = REASONING_CONSTRAINTS.DEFAULT_CONFIDENCE;
+      let confidence: number = REASONING_CONSTRAINTS.DEFAULT_CONFIDENCE;
       
       // Extraire les lignes numérotées (1. 2. 3. etc.)
       const numberedMatches = text.match(/^\d+\.\s+(.+)$/gm);
