@@ -1,4 +1,4 @@
-import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, Check, Sparkles, Rocket, ChevronRight, Database, Trash2, RefreshCw, Eye, Image as ImageIcon } from "lucide-react";
+import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, Check, Sparkles, Rocket, ChevronRight, Database, Trash2, RefreshCw, Eye, Image as ImageIcon, AlertTriangle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -8,6 +8,9 @@ import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
 import { Badge } from "./ui/badge";
 import { useState, useEffect } from "react";
+import { validateModelLoad, ValidationResult } from "@/utils/modelValidator";
+import { ModelValidationDialog } from "./ModelValidationDialog";
+import { CacheManagementPanel } from "./CacheManagementPanel";
 import { MODELS, formatBytes, ModelConfig, detectDeviceCapabilities, DeviceCapabilities } from "@/config/models";
 import { cn } from "@/lib/utils";
 import { useStorageMonitor } from "@/hooks/useStorageMonitor";
@@ -36,6 +39,9 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
   const [encryptionSupported, setEncryptionSupported] = useState<boolean>(false);
   const [encryptionActive, setEncryptionActive] = useState<boolean>(false);
   const [isEnablingEncryption, setIsEnablingEncryption] = useState<boolean>(false);
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+  const [pendingModelKey, setPendingModelKey] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
 
   // Hook de monitoring du stockage
   const {
@@ -206,8 +212,24 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                         return (
                           <button
                             key={key}
-                            onClick={() => {
-                              if (isCompatible) {
+                            onClick={async () => {
+                              if (!isCompatible) return;
+                              
+                              // Valider le modèle avant de le charger
+                              const validation = await validateModelLoad(model);
+                              
+                              if (validation.riskLevel === 'critical' || !validation.canLoad) {
+                                // Afficher le dialogue pour les modèles à risque
+                                setPendingModelKey(key);
+                                setValidationResult(validation);
+                                setShowValidationDialog(true);
+                              } else if (validation.warnings.length > 0 || validation.riskLevel === 'high') {
+                                // Afficher le dialogue avec avertissements
+                                setPendingModelKey(key);
+                                setValidationResult(validation);
+                                setShowValidationDialog(true);
+                              } else {
+                                // Charger directement si pas de problèmes
                                 setSelectedModelKey(key);
                                 onModelChange?.(model.id);
                               }
@@ -536,6 +558,17 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                   </div>
                 </div>
 
+                {/* Cache Management Section */}
+                <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
+                      <Database className="h-4 w-4" />
+                      Gestion du Cache des Modèles
+                    </Label>
+                  </div>
+                  <CacheManagementPanel />
+                </div>
+
                 {/* Storage Status Section */}
                 {storageInfo && (
                   <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4">
@@ -695,6 +728,31 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
           </div>
         </div>
       </div>
+
+      {/* Dialog de validation */}
+      {pendingModelKey && validationResult && (
+        <ModelValidationDialog
+          isOpen={showValidationDialog}
+          onClose={() => {
+            setShowValidationDialog(false);
+            setPendingModelKey(null);
+            setValidationResult(null);
+          }}
+          onConfirm={() => {
+            if (pendingModelKey) {
+              setSelectedModelKey(pendingModelKey);
+              onModelChange?.(MODELS[pendingModelKey].id);
+            }
+            setShowValidationDialog(false);
+            setPendingModelKey(null);
+            setValidationResult(null);
+          }}
+          modelName={MODELS[pendingModelKey].name}
+          modelSize={MODELS[pendingModelKey].size}
+          validation={validationResult}
+          estimatedTime={validationResult.estimatedLoadTime}
+        />
+      )}
     </>
   );
 };

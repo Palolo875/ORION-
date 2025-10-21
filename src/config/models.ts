@@ -100,14 +100,32 @@ export const MODELS: Record<string, ModelConfig> = {
     capabilities: ['code', 'debugging', 'code-generation', 'code-explanation'],
   },
   
-  // Modèles multimodaux (vision + texte)
-  llava: {
-    id: 'llava-1.5-7b-hf-q4f16_1-MLC',
-    name: 'LLaVA 7B Vision',
-    size: 4.2 * 1024 * 1024 * 1024, // 4.2GB
-    quality: 'ultra',
+  // Modèles multimodaux LÉGERS (vision + texte) - OPTIMISÉS
+  // Ces versions sont quantizées pour réduire la taille tout en gardant de bonnes performances
+  
+  phi3visionMini: {
+    id: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
+    name: 'Phi-3.5 Vision Mini',
+    size: 1.4 * 1024 * 1024 * 1024, // 1.4GB - OPTIMISÉ
+    quality: 'high',
+    speed: 'fast',
+    description: '🔥 Vision légère optimisée - Recommandé pour la plupart des usages',
+    maxTokens: 4096,
+    recommended: true, // RECOMMANDÉ pour vision
+    minRAM: 4,
+    capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'reasoning'],
+  },
+  
+  // Modèles Vision AVANCÉS (pour machines puissantes uniquement)
+  // ⚠️ ATTENTION: Ces modèles sont lourds et nécessitent beaucoup de RAM
+  
+  llavaLite: {
+    id: 'llava-1.5-7b-q4f16_1-MLC',
+    name: 'LLaVA 7B Lite',
+    size: 2.8 * 1024 * 1024 * 1024, // 2.8GB - Version quantizée
+    quality: 'very-high',
     speed: 'moderate',
-    description: 'Modèle multimodal pour analyser images et texte',
+    description: '⚠️ Vision avancée - Nécessite 8GB RAM minimum',
     maxTokens: 4096,
     recommended: false,
     minRAM: 8,
@@ -115,30 +133,17 @@ export const MODELS: Record<string, ModelConfig> = {
     capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'advanced-reasoning'],
   },
   
-  phi3vision: {
+  phi3visionPro: {
     id: 'Phi-3-vision-128k-instruct-q4f16_1-MLC',
-    name: 'Phi-3 Vision',
+    name: 'Phi-3 Vision Pro',
     size: 2.4 * 1024 * 1024 * 1024, // 2.4GB
     quality: 'very-high',
     speed: 'fast',
-    description: 'Vision compacte et performante de Microsoft',
+    description: '⚠️ Contexte ultra-long (128K) - Réservé aux machines puissantes',
     maxTokens: 128000,
     recommended: false,
     minRAM: 6,
     capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'reasoning', 'long-context'],
-  },
-  
-  bakllava: {
-    id: 'bakllava-1-q4f16_1-MLC',
-    name: 'BakLLaVA 7B',
-    size: 4.0 * 1024 * 1024 * 1024, // 4.0GB
-    quality: 'very-high',
-    speed: 'moderate',
-    description: 'Vision améliorée basée sur Mistral',
-    maxTokens: 4096,
-    recommended: false,
-    minRAM: 8,
-    capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'advanced-reasoning'],
   },
 };
 
