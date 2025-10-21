@@ -66,6 +66,8 @@ export interface FinalResponsePayload {
     debateQuality?: import('./utils/debateQuality').DebateQuality;
     error?: string;
   };
+  // Étapes de raisonnement (si disponibles)
+  reasoningSteps?: import('./types/reasoning').ReasoningStep[];
 }
 
 /**

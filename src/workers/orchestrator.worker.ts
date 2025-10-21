@@ -11,6 +11,8 @@ import type { WorkerMessage, QueryPayload, FinalResponsePayload, StatusUpdatePay
 import type { SetModelPayload, FeedbackPayload, ToolExecutionPayload, ToolErrorPayload, LLMErrorPayload } from '../types/worker-payloads';
 import { errorLogger, UserMessages } from '../utils/errorLogger';
 import { logger } from '../utils/logger';
+import { get, keys } from 'idb-keyval';
+import type { AmbientContext } from '../types/ambient-context';
 
 // Modules refactorisés
 import { MultiAgentCoordinator } from './orchestrator/MultiAgentCoordinator';
@@ -73,6 +75,7 @@ let currentQueryContext: QueryPayload | null = null;
 let currentQueryMeta: WorkerMessage['meta'] | null = null;
 let startTime: number = 0;
 let currentMemoryHits: string[] = [];
+let currentAmbientContext: string = '';
 
 // === Gestionnaire de messages principal ===
 
@@ -431,7 +434,50 @@ contextManagerWorker.onmessage = (event: MessageEvent) => {
 
 // === Fonctions auxiliaires ===
 
-function proceedToMemorySearch(): void {
+async function getAmbientContext(): Promise<string> {
+  try {
+    const STORAGE_KEY_PREFIX = 'orion_ambient_context_';
+    const allKeys = await keys();
+    const contextKeys = allKeys.filter(k => 
+      typeof k === 'string' && k.startsWith(STORAGE_KEY_PREFIX)
+    ) as string[];
+    
+    const activeContexts: AmbientContext[] = [];
+    
+    for (const key of contextKeys) {
+      try {
+        const context = await get<AmbientContext>(key);
+        if (context && context.isActive) {
+          activeContexts.push(context);
+        }
+      } catch (error) {
+        logger.error('Orchestrator', `Erreur lecture contexte ${key}`, error);
+      }
+    }
+    
+    if (activeContexts.length === 0) {
+      return '';
+    }
+
+    const formatted = activeContexts
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map((ctx, idx) => {
+        const title = ctx.title ? `[${ctx.title}] ` : '';
+        return `${idx + 1}. ${title}${ctx.content}`;
+      })
+      .join('\n');
+
+    return `CONTEXTE AMBIANT (Information persistante à prendre en compte):\n${formatted}\n`;
+  } catch (error) {
+    logger.error('Orchestrator', 'Erreur lors de la récupération du contexte ambiant', error);
+    return ''; // Fallback silencieux
+  }
+}
+
+async function proceedToMemorySearch(): Promise<void> {
+  // Récupérer le contexte ambiant en premier
+  currentAmbientContext = await getAmbientContext();
+  
   self.postMessage({ 
     type: 'status_update', 
     payload: { 
@@ -477,20 +523,27 @@ function launchLLMInference(): void {
 
   logger.debug('Orchestrator', "Lancement de l'inférence LLM", undefined, currentQueryMeta?.traceId);
   
+  // Combiner contexte ambiant avec memory hits
+  const enrichedContext = currentAmbientContext 
+    ? [currentAmbientContext, ...currentMemoryHits]
+    : currentMemoryHits;
+  
   const profile = currentQueryContext?.deviceProfile || 'micro';
   const queryLength = currentQueryContext?.query.length || 0;
   const useMultiAgent = profile === 'full' || (profile === 'lite' && queryLength > 50);
   
   if (useMultiAgent) {
-    logger.info('Orchestrator', 'Lancement du débat multi-agents', undefined, currentQueryMeta?.traceId);
-    multiAgentCoordinator.launchDebate(currentQueryContext!, currentQueryMeta, currentMemoryHits);
+    logger.info('Orchestrator', 'Lancement du débat multi-agents', { 
+      hasAmbientContext: !!currentAmbientContext 
+    }, currentQueryMeta?.traceId);
+    multiAgentCoordinator.launchDebate(currentQueryContext!, currentQueryMeta, enrichedContext);
   } else {
     logger.debug('Orchestrator', 'Mode inférence simple', { profile }, currentQueryMeta?.traceId);
-    launchSimpleLLMInference();
+    launchSimpleLLMInference(enrichedContext);
   }
 }
 
-function launchSimpleLLMInference(): void {
+function launchSimpleLLMInference(enrichedContext?: string[]): void {
   self.postMessage({ 
     type: 'status_update', 
     payload: { 
@@ -506,7 +559,7 @@ function launchSimpleLLMInference(): void {
     type: 'generate_response', 
     payload: {
       ...currentQueryContext!,
-      context: currentMemoryHits,
+      context: enrichedContext || currentMemoryHits,
     },
     meta: currentQueryMeta || undefined
   });
@@ -585,6 +638,7 @@ function resetState(): void {
   currentMemoryHits = [];
   currentQueryContext = null;
   currentQueryMeta = null;
+  currentAmbientContext = '';
   multiAgentCoordinator.reset();
   toolExecutionManager.reset();
 }

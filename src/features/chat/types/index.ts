@@ -1,5 +1,6 @@
 // Chat-specific types
 import { ProcessedFile } from "@/utils/fileProcessor";
+import type { ReasoningStep } from "@/types/reasoning";
 
 export interface Message {
   id: string;
@@ -18,6 +19,7 @@ export interface Message {
     totalRounds?: number;
     inferenceTimeMs?: number;
   };
+  reasoningSteps?: ReasoningStep[];
 }
 
 export interface Conversation {

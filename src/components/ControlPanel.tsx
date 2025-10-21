@@ -13,7 +13,8 @@ import {
   Zap,
   Info,
   MessageSquare,
-  Brain
+  Brain,
+  Sparkles
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -24,6 +25,7 @@ import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { DebateModeSelector, DebateMode } from "./DebateModeSelector";
+import { AmbientContextManager } from "./AmbientContextManager";
 
 interface ControlPanelProps {
   isOpen: boolean;
@@ -218,10 +220,14 @@ export const ControlPanel = ({
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             <Tabs defaultValue="performance" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 glass rounded-xl p-1">
+              <TabsList className="grid w-full grid-cols-5 glass rounded-xl p-1">
                 <TabsTrigger value="performance" className="rounded-lg text-xs sm:text-sm">
                   <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
                   Perf.
+                </TabsTrigger>
+                <TabsTrigger value="context" className="rounded-lg text-xs sm:text-sm">
+                  <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                  Ctx.
                 </TabsTrigger>
                 <TabsTrigger value="debate" className="rounded-lg text-xs sm:text-sm">
                   <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
@@ -381,6 +387,11 @@ export const ControlPanel = ({
                     </div>
                   )}
                 </div>
+              </TabsContent>
+
+              {/* Context Tab */}
+              <TabsContent value="context" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+                <AmbientContextManager />
               </TabsContent>
 
               {/* Debate Tab */}

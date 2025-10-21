@@ -37,6 +37,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
             confidence={message.confidence}
             debug={message.debug}
             provenance={message.provenance}
+            reasoningSteps={message.reasoningSteps}
           />
         ))}
         {isGenerating && (
