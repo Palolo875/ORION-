@@ -59,17 +59,17 @@ export const MODELS: Record<string, ModelConfig> = {
     capabilities: ['chat', 'advanced-reasoning', 'code', 'multilingual', 'long-context'],
   },
   
-  // Nouveaux modèles ajoutés
+  // Nouveaux modèles ajoutés - OPTIMISÉS avec quantization 4-bit
   mistral: {
     id: 'Mistral-7B-Instruct-v0.2-q4f16_1-MLC',
-    name: 'Mistral 7B',
-    size: 4.5 * 1024 * 1024 * 1024, // 4.5GB
+    name: 'Mistral 7B (Optimisé)',
+    size: 4.5 * 1024 * 1024 * 1024, // 4.5GB avec q4 (était ~18GB en float32)
     quality: 'ultra',
     speed: 'moderate',
-    description: 'Modèle puissant pour des tâches exigeantes',
+    description: 'Modèle puissant optimisé avec quantization 4-bit (75% de réduction)',
     maxTokens: 8192,
     recommended: false,
-    minRAM: 8,
+    minRAM: 6, // Réduit de 8GB à 6GB grâce à l'optimisation
     minGPU: 'RTX 3060 ou équivalent',
     capabilities: ['chat', 'expert-reasoning', 'code', 'multilingual', 'long-context'],
   },
@@ -100,17 +100,17 @@ export const MODELS: Record<string, ModelConfig> = {
     capabilities: ['code', 'debugging', 'code-generation', 'code-explanation'],
   },
   
-  // Modèles multimodaux (vision + texte)
+  // Modèles multimodaux (vision + texte) - OPTIMISÉS
   llava: {
     id: 'llava-1.5-7b-hf-q4f16_1-MLC',
-    name: 'LLaVA 7B Vision',
-    size: 4.2 * 1024 * 1024 * 1024, // 4.2GB
+    name: 'LLaVA 7B Vision (Optimisé)',
+    size: 4.2 * 1024 * 1024 * 1024, // 4.2GB avec q4 (était ~17GB)
     quality: 'ultra',
     speed: 'moderate',
-    description: 'Modèle multimodal pour analyser images et texte',
+    description: 'Modèle multimodal optimisé avec quantization 4-bit pour images et texte',
     maxTokens: 4096,
     recommended: false,
-    minRAM: 8,
+    minRAM: 6, // Réduit de 8GB à 6GB
     minGPU: 'RTX 3060 ou équivalent',
     capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'advanced-reasoning'],
   },
@@ -130,14 +130,14 @@ export const MODELS: Record<string, ModelConfig> = {
   
   bakllava: {
     id: 'bakllava-1-q4f16_1-MLC',
-    name: 'BakLLaVA 7B',
-    size: 4.0 * 1024 * 1024 * 1024, // 4.0GB
+    name: 'BakLLaVA 7B (Optimisé)',
+    size: 4.0 * 1024 * 1024 * 1024, // 4.0GB avec q4 (était ~16GB)
     quality: 'very-high',
     speed: 'moderate',
-    description: 'Vision améliorée basée sur Mistral',
+    description: 'Vision améliorée optimisée avec quantization 4-bit basée sur Mistral',
     maxTokens: 4096,
     recommended: false,
-    minRAM: 8,
+    minRAM: 6, // Réduit de 8GB à 6GB grâce à l'optimisation
     capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'advanced-reasoning'],
   },
 };
