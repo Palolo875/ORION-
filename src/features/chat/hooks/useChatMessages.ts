@@ -28,7 +28,8 @@ export function useChatMessages() {
     content: string,
     confidence?: number,
     provenance?: Message['provenance'],
-    debug?: Message['debug']
+    debug?: Message['debug'],
+    reasoningSteps?: Message['reasoningSteps']
   ): Message => {
     const aiMessage: Message = {
       id: (Date.now() + 1).toString(),
@@ -38,6 +39,7 @@ export function useChatMessages() {
       confidence,
       provenance,
       debug,
+      reasoningSteps,
     };
     
     setMessages(prev => [...prev, aiMessage]);
