@@ -1,4 +1,4 @@
-import { Brain, Check, ChevronDown } from "lucide-react";
+import { Brain, Check, ChevronDown, Eye, Download, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -12,14 +12,16 @@ import { Badge } from "./ui/badge";
 import { MODELS, formatBytes } from "@/config/models";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { Progress } from "./ui/progress";
 
 interface QuickModelSwitcherProps {
   currentModel?: string;
   onModelChange: (modelId: string) => void;
   className?: string;
+  loadingProgress?: { modelId: string; progress: number };
 }
 
-export const QuickModelSwitcher = ({ currentModel, onModelChange, className }: QuickModelSwitcherProps) => {
+export const QuickModelSwitcher = ({ currentModel, onModelChange, className, loadingProgress }: QuickModelSwitcherProps) => {
   const [selectedModelInfo, setSelectedModelInfo] = useState<{ key: string; model: typeof MODELS[keyof typeof MODELS] } | null>(null);
 
   useEffect(() => {
@@ -61,26 +63,39 @@ export const QuickModelSwitcher = ({ currentModel, onModelChange, className }: Q
         <DropdownMenuSeparator />
         {Object.entries(MODELS).map(([key, model]) => {
           const isSelected = selectedModelInfo.key === key;
+          const isVisionModel = model.capabilities?.includes('vision') || model.capabilities?.includes('multimodal');
+          const isLoading = loadingProgress && loadingProgress.modelId === model.id;
           
           return (
             <DropdownMenuItem
               key={key}
-              onClick={() => handleModelSelect(key)}
-              className="flex items-start gap-3 p-3 cursor-pointer"
+              onClick={() => !isLoading && handleModelSelect(key)}
+              className={cn(
+                "flex items-start gap-3 p-3 cursor-pointer transition-all",
+                isSelected && "bg-primary/10",
+                isLoading && "opacity-75 cursor-wait"
+              )}
+              disabled={isLoading}
             >
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="text-sm font-medium">{model.name}</span>
                   {model.recommended && (
-                    <Badge variant="secondary" className="text-xs px-1 py-0">
+                    <Badge variant="secondary" className="text-xs px-1 py-0 bg-gradient-to-r from-yellow-400 to-orange-400 text-white border-0">
                       Rec.
                     </Badge>
                   )}
+                  {isVisionModel && (
+                    <Badge variant="outline" className="text-xs px-1 py-0 border-purple-500/50 text-purple-600 dark:text-purple-400">
+                      <Eye className="h-2.5 w-2.5" />
+                    </Badge>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <Download className="h-3 w-3" />
                   <span>{formatBytes(model.size)}</span>
                   <span>•</span>
-                  <span>{model.maxTokens} tokens</span>
+                  <span>{model.maxTokens.toLocaleString()} tokens</span>
                   <span>•</span>
                   <span>
                     {model.quality === 'basic' && '⭐'}
@@ -89,8 +104,17 @@ export const QuickModelSwitcher = ({ currentModel, onModelChange, className }: Q
                     {model.quality === 'ultra' && '⭐⭐⭐⭐'}
                   </span>
                 </div>
+                {isLoading && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs text-primary">
+                      <Zap className="h-3 w-3 animate-pulse" />
+                      <span>Téléchargement... {loadingProgress.progress.toFixed(0)}%</span>
+                    </div>
+                    <Progress value={loadingProgress.progress} className="h-1" />
+                  </div>
+                )}
               </div>
-              {isSelected && (
+              {isSelected && !isLoading && (
                 <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
               )}
             </DropdownMenuItem>

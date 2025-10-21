@@ -88,7 +88,8 @@ Tous les points d'amélioration demandés ont été implémentés avec succès :
 
 ### ✅ 4. Nettoyage de la Documentation
 
-**Historique** : Ancien nom "EIAM" remplacé par "ORION" dans toute la documentation
+**Historique** : Ancien nom "EIAM" remplacé par "ORION" dans toute la documentation et le code source
+**Note** : Toutes les références ont été mises à jour pour refléter le nouveau nom ORION
 
 **Solution** : Remplacement systématique par "ORION"
 

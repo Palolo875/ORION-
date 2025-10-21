@@ -174,6 +174,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage<QueryPayload & {
   temperature?: number;
   maxTokens?: number;
   agentType?: string; // Type d'agent pour l'orchestration parallèle
+  images?: Array<{ content: string; type: string }>; // Support multimodal - images en base64
+  enableVision?: boolean; // Active le mode vision si le modèle le supporte
 }>>) => {
   const { type, payload, meta } = event.data;
 
@@ -237,10 +239,35 @@ Réponds à la requête de l'utilisateur de manière concise, intelligente et ut
         ? `\n\nContexte pertinent trouvé dans ta mémoire:\n${payload.context.join('\n- ')}`
         : '';
       
-      const prompt = `${systemPrompt}${contextStr}\n\nRequête de l'utilisateur:\n"${payload.query}"\n\nTa réponse:`;
+      // Construire le message avec support multimodal
+      let messageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+      
+      if (payload.images && payload.images.length > 0 && payload.enableVision) {
+        // Mode multimodal - images + texte
+        logger.info('LLMWorker', 'Mode vision activé avec images', { imageCount: payload.images.length });
+        
+        messageContent = [
+          {
+            type: "text",
+            text: `${systemPrompt}${contextStr}\n\nRequête de l'utilisateur:\n"${payload.query}"\n\nTa réponse:`
+          },
+          ...payload.images.map(img => ({
+            type: "image_url",
+            image_url: {
+              url: img.content // Base64 data URL
+            }
+          }))
+        ];
+      } else {
+        // Mode texte standard
+        messageContent = `${systemPrompt}${contextStr}\n\nRequête de l'utilisateur:\n"${payload.query}"\n\nTa réponse:`;
+      }
 
       const request: ChatCompletionRequest = {
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ 
+          role: "user", 
+          content: messageContent as string | Array<{ type: string; text?: string; image_url?: { url: string } }>
+        }],
         max_tokens: payload.maxTokens || 256,
         temperature: payload.temperature !== undefined ? payload.temperature : 0.7,
         top_p: 0.95,
