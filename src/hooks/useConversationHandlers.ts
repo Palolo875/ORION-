@@ -4,20 +4,23 @@
  */
 import { ProcessedFile } from "@/utils/fileProcessor";
 import { toast } from "@/hooks/use-toast";
+import { Message, Conversation } from "@/features/chat/types";
+import { DeviceProfile } from "@/utils/performance/deviceProfiler";
+import { FlowStep } from "@/types";
 
 interface ConversationHandlersProps {
-  messages: any[];
-  addUserMessage: (content: string, attachments?: ProcessedFile[]) => any;
+  messages: Message[];
+  addUserMessage: (content: string, attachments?: ProcessedFile[]) => Message;
   removeAssistantMessages: () => void;
-  getLastUserMessage: () => any;
-  getConversationHistory: () => any[];
+  getLastUserMessage: () => Message | null;
+  getConversationHistory: () => { sender: 'user' | 'orion'; text: string; id?: string }[];
   updateConversationTitle: (id: string, title: string) => void;
-  updateConversation: (id: string, message: any) => void;
-  sendQuery: (content: string, history: any[], profile: any, attachments?: ProcessedFile[]) => void;
+  updateConversation: (id: string, message: Message) => void;
+  sendQuery: (content: string, history: { sender: 'user' | 'orion'; text: string; id?: string }[], profile: DeviceProfile | null, attachments?: ProcessedFile[]) => void;
   sendFeedback: (messageId: string, type: 'good' | 'bad', query: string, response: string) => void;
   incrementLikes: () => void;
   incrementDislikes: () => void;
-  setFlowState: (state: any) => void;
+  setFlowState: (state: { currentStep: FlowStep; stepDetails: string }) => void;
 }
 
 export const useConversationHandlers = ({
@@ -38,7 +41,7 @@ export const useConversationHandlers = ({
   const handleSendMessage = (
     content: string, 
     currentConversationId: string,
-    deviceProfile: any,
+    deviceProfile: DeviceProfile | null,
     attachments?: ProcessedFile[]
   ) => {
     const userMessage = addUserMessage(content, attachments);
@@ -92,7 +95,7 @@ export const useConversationHandlers = ({
     }
   };
 
-  const handleExportConversation = (conversations: any[], currentConversationId: string) => {
+  const handleExportConversation = (conversations: Conversation[], currentConversationId: string) => {
     const currentConversation = conversations.find(conv => conv.id === currentConversationId);
     const exportData = {
       conversation: currentConversation,
