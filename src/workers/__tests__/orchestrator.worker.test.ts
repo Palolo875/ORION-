@@ -259,6 +259,7 @@ describe('Orchestrator Worker (avec mocks)', () => {
       };
 
       orchestratorWorker.postMessage({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         type: 'invalid_message_type' as any,
         payload: {},
         meta: { traceId: 'test-error-1' }

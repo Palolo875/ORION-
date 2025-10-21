@@ -170,6 +170,9 @@ Ajout d'une section récapitulative :
 - ✅ Types TypeScript plus stricts dans les mocks
 - ✅ Amélioration de serviceWorkerManager avec types appropriés
 - ✅ Documentation mise à jour pour refléter l'état actuel
+- ✅ **Réduction des vulnérabilités : -60% (5 → 2)** (21 octobre)
+- ✅ Suppression de `react-syntax-highlighter` (26 packages retirés)
+- ✅ Validation complète : 116/116 tests passants
 ```
 
 **Impact** :

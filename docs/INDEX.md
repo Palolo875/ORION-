@@ -45,6 +45,7 @@ This directory contains all the project documentation.
 - [Maintenance Guide](./MAINTENANCE_GUIDE.md)
 - [Migration Replit](./MIGRATION_REPLIT.md)
 - [Security Improvements](./SECURITY_IMPROVEMENTS.md)
+- [Securite Vulnerabilites](./SECURITE_VULNERABILITES.md) 🆕
 
 ### Testing & Validation
 - [README Tests](./README_TESTS.md)
@@ -58,6 +59,7 @@ This directory contains all the project documentation.
 - [Resume Implementation Etape5](./RESUME_IMPLEMENTATION_ETAPE5.md)
 - [Resume Ameliorations Orion](./RESUME_AMELIORATIONS_ORION.md)
 - [Optimisation Complete](./OPTIMISATION_COMPLETE.md)
+- [Resume Vulnerabilites Oct 2025](./RESUME_VULNERABILITES_OCT_2025.md) 🆕
 
 ### Documentation Index
 - [Index Documentation V2](./INDEX_DOCUMENTATION_V2.md)

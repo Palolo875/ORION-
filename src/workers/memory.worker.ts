@@ -57,8 +57,10 @@ class HNSWIndexManager {
     const hnswlibModule = await loadHnswlib();
     
     // Créer un nouvel index HNSW
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const HNSWClass = hnswlibModule.HierarchicalNSW as any;
     this.index = new HNSWClass('cosine', this.embeddingDimension);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this.index as any).initIndex(
       MEMORY_CONFIG.BUDGET,
       HNSW_CONFIG.M,
@@ -87,8 +89,9 @@ class HNSWIndexManager {
         this.memoryKeyToId.set(item.id, id);
         
         if (this.index) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (this.index as any).addPoint(new Float32Array(item.embedding), id, true);
-          loadedCount++;
+          loadedCount++
         }
       }
     }
@@ -106,6 +109,7 @@ class HNSWIndexManager {
     this.memoryKeyToId.set(memoryId, id);
     
     if (this.index) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this.index as any).addPoint(new Float32Array(embedding), id, true);
     }
   }
@@ -120,10 +124,13 @@ class HNSWIndexManager {
       return [];
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((this.index as any).setEf) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this.index as any).setEf(HNSW_CONFIG.EF_SEARCH);
     }
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = (this.index as any).searchKnn(
       new Float32Array(queryEmbedding),
       k
