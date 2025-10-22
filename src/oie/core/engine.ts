@@ -3,7 +3,7 @@
  * Moteur principal qui orchestre les agents spécialisés
  */
 
-import { SimpleRouter } from '../router/simple-router';
+import { NeuralRouter } from '../router/neural-router';
 import { CacheManager } from '../cache/cache-manager';
 import { ConversationAgent } from '../agents/conversation-agent';
 import { CodeAgent } from '../agents/code-agent';
@@ -37,7 +37,7 @@ export interface InferOptions {
 }
 
 export class OrionInferenceEngine {
-  private router: SimpleRouter;
+  private router: NeuralRouter;
   private cacheManager: CacheManager;
   private agentFactories: Map<string, () => IAgent> = new Map();
   private isReady = false;
@@ -61,7 +61,8 @@ export class OrionInferenceEngine {
       debugLogger.logSystemInfo();
     }
     
-    this.router = new SimpleRouter();
+    // Utiliser le NeuralRouter pour un routage intelligent avec apprentissage
+    this.router = new NeuralRouter();
     this.cacheManager = new CacheManager({
       maxMemoryMB: this.config.maxMemoryMB,
       maxAgentsInMemory: this.config.maxAgentsInMemory

@@ -76,9 +76,45 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'placeholder.svg'],
       injectRegister: 'auto',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'service-worker.ts',
+      manifest: {
+        name: 'Orion - AI Operating System',
+        short_name: 'Orion',
+        description: 'Le premier système d\'exploitation d\'IA fonctionnant entièrement dans votre navigateur',
+        theme_color: '#2563EB',
+        background_color: '#0F172A',
+        display: 'standalone',
+        orientation: 'any',
+        scope: '/',
+        start_url: '/',
+        icons: [
+          {
+            src: '/placeholder.svg',
+            sizes: '192x192',
+            type: 'image/svg+xml',
+            purpose: 'any'
+          },
+          {
+            src: '/placeholder.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'maskable'
+          }
+        ],
+        categories: ['productivity', 'utilities', 'ai'],
+        shortcuts: [
+          {
+            name: 'Nouvelle conversation',
+            url: '/',
+            description: 'Démarrer une nouvelle conversation avec Orion'
+          }
+        ]
+      },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,wasm}'],
-        globIgnores: ['**/node_modules/**/*'],
+        globIgnores: ['**/node_modules/**/*', '**/service-worker.ts'],
         maximumFileSizeToCacheInBytes: 100 * 1024 * 1024, // 100MB pour les gros modèles
         cleanupOutdatedCaches: true,
         skipWaiting: true,
