@@ -13,7 +13,8 @@ export type AgentCapability =
   | 'critical_thinking'
   | 'synthesis'
   | 'multilingual'
-  | 'vision';
+  | 'vision'
+  | 'speech_recognition';
 
 export interface AgentMetadata {
   id: string;
