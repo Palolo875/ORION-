@@ -267,8 +267,8 @@ Réponds à la requête de l'utilisateur de manière concise, intelligente et ut
       const request: ChatCompletionRequest = {
         messages: [{ 
           role: "user", 
-          content: messageContent as string | Array<{ type: string; text?: string; image_url?: { url: string } }>
-        }],
+          content: messageContent
+        }] as ChatCompletionRequest['messages'],
         max_tokens: payload.maxTokens || 256,
         temperature: payload.temperature !== undefined ? payload.temperature : 0.7,
         top_p: 0.95,
@@ -279,6 +279,10 @@ Réponds à la requête de l'utilisateur de manière concise, intelligente et ut
       const responseText = await withRetry(
         async () => {
           const llmResponse = await engine.chat.completions.create(request);
+          // Vérifier que c'est une ChatCompletion et non un AsyncIterable
+          if (!llmResponse || typeof llmResponse === 'object' && Symbol.asyncIterator in llmResponse) {
+            throw new Error('Streaming response received but streaming is disabled');
+          }
           const text = llmResponse.choices[0].message.content;
           if (!text || text.trim().length === 0) {
             throw new Error('Empty response from LLM');

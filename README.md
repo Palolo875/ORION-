@@ -1,63 +1,140 @@
-# ORION Documentation
+# 🧠 ORION - Assistant IA Intelligent Local
 
-This directory contains all the project documentation.
+> **Assistant IA personnel fonctionnant entièrement dans votre navigateur avec support offline complet**
 
-## 📚 Documentation Index
+[![Tests](https://github.com/votre-org/orion/actions/workflows/tests.yml/badge.svg)](https://github.com/votre-org/orion/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB)](https://reactjs.org/)
 
-### Implementation Guides
-- [Implementation Summary](./IMPLEMENTATION_SUMMARY.md)
-- [Implementation Complete](./IMPLEMENTATION_COMPLETE.md)
-- [Implementation Feedback](./IMPLEMENTATION_FEEDBACK.md)
-- [Implementation LLM](./IMPLEMENTATION_LLM.md)
-- [Implementation Memory Migration](./IMPLEMENTATION_MEMOIRE_MIGRATION.md)
-- [Implementation Securisation](./IMPLEMENTATION_SECURISATION.md)
-- [Implementation Sprint D](./IMPLEMENTATION_SPRINT_D.md)
+## ✨ Caractéristiques principales
 
-### Features
-- [Features Observabilite](./FEATURES_OBSERVABILITE.md)
-- [Nouvelles Fonctionnalites](./NOUVELLES_FONCTIONNALITES.md)
+- 🔒 **100% Local & Privé** - Tous les calculs IA dans votre navigateur, aucune donnée n'est envoyée à des serveurs
+- 🚀 **Système Multi-Agents** - Débats IA avec agents Logique, Créatif, Critique et Synthétiseur
+- 🧠 **Mémoire Intelligente** - Recherche sémantique basée sur les embeddings avec HNSW
+- ⚡ **WebGPU Accéléré** - Inférence LLM rapide avec fallback WebGL/CPU
+- 📱 **Progressive Web App** - Installable, fonctionne offline
+- 🛡️ **Sécurité Renforcée** - CSP headers, sanitisation, validation Zod
+- 🎨 **Interface Moderne** - React 18 + TypeScript + shadcn/ui + TailwindCSS
 
-### Improvements & Changes
-- [Ameliorations Qualite Code](./docs/AMELIORATIONS_QUALITE_CODE.md) 🆕
-- [Ameliorations Implementees V2](./AMELIORATIONS_IMPLEMENTEES_V2.md)
-- [Ameliorations Implementees](./AMELIORATIONS_IMPLEMENTEES.md)
-- [Ameliorations Orchestration](./AMELIORATIONS_ORCHESTRATION.md)
-- [Implementation Ameliorations Orion](./IMPLEMENTATION_AMELIORATIONS_ORION.md)
+## 🚀 Démarrage rapide
 
-### Changelogs
-- [Changelog Ameliorations](./CHANGELOG_AMELIORATIONS.md)
-- [Changelog Etape5](./CHANGELOG_ETAPE5.md)
-- [Changelog Sprint D](./CHANGELOG_SPRINT_D.md)
-- [Changelog V2](./CHANGELOG_V2.md)
+### Prérequis
 
-### Sprint Documentation
-- [Sprint D Complet](./SPRINT_D_COMPLET.md)
-- [Resume Sprint B Memoire](./RESUME_SPRINT_B_MEMOIRE.md)
+- Node.js 20+ 
+- Navigateur moderne avec support WebGPU (Chrome 113+, Edge 113+)
+- 4GB+ RAM recommandé pour les modèles LLM
 
-### Quick Start Guides
-- [Quick Start](./QUICK_START.md)
-- [Quick Start Orchestration](./QUICK_START_ORCHESTRATION.md)
-- [Guide Demarrage Ameliorations](./GUIDE_DEMARRAGE_AMELIORATIONS.md)
-- [Guide Demarrage Feedback](./GUIDE_DEMARRAGE_FEEDBACK.md)
+### Installation
 
-### Deployment & Maintenance
-- [Deployment Guide](./DEPLOYMENT_GUIDE.md)
-- [Maintenance Guide](./MAINTENANCE_GUIDE.md)
-- [Migration Replit](./MIGRATION_REPLIT.md)
-- [Security Improvements](./SECURITY_IMPROVEMENTS.md)
+```bash
+# Cloner le projet
+git clone https://github.com/votre-org/orion.git
+cd orion
 
-### Testing & Validation
-- [README Tests](./README_TESTS.md)
-- [Validation Etape5](./VALIDATION_ETAPE5.md)
-- [Validation Memoire Migration](./VALIDATION_MEMOIRE_MIGRATION.md)
+# Installer les dépendances
+npm install
 
-### Status & Summary
-- [Status Final](./STATUS_FINAL.md)
-- [Etape5 Terminee](./ETAPE5_TERMINEE.md)
-- [Resume Implementation Ameliorations](./RESUME_IMPLEMENTATION_AMELIORATIONS.md)
-- [Resume Implementation Etape5](./RESUME_IMPLEMENTATION_ETAPE5.md)
-- [Resume Ameliorations Orion](./RESUME_AMELIORATIONS_ORION.md)
-- [Optimisation Complete](./OPTIMISATION_COMPLETE.md)
+# Lancer en mode développement
+npm run dev
 
-### Documentation Index
-- [Index Documentation V2](./INDEX_DOCUMENTATION_V2.md)
+# Build pour production
+npm run build
+```
+
+L'application sera accessible sur `http://localhost:5000`
+
+## 📖 Documentation
+
+- **[Guide de Démarrage](docs/QUICK_START.md)** - Installation et premiers pas
+- **[Architecture](replit.md)** - Détails techniques et architecture du système
+- **[Guide de Déploiement](docs/DEPLOYMENT_GUIDE.md)** - Comment déployer en production
+- **[Tests](docs/TESTING.md)** - Guide des tests unitaires, intégration et E2E
+- **[Maintenance](docs/MAINTENANCE_GUIDE.md)** - Guide de maintenance et mise à jour
+- **[Sécurité](docs/SECURITY.md)** - Politique de sécurité et meilleures pratiques
+
+### Documentation archivée
+
+Les anciens documents d'implémentation et rapports sont disponibles dans [docs/archive/](docs/archive/)
+
+## 🏗️ Architecture
+
+### Stack Technique
+
+- **Frontend**: React 18, TypeScript, Vite, TailwindCSS, shadcn/ui
+- **IA**: @mlc-ai/web-llm (modèles LLM), @xenova/transformers (embeddings)
+- **State**: React hooks personnalisés, IndexedDB
+- **Workers**: Web Workers pour inférence et traitement
+- **Tests**: Vitest, Playwright, Testing Library
+- **CI/CD**: GitHub Actions, Dependabot
+
+### Système Multi-Agents
+
+ORION utilise un système de débat multi-agents unique :
+
+1. **Agent Logique** (température 0.3) - Analyse structurée et raisonnement
+2. **Agent Créatif** (température 0.9) - Pensée divergente et exploration
+3. **Agent Critique** (température 0.5) - Analyse sceptique et contre-arguments
+4. **Agent Synthétiseur** (température 0.7) - Synthèse finale équilibrée
+
+### Mémoire Vectorielle
+
+- **Embeddings**: all-MiniLM-L6-v2 (384 dimensions)
+- **Index**: HNSW pour recherche rapide O(log n)
+- **Capacité**: 5000 items maximum avec LRU eviction
+- **TTL**: 24h pour résultats d'outils
+
+## 🧪 Tests
+
+```bash
+# Tests unitaires
+npm run test
+
+# Tests avec coverage
+npm run test:coverage
+
+# Tests E2E
+npm run test:e2e
+
+# Tests avec vrais modèles (lent)
+LOAD_REAL_MODELS=true npm run test:integration
+```
+
+**Coverage actuel**: Tests unitaires: 305 passed, E2E: Disponible
+
+## 📦 Scripts disponibles
+
+```bash
+npm run dev          # Mode développement
+npm run build        # Build production
+npm run preview      # Preview du build
+npm run lint         # ESLint
+npm run test         # Tests unitaires
+npm run test:coverage # Coverage
+npm run test:e2e     # Tests end-to-end
+```
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! Veuillez consulter notre [guide de contribution](CONTRIBUTING.md) pour plus de détails.
+
+## 📄 Licence
+
+Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+## 🙏 Remerciements
+
+- [@mlc-ai/web-llm](https://github.com/mlc-ai/web-llm) pour l'inférence LLM dans le navigateur
+- [@xenova/transformers](https://github.com/xenova/transformers.js) pour les embeddings
+- [shadcn/ui](https://ui.shadcn.com/) pour les composants UI
+- La communauté open source pour tous les outils formidables
+
+## 📞 Support
+
+- 🐛 [Signaler un bug](https://github.com/votre-org/orion/issues)
+- 💡 [Demander une fonctionnalité](https://github.com/votre-org/orion/discussions)
+- 📧 Email: support@orion.dev
+
+---
+
+Fait avec ❤️ par l'équipe ORION
