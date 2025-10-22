@@ -7,6 +7,7 @@
 import { BaseAgent } from './base-agent';
 import { AgentInput, AgentOutput } from '../types/agent.types';
 import { OPTIMIZATION_PRESETS } from '../types/optimization.types';
+import type { MultimodalMessageContent } from '../types/transformers.types';
 import { ProgressiveLoader } from '../utils/progressive-loader';
 
 export class VisionAgent extends BaseAgent {
@@ -88,7 +89,7 @@ export class VisionAgent extends BaseAgent {
     }
     
     // Construire le message multimodal
-    const messageContent: any[] = [
+    const messageContent: MultimodalMessageContent[] = [
       {
         type: "text",
         text: input.content

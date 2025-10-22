@@ -30,7 +30,7 @@ interface IntentClassification {
 }
 
 export class NeuralRouter {
-  private model: any = null;
+  private model: unknown = null;
   private isReady = false;
   private agents: Map<string, AgentMetadata> = new Map();
   private optimizationConfig = OPTIMIZATION_PRESETS['neural-router'];
@@ -57,9 +57,10 @@ export class NeuralRouter {
       this.isReady = true;
       
       console.log('[NeuralRouter] ✅ Routeur neuronal prêt');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error('[NeuralRouter] Erreur d\'initialisation:', error);
-      throw new Error(`Impossible d'initialiser le routeur neuronal: ${error.message}`);
+      throw new Error(`Impossible d'initialiser le routeur neuronal: ${errMsg}`);
     }
   }
   
@@ -152,7 +153,7 @@ export class NeuralRouter {
   async route(userQuery: string, context?: {
     hasImages?: boolean;
     hasAudio?: boolean;
-    conversationHistory?: any[];
+    conversationHistory?: Array<{ role: string; content: string }>;
   }): Promise<RoutingDecision> {
     if (!this.isReady) {
       throw new Error('[NeuralRouter] Routeur non initialisé');

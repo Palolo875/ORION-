@@ -35,7 +35,7 @@ export class SpeechToTextAgent extends BaseAgent {
         this.metadata.modelId,
         {
           quantized: true,
-          progress_callback: (progress: any) => {
+          progress_callback: (progress: ProgressCallbackData) => {
             if (progress.status === 'progress') {
               const percent = (progress.progress || 0).toFixed(1);
               console.log(`[SpeechToTextAgent] Téléchargement: ${percent}%`);

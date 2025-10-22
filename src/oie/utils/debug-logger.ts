@@ -231,7 +231,7 @@ export class DebugLogger {
   /**
    * Log les performances d'une opération
    */
-  logPerformance(component: string, operation: string, duration: number, details?: any): void {
+  logPerformance(component: string, operation: string, duration: number, details?: unknown): void {
     const message = `${operation} - ${duration.toFixed(2)}ms`;
     const data = {
       operation,
@@ -252,8 +252,9 @@ export class DebugLogger {
   logMemoryUsage(component: string): void {
     if (!this.verboseMode) return;
     
-    if ((performance as any).memory) {
-      const memory = (performance as any).memory;
+    const perfWithMemory = performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } };
+    if (perfWithMemory.memory) {
+      const memory = perfWithMemory.memory;
       const used = (memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
       const total = (memory.totalJSHeapSize / 1024 / 1024).toFixed(2);
       const limit = (memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2);
@@ -269,11 +270,11 @@ export const debugLogger = DebugLogger.getInstance();
 // Helper functions pour faciliter l'utilisation
 export const setVerboseMode = (enabled: boolean) => debugLogger.setVerbose(enabled);
 export const isVerboseMode = () => debugLogger.isVerbose();
-export const logDebug = (component: string, message: string, data?: any) => 
+export const logDebug = (component: string, message: string, data?: unknown) => 
   debugLogger.debug(component, message, data);
-export const logInfo = (component: string, message: string, data?: any) => 
+export const logInfo = (component: string, message: string, data?: unknown) => 
   debugLogger.info(component, message, data);
-export const logWarn = (component: string, message: string, data?: any) => 
+export const logWarn = (component: string, message: string, data?: unknown) => 
   debugLogger.warn(component, message, data);
-export const logError = (component: string, message: string, data?: any) => 
+export const logError = (component: string, message: string, data?: unknown) =>
   debugLogger.error(component, message, data);

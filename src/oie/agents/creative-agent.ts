@@ -10,6 +10,7 @@
 import { BaseAgent } from './base-agent';
 import { AgentInput, AgentOutput } from '../types/agent.types';
 import { OPTIMIZATION_PRESETS } from '../types/optimization.types';
+import type { ProgressCallbackData, ImageGenerationOptions } from '../types/transformers.types';
 
 export class CreativeAgent extends BaseAgent {
   private engine: unknown = null;
@@ -55,7 +56,7 @@ export class CreativeAgent extends BaseAgent {
         this.engine = await pipeline('text-to-image', this.metadata.modelId, {
           device: 'webgpu',
           dtype: 'fp16', // Float16 pour équilibre qualité/performance
-          progress_callback: (progress: any) => {
+          progress_callback: (progress: ProgressCallbackData) => {
             const pct = 20 + (progress.progress || 0) * 60;
             console.log(`[CreativeAgent] 📥 ${pct.toFixed(0)}% - ${progress.status || 'Téléchargement...'}`);
           }
@@ -65,8 +66,9 @@ export class CreativeAgent extends BaseAgent {
         console.log(`[CreativeAgent] Taille: ${this.optimizationConfig.optimizedSize} Mo`);
         console.log(`[CreativeAgent] Pas de sharding - le UNet nécessite un accès complet à chaque étape`);
         
-      } catch (transformersError: any) {
-        console.warn(`[CreativeAgent] @huggingface/transformers non disponible ou erreur:`, transformersError.message);
+      } catch (transformersError: unknown) {
+        const errMsg = transformersError instanceof Error ? transformersError.message : String(transformersError);
+        console.warn(`[CreativeAgent] @huggingface/transformers non disponible ou erreur:`, errMsg);
         console.log(`[CreativeAgent] Fallback vers structure simulée...`);
         
         // Fallback: Structure simulée pour ne pas bloquer le système
@@ -76,7 +78,7 @@ export class CreativeAgent extends BaseAgent {
           modelType: 'text-to-image',
           quantization: this.optimizationConfig.quantization,
           
-          generate: async (prompt: string, options: any) => {
+          generate: async (prompt: string, options: ImageGenerationOptions) => {
             // Simulation de génération
             // Dans une vraie implémentation, cela utiliserait WebGPU pour l'inférence
             throw new Error(

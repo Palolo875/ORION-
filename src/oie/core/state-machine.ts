@@ -19,7 +19,7 @@ export interface OIEContext {
   routingTime?: number;
   loadingTime?: number;
   inferenceTime?: number;
-  options?: any;
+  options?: InferOptions;
   attempts?: number;
 }
 

@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { OrionInferenceEngine } from '../core/engine';
+import type { AgentInput, AgentOutput } from '../types/agent.types';
 
 // Mock des agents pour éviter de charger les vrais modèles
 vi.mock('../agents/conversation-agent', () => ({
@@ -26,7 +27,7 @@ vi.mock('../agents/conversation-agent', () => ({
       this.state = 'unloaded';
     }
     
-    async process(input: any) {
+    async process(input: AgentInput): Promise<AgentOutput> {
       return {
         agentId: 'conversation-agent',
         content: `Mock response to: ${input.content}`,
@@ -56,7 +57,7 @@ vi.mock('../agents/code-agent', () => ({
       this.state = 'unloaded';
     }
     
-    async process(input: any) {
+    async process(input: AgentInput): Promise<AgentOutput> {
       return {
         agentId: 'code-agent',
         content: `function example() { /* ${input.content} */ }`,
@@ -86,7 +87,7 @@ vi.mock('../agents/vision-agent', () => ({
       this.state = 'unloaded';
     }
     
-    async process(input: any) {
+    async process(input: AgentInput): Promise<AgentOutput> {
       return {
         agentId: 'vision-agent',
         content: `Image analysis: ${input.images?.length || 0} images detected`,
@@ -116,7 +117,7 @@ vi.mock('../agents/logical-agent', () => ({
       this.state = 'unloaded';
     }
     
-    async process(input: any) {
+    async process(input: AgentInput): Promise<AgentOutput> {
       return {
         agentId: 'logical-agent',
         content: `Logical analysis: ${input.content}`,
@@ -146,7 +147,7 @@ vi.mock('../agents/speech-to-text-agent', () => ({
       this.state = 'unloaded';
     }
     
-    async process(input: any) {
+    async process(input: AgentInput): Promise<AgentOutput> {
       return {
         agentId: 'speech-to-text-agent',
         content: 'Texte transcrit depuis l\'audio',
@@ -176,7 +177,7 @@ vi.mock('../agents/creative-agent', () => ({
       this.state = 'unloaded';
     }
     
-    async process(input: any) {
+    async process(input: AgentInput): Promise<AgentOutput> {
       return {
         agentId: 'creative-agent',
         content: 'Image générée (mock)',
