@@ -193,6 +193,18 @@ export const OPTIMIZATION_PRESETS: Record<string, AgentOptimizationConfig> = {
       initialShards: 2,
     }
   },
+  
+  'hybrid-developer': {
+    quantization: 'q4',
+    loadingStrategy: 'progressive',
+    optimizedSize: 1200, // ~1.2 Go avec q4 (modèle fusionné optimisé)
+    originalSize: 4300, // CodeGemma 2.5GB + Qwen2 1.8GB
+    sharding: {
+      enabled: true,
+      numShards: 6,
+      initialShards: 2, // TTFT rapide avec 2 shards (~400 MB)
+    }
+  },
 };
 
 /**

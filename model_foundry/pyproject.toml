@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "orion-model-foundry"
+version = "1.0.0"
+description = "Fonderie de modèles AI pour ORION - Fusion et optimisation de modèles"
+authors = ["ORION Team"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = "^2.5.0"
+transformers = "^4.46.0"
+accelerate = "^0.34.0"
+safetensors = "^0.4.0"
+sentencepiece = "^0.2.0"
+protobuf = "^4.25.0"
+huggingface-hub = "^0.26.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+black = "^24.10.0"
+flake8 = "^7.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

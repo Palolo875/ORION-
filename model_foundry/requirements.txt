@@ -1,0 +1,23 @@
+# ORION Model Foundry - Requirements
+# Alternative à Poetry pour les environnements qui ne supportent pas Poetry
+
+# Core dependencies
+torch>=2.5.0
+transformers>=4.46.0
+accelerate>=0.34.0
+safetensors>=0.4.0
+sentencepiece>=0.2.0
+protobuf>=4.25.0
+huggingface-hub>=0.26.0
+
+# YAML support
+PyYAML>=6.0.0
+
+# Development tools (optional)
+pytest>=8.3.0
+black>=24.10.0
+flake8>=7.1.0
+
+# Optional: For advanced quantization
+# bitsandbytes>=0.44.0
+# auto-gptq>=0.7.0

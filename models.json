@@ -182,6 +182,41 @@
         "sample_rate": 16000,
         "language": "auto"
       }
+    },
+    "hybrid-developer": {
+      "id": "ORION-Dev-Polyglot-v1-q4f16_1-MLC",
+      "name": "ORION Dev Polyglot",
+      "type": "causal-lm",
+      "size_mb": 1200,
+      "quality": "very-high",
+      "speed": "fast",
+      "description": "Agent hybride fusionné (CodeGemma + Qwen2) - Expert en code multilingue",
+      "capabilities": ["code", "code-generation", "code-explanation", "debugging", "multilingual", "chat", "reasoning"],
+      "min_ram_gb": 4,
+      "languages": ["en", "fr", "es", "de", "it", "pt", "zh", "ja", "ko", "ar"],
+      "prompt_format": {
+        "system_prefix": "<|system|>\n",
+        "user_prefix": "<|user|>\n",
+        "assistant_prefix": "<|assistant|>\n",
+        "eos_token": "<|end|>"
+      },
+      "urls": {
+        "base": "/models/ORION-Dev-Polyglot-v1-q4f16_1/",
+        "shards": null
+      },
+      "config": {
+        "max_tokens": 4096,
+        "temperature": 0.5,
+        "top_p": 0.9
+      },
+      "metadata": {
+        "fusion": {
+          "method": "slerp",
+          "sources": ["google/codegemma-2b", "Qwen/Qwen2-1.5B-Instruct"],
+          "ratio": 0.4,
+          "created_by": "ORION Model Foundry"
+        }
+      }
     }
   },
   "custom_models": {},
@@ -189,15 +224,18 @@
     "lightweight": ["conversation-agent", "multilingual-agent", "speech-to-text-agent"],
     "standard": ["conversation-agent", "code-agent", "multilingual-agent"],
     "advanced": ["logical-agent", "creative-agent", "vision-agent"],
-    "coding": ["code-agent", "conversation-agent"],
-    "multimodal": ["vision-agent", "speech-to-text-agent", "conversation-agent"]
+    "coding": ["code-agent", "hybrid-developer", "conversation-agent"],
+    "multimodal": ["vision-agent", "speech-to-text-agent", "conversation-agent"],
+    "hybrid": ["hybrid-developer"]
   },
   "recommendations": {
     "low_memory": "conversation-agent",
     "balanced": "conversation-agent",
     "high_quality": "creative-agent",
-    "coding": "code-agent",
+    "coding": "hybrid-developer",
+    "coding_specialist": "code-agent",
     "vision": "vision-agent",
-    "multilingual": "multilingual-agent"
+    "multilingual": "multilingual-agent",
+    "hybrid_coding": "hybrid-developer"
   }
 }
