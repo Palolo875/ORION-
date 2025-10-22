@@ -485,6 +485,7 @@ export const ChatInput = ({
               disabled={disabled || isGenerating}
               aria-label="Saisir votre message"
               aria-multiline="true"
+              data-testid="chat-input"
             />
             
             {/* Character count */}
@@ -549,6 +550,8 @@ export const ChatInput = ({
                 className="shrink-0 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-50 transition-all h-9 w-9"
                 aria-label="Envoyer le message"
                 title="Envoyer (Entrée)"
+                type="submit"
+                data-testid="send-button"
               >
                 <Send className="h-4 w-4" />
               </Button>

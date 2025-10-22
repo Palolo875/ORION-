@@ -277,7 +277,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen flex relative">
+    <div className="min-h-screen flex relative" data-testid="app-loaded">
       {/* Browser Compatibility Banner */}
       <BrowserCompatibilityBanner />
       

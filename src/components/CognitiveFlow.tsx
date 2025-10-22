@@ -70,7 +70,7 @@ export const CognitiveFlow: React.FC<CognitiveFlowProps> = ({ currentStep, stepD
   const isActive = currentStep !== 'idle';
 
   return (
-    <div className="glass rounded-2xl p-4 space-y-4">
+    <div className="glass rounded-2xl p-4 space-y-4" data-testid="cognitive-flow">
       <div className="flex items-center gap-2">
         <Brain className="h-5 w-5 text-primary" />
         <h4 className="text-sm font-semibold">Flux Cognitif</h4>

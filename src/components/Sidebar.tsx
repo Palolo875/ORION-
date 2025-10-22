@@ -135,7 +135,7 @@ export const Sidebar = ({
       />
 
       {/* Sidebar */}
-      <div className="fixed left-0 top-0 bottom-0 w-80 z-50 glass border-r border-[hsl(var(--glass-border))] lg:relative lg:z-auto">
+      <div className="fixed left-0 top-0 bottom-0 w-80 z-50 glass border-r border-[hsl(var(--glass-border))] lg:relative lg:z-auto" data-testid="sidebar">
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-4 border-b border-[hsl(var(--glass-border))] space-y-3">
