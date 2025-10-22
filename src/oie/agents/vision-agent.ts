@@ -88,7 +88,7 @@ export class VisionAgent extends BaseAgent {
     }
     
     // Construire le message multimodal
-    const messageContent: any[] = [
+    const messageContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
       {
         type: "text",
         text: input.content

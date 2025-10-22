@@ -431,7 +431,7 @@ export class OrionInferenceEngine {
             forceAgent: 'conversation-agent',
             images: undefined // Retirer les images pour le fallback
           });
-        } catch (fallbackError: any) {
+        } catch (fallbackError: unknown) {
           const fallbackErrObj = fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError));
           console.error(`[OIE] ❌ Échec du fallback:`, fallbackErrObj);
           this.reportError(fallbackErrObj, 'fallback');

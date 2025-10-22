@@ -30,7 +30,7 @@ interface IntentClassification {
 }
 
 export class NeuralRouter {
-  private model: any = null;
+  private model: unknown = null;
   private isReady = false;
   private agents: Map<string, AgentMetadata> = new Map();
   private optimizationConfig = OPTIMIZATION_PRESETS['neural-router'];
@@ -57,16 +57,17 @@ export class NeuralRouter {
       this.isReady = true;
       
       console.log('[NeuralRouter] ✅ Routeur neuronal prêt');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[NeuralRouter] Erreur d\'initialisation:', error);
-      throw new Error(`Impossible d'initialiser le routeur neuronal: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Impossible d'initialiser le routeur neuronal: ${errorMessage}`);
     }
   }
   
   /**
    * Charge le modèle de classification
    */
-  private async loadClassificationModel(): Promise<any> {
+  private async loadClassificationModel(): Promise<unknown> {
     // Simulation d'un modèle de classification basé sur patterns avancés
     // Dans une vraie implémentation, on chargerait MobileBERT depuis Hugging Face
     
@@ -152,7 +153,7 @@ export class NeuralRouter {
   async route(userQuery: string, context?: {
     hasImages?: boolean;
     hasAudio?: boolean;
-    conversationHistory?: any[];
+    conversationHistory?: Array<{ role: string; content: string }>;
   }): Promise<RoutingDecision> {
     if (!this.isReady) {
       throw new Error('[NeuralRouter] Routeur non initialisé');
@@ -227,7 +228,7 @@ export class NeuralRouter {
     // Calculer les scores pour chaque catégorie
     for (const [category, config] of Object.entries(this.model.patterns)) {
       let categoryScore = 0;
-      let matchedKeywords: string[] = [];
+      const matchedKeywords: string[] = [];
       
       for (const keyword of config.keywords) {
         if (queryLower.includes(keyword.toLowerCase())) {

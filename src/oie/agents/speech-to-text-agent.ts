@@ -35,7 +35,7 @@ export class SpeechToTextAgent extends BaseAgent {
         this.metadata.modelId,
         {
           quantized: true,
-          progress_callback: (progress: any) => {
+          progress_callback: (progress: { status?: string; progress?: number }) => {
             if (progress.status === 'progress') {
               const percent = (progress.progress || 0).toFixed(1);
               console.log(`[SpeechToTextAgent] Téléchargement: ${percent}%`);
@@ -66,7 +66,7 @@ export class SpeechToTextAgent extends BaseAgent {
     }
     
     // Vérifier si l'input contient des données audio
-    const audioInput = (input as any).audioData;
+    const audioInput = (input as AgentInput & { audioData?: Float32Array | ArrayBuffer }).audioData;
     if (!audioInput) {
       throw new Error('Aucune donnée audio fournie');
     }
@@ -110,8 +110,8 @@ export class SpeechToTextAgent extends BaseAgent {
       context: {}
     };
     
-    (input as any).audioData = audioData;
-    (input as any).sampleRate = sampleRate;
+    (input as AgentInput & { audioData?: Float32Array | ArrayBuffer; sampleRate?: number }).audioData = audioData;
+    (input as AgentInput & { audioData?: Float32Array | ArrayBuffer; sampleRate?: number }).sampleRate = sampleRate;
     
     const output = await this.process(input);
     return output.content;

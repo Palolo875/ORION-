@@ -144,7 +144,7 @@ export class SimpleRouter {
     // Si une capacité est spécifiée
     if (options?.preferredCapability) {
       const agent = Array.from(this.agents.values()).find(a => 
-        a.capabilities.includes(options.preferredCapability as any)
+        a.capabilities.includes(options.preferredCapability)
       );
       
       if (agent) {

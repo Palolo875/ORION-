@@ -32,6 +32,7 @@ export function AudioRecorder({
     return () => {
       stopRecording();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   const startRecording = useCallback(async () => {

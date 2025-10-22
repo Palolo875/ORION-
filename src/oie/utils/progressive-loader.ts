@@ -43,7 +43,7 @@ export interface ProgressiveLoadResult {
   /**
    * Engine chargé (peut être partiellement chargé)
    */
-  engine: any;
+  engine: unknown;
   
   /**
    * Statistiques de chargement
@@ -96,9 +96,10 @@ export class ProgressiveLoader {
         models: Array.from(this.modelRegistry.keys())
       });
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       debugLogger.error('ProgressiveLoader', 'Erreur lors de l\'initialisation du registry', error);
-      throw new Error(`Impossible de charger le Model Registry: ${error.message}`);
+      const errMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Impossible de charger le Model Registry: ${errMsg}`);
     }
   }
   
@@ -395,9 +396,10 @@ export class ProgressiveLoader {
         completeLoading: completeLoadingPromise,
       };
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : 'Erreur inconnue';
       throw new Error(
-        `Échec du chargement progressif de ${modelId}: ${error.message || 'Erreur inconnue'}`
+        `Échec du chargement progressif de ${modelId}: ${errMsg}`
       );
     }
   }
@@ -406,7 +408,7 @@ export class ProgressiveLoader {
    * Charge les shards restants en arrière-plan
    */
   private static async loadRemainingShards(
-    engine: any,
+    engine: unknown,
     initialShards: number,
     totalShards: number,
     onProgress?: (progress: number) => void
@@ -476,9 +478,10 @@ export class ProgressiveLoader {
       
       return { engine, stats };
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : 'Erreur inconnue';
       throw new Error(
-        `Échec du chargement complet de ${modelId}: ${error.message || 'Erreur inconnue'}`
+        `Échec du chargement complet de ${modelId}: ${errMsg}`
       );
     }
   }

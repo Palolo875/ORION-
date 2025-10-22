@@ -6,7 +6,7 @@
 import { logger } from '../logger';
 
 export interface PredictionContext {
-  conversationHistory?: any[];
+  conversationHistory?: Array<{ role: string; content: string }>;
   currentAgent?: string;
   lastUserInput?: string;
   recentAgents: string[];

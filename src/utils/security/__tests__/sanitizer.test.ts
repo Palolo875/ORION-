@@ -49,7 +49,9 @@ describe('Sanitizer', () => {
 
     it('should handle empty content', () => {
       expect(sanitizeContent('')).toBe('');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(sanitizeContent(null as any)).toBe('');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(sanitizeContent(undefined as any)).toBe('');
     });
   });
@@ -86,6 +88,7 @@ describe('Sanitizer', () => {
 
     it('should handle empty URL', () => {
       expect(sanitizeUrl('')).toBe('#');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(sanitizeUrl(null as any)).toBe('#');
     });
   });
@@ -149,6 +152,7 @@ describe('Sanitizer', () => {
 
     it('should handle empty value', () => {
       expect(sanitizeAttribute('')).toBe('');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(sanitizeAttribute(null as any)).toBe('');
     });
   });
@@ -176,6 +180,7 @@ describe('Sanitizer', () => {
 
     it('should handle empty text', () => {
       expect(sanitizeForSearch('')).toBe('');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(sanitizeForSearch(null as any)).toBe('');
     });
   });
@@ -215,6 +220,7 @@ describe('Sanitizer', () => {
 
     it('should return default for empty filename', () => {
       expect(sanitizeFilename('')).toBe('untitled');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(sanitizeFilename(null as any)).toBe('untitled');
     });
   });
