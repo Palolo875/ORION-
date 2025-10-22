@@ -5,5 +5,5 @@ interface OrionLogoProps {
 }
 
 export const OrionLogo = ({ className }: OrionLogoProps) => {
-  return <BrainCircuit className={className} />;
+  return <BrainCircuit className={className} data-testid="orion-logo" />;
 };

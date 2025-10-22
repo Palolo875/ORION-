@@ -202,7 +202,7 @@ export const ChatMessage = ({
   if (isUser) {
     // Message de l'utilisateur - Bulle à droite
     return (
-      <motion.div {...animationProps} className="w-full flex justify-end mb-6 sm:mb-8">
+      <motion.div {...animationProps} className="w-full flex justify-end mb-6 sm:mb-8" data-testid="chat-message">
         <div className="max-w-[85%] sm:max-w-[70%] px-4 sm:px-6 py-3 sm:py-4 rounded-3xl bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-lg">
           <SafeMessage 
             content={content} 
@@ -223,7 +223,7 @@ export const ChatMessage = ({
 
   // Message de l'IA - Sans bulle, à gauche
   return (
-    <motion.div {...animationProps} className="w-full mb-6 sm:mb-8 group">
+    <motion.div {...animationProps} className="w-full mb-6 sm:mb-8 group" data-testid="orion-message">
       <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
         <OrionLogo className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
         <span className="text-sm sm:text-base font-semibold">ORION</span>

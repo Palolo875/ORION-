@@ -37,6 +37,7 @@ export const SuggestionChips = ({ onSelect }: SuggestionChipsProps) => {
           variant="outline"
           onClick={() => onSelect(suggestion.prompt)}
           className="glass rounded-full gap-1.5 sm:gap-2 glass-hover border-[hsl(var(--glass-border))] hover:bg-accent/30 h-8 sm:h-10 px-3 sm:px-4"
+          data-testid="suggestion-chip"
         >
           <suggestion.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           <span className="text-xs sm:text-sm font-medium">{suggestion.label}</span>

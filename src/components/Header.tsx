@@ -40,6 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="lg:hidden rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
             aria-label="Ouvrir le menu"
             title="Menu"
+            data-testid="menu-button"
           >
             <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
@@ -86,6 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
             aria-label="Ouvrir le panneau de contrôle"
             title="Panneau de contrôle"
+            data-testid="settings-button"
           >
             <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>

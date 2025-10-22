@@ -31,6 +31,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
       title={theme === "dark" ? "Mode clair" : "Mode sombre"}
+      data-testid="theme-toggle"
     >
       {theme === "dark" ? (
         <Sun className="h-4 w-4 sm:h-5 sm:w-5 transition-all" />
