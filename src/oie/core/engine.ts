@@ -9,6 +9,8 @@ import { ConversationAgent } from '../agents/conversation-agent';
 import { CodeAgent } from '../agents/code-agent';
 import { VisionAgent } from '../agents/vision-agent';
 import { LogicalAgent } from '../agents/logical-agent';
+import { MultilingualAgent } from '../agents/multilingual-agent';
+import { ImageGenerationAgent } from '../agents/image-generation-agent';
 import { IAgent, AgentInput, AgentOutput } from '../types/agent.types';
 
 export interface OIEConfig {
@@ -16,6 +18,8 @@ export interface OIEConfig {
   maxAgentsInMemory?: number;
   enableVision?: boolean;
   enableCode?: boolean;
+  enableMultilingual?: boolean;
+  enableImageGeneration?: boolean;
 }
 
 export interface InferOptions {
@@ -40,6 +44,8 @@ export class OrionInferenceEngine {
       maxAgentsInMemory: config.maxAgentsInMemory || 2,
       enableVision: config.enableVision ?? true,
       enableCode: config.enableCode ?? true,
+      enableMultilingual: config.enableMultilingual ?? true,
+      enableImageGeneration: config.enableImageGeneration ?? false, // Désactivé par défaut (en développement)
     };
     
     this.router = new SimpleRouter();
@@ -52,16 +58,26 @@ export class OrionInferenceEngine {
   async initialize(): Promise<void> {
     console.log('[OIE] 🚀 Initialisation du moteur Orion Inference Engine...');
     
-    // Enregistrer les agents disponibles
+    // Enregistrer les agents de base (toujours disponibles)
     this.registerAgent('conversation-agent', () => new ConversationAgent());
     this.registerAgent('logical-agent', () => new LogicalAgent());
     
+    // Agents optionnels selon la configuration
     if (this.config.enableCode) {
       this.registerAgent('code-agent', () => new CodeAgent());
     }
     
     if (this.config.enableVision) {
       this.registerAgent('vision-agent', () => new VisionAgent());
+    }
+    
+    if (this.config.enableMultilingual) {
+      this.registerAgent('multilingual-agent', () => new MultilingualAgent());
+    }
+    
+    if (this.config.enableImageGeneration) {
+      this.registerAgent('image-generation-agent', () => new ImageGenerationAgent());
+      console.log('[OIE] ⚠️ ImageGenerationAgent activé (en développement)');
     }
     
     this.isReady = true;
