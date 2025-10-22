@@ -199,9 +199,8 @@ export async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
 }
 
 function estimateRAM(): number {
-  // @ts-expect-error - deviceMemory is not in standard Navigator type but exists in Chrome/Edge
+  // API Device Memory (Chrome/Edge) - définie dans global.d.ts
   if (navigator.deviceMemory) {
-    // @ts-expect-error - deviceMemory is not in standard Navigator type but exists in Chrome/Edge
     return navigator.deviceMemory;
   }
   
@@ -228,11 +227,10 @@ async function detectGPU(): Promise<string | null> {
     
     if (!gl) return null;
     
-    // @ts-expect-error - WEBGL_debug_renderer_info is a WebGL extension not in standard types
+    // Extension WEBGL_debug_renderer_info - définie dans global.d.ts
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
     if (debugInfo) {
-      // @ts-expect-error - UNMASKED_RENDERER_WEBGL constant from WEBGL_debug_renderer_info extension
-      return gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+      return gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) as string;
     }
   } catch (error) {
     console.warn('[GPU Detection] Error:', error);
@@ -252,10 +250,9 @@ function checkWebGL(): boolean {
 
 async function checkWebGPU(): Promise<boolean> {
   try {
-    // @ts-expect-error - WebGPU API is not yet in standard Navigator type
+    // API WebGPU - définie dans global.d.ts
     if (!navigator.gpu) return false;
     
-    // @ts-expect-error - WebGPU API is not yet in standard Navigator type
     const adapter = await navigator.gpu.requestAdapter();
     return !!adapter;
   } catch (e) {

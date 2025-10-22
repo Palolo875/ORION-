@@ -25,7 +25,8 @@ export class LogicalAgent extends BaseAgent {
   protected async loadModel(): Promise<void> {
     console.log(`[LogicalAgent] Chargement du modèle ${this.metadata.modelId}`);
     
-    // @ts-expect-error - WebWorkerMLCEngine types
+    // Note: Incompatibilité mineure de types dans @mlc-ai/web-llm
+    // @ts-expect-error - WebWorkerMLCEngine.create() a des types légèrement incompatibles
     this.engine = await WebWorkerMLCEngine.create({
       initProgressCallback: (progress: { progress: number; text: string }) => {
         console.log(`[LogicalAgent] ${(progress.progress * 100).toFixed(1)}% - ${progress.text}`);

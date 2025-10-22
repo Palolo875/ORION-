@@ -95,10 +95,8 @@ export class MemoryMonitor {
       recommendations: [],
     };
 
-    // Mémoire JavaScript
-    // @ts-expect-error - performance.memory non standard
+    // Mémoire JavaScript (API Performance Memory définie dans global.d.ts)
     if (performance.memory) {
-      // @ts-expect-error - performance.memory
       const { usedJSHeapSize, totalJSHeapSize, jsHeapSizeLimit } = performance.memory;
       
       snapshot.jsHeapUsed = usedJSHeapSize;

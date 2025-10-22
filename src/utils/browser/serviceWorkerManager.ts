@@ -19,7 +19,7 @@ type RegisterSWFunction = (options: {
 
 let registerSW: RegisterSWFunction;
 try {
-  // @ts-expect-error - Virtual module créé par vite-plugin-pwa n'a pas de types disponibles
+  // Module virtuel vite-plugin-pwa (types définis dans global.d.ts)
   registerSW = (await import('virtual:pwa-register')).registerSW;
 } catch {
   registerSW = () => (async () => {});

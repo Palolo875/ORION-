@@ -79,7 +79,8 @@ class LLMEngine {
         this.instance = await withRetry(
           async () => {
             // Utiliser l'engine WebWorkerMLCEngine directement sans sous-worker pour éviter les problèmes de build
-            // @ts-expect-error - Le type peut ne pas correspondre exactement mais cela fonctionne
+            // Note: Les types de @mlc-ai/web-llm ne correspondent pas exactement à l'implémentation
+            // @ts-expect-error - Incompatibilité mineure de types dans create() de @mlc-ai/web-llm
             const engine = await WebWorkerMLCEngine.create({
               initProgressCallback: (report: { progress: number; text: string; loaded?: number; total?: number }) => {
                 if (progress_callback) {

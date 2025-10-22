@@ -41,8 +41,7 @@ class OptimizedModelLoader {
   }
 
   private async init() {
-    // Détecter la RAM de l'appareil
-    // @ts-expect-error - deviceMemory non standard
+    // Détecter la RAM de l'appareil (API définie dans global.d.ts)
     this.deviceRAM = navigator.deviceMemory || 4;
     
     this.strategy = getOptimizationStrategy(this.deviceRAM);

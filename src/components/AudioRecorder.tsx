@@ -100,7 +100,7 @@ export function AudioRecorder({
       onError?.(new Error(`Impossible d'accéder au microphone: ${errMsg}`));
       setIsRecording(false);
     }
-  }, [onAudioRecorded, onError]);
+  }, [onAudioRecorded, onError, cleanup]);
   
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {

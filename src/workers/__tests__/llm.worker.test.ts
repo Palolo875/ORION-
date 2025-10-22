@@ -63,7 +63,7 @@ vi.mock('../../utils/retry', () => ({
 describe('LLM Worker', () => {
   let worker: Worker;
   let messageHandler: (event: MessageEvent) => void;
-  let postMessageSpy: any;
+  let postMessageSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     // Simuler le worker
@@ -73,6 +73,7 @@ describe('LLM Worker', () => {
     global.self = {
       postMessage: postMessageSpy,
       onmessage: null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
   });
 
@@ -235,6 +236,7 @@ describe('LLM Worker', () => {
       
       // Mock avec callback de progression
       vi.mocked(WebWorkerMLCEngine.create).mockImplementation(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ({ initProgressCallback }: any) => {
           // Simuler la progression
           if (initProgressCallback) {
@@ -302,6 +304,7 @@ describe('LLM Worker', () => {
         reload: vi.fn().mockResolvedValue(undefined),
         chat: {
           completions: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             create: vi.fn().mockImplementation(async (request: any) => {
               const prompt = request.messages[0].content.toLowerCase();
               let response = 'Default response';
@@ -319,6 +322,7 @@ describe('LLM Worker', () => {
             })
           }
         }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
       await import('../llm.worker');
@@ -342,6 +346,7 @@ describe('LLM Worker', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Vérifier que la réponse contient des éléments logiques
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const logicalCalls = postMessageSpy.mock.calls.filter((call: any) => 
         call[0].type === 'llm_response_complete' &&
         call[0].payload.response.includes('Analyse logique')
@@ -357,6 +362,7 @@ describe('LLM Worker', () => {
         reload: vi.fn().mockResolvedValue(undefined),
         chat: {
           completions: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             create: vi.fn().mockImplementation(async (request: any) => {
               const prompt = request.messages[0].content.toLowerCase();
               
@@ -376,6 +382,7 @@ describe('LLM Worker', () => {
             })
           }
         }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
       await import('../llm.worker');
@@ -398,6 +405,7 @@ describe('LLM Worker', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Vérifier que la réponse contient des éléments créatifs
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const creativeCalls = postMessageSpy.mock.calls.filter((call: any) => 
         call[0].type === 'llm_response_complete' &&
         (call[0].payload.response.includes('Perspective créative') ||
@@ -417,6 +425,7 @@ describe('LLM Worker', () => {
         reload: vi.fn().mockResolvedValue(undefined),
         chat: {
           completions: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             create: vi.fn().mockImplementation(async (request: any) => {
               const prompt = request.messages[0].content.toLowerCase();
               let response = '';
@@ -434,6 +443,7 @@ describe('LLM Worker', () => {
             })
           }
         }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
       await import('../llm.worker');

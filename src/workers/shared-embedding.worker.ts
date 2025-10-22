@@ -23,7 +23,8 @@ env.useBrowserCache = true;
 env.allowRemoteModels = true;
 
 // Activer la quantization pour réduire l'utilisation mémoire
-// @ts-expect-error - quantized est une option non documentée mais disponible
+// Note: 'quantized' est une option non documentée de @xenova/transformers mais fonctionnelle
+// @ts-expect-error - Option non typée dans @xenova/transformers
 env.quantized = true;
 
 logger.info('SharedEmbeddingWorker', 'Worker partagé initialisé');
@@ -63,7 +64,8 @@ class QuantizedEmbeddingPipeline {
       
       // Charger avec options de quantization
       this.instance = await pipeline('feature-extraction', MEMORY_CONFIG.EMBEDDING_MODEL, {
-        // @ts-expect-error - Options de quantization
+        // Note: Option non typée dans @xenova/transformers mais fonctionnelle
+        // @ts-expect-error - quantized n'est pas dans les types de PipelineOptions
         quantized: true,
         // Utiliser le cache navigateur
         cache_dir: '.transformers-cache',

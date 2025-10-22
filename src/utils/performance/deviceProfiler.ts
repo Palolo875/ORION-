@@ -31,8 +31,7 @@ export async function detectDeviceProfile(): Promise<DeviceProfile> {
 export async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
   console.log("[Profiler] Détection des capacités de l'appareil...");
 
-  // 1. Vérifier la RAM (si l'API est disponible)
-  // @ts-expect-error - navigator.deviceMemory n'est pas standard partout
+  // 1. Vérifier la RAM (API Device Memory définie dans global.d.ts)
   const ram = navigator.deviceMemory || 2; // On suppose 2GB par défaut si inconnu
 
   // 2. Vérifier le nombre de cœurs CPU
