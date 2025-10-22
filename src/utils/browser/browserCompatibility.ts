@@ -331,24 +331,32 @@ export async function detectBrowserCompatibility(): Promise<BrowserCompatibility
 }
 
 /**
- * Obtient une recommandation de navigateur basée sur l'OS
+ * Obtient une recommandation de navigateur basée sur l'OS avec détails de compatibilité
  */
 export function getBrowserRecommendation(): string {
   const userAgent = navigator.userAgent.toLowerCase();
   
-  if (userAgent.includes('mac') || userAgent.includes('iphone') || userAgent.includes('ipad')) {
-    return "Sur macOS/iOS: Chrome 113+ ou Edge 113+ (Safari a un support WebGPU limité)";
+  if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
+    return "Sur iOS: ❌ WebGPU non supporté. Les modèles IA ne fonctionneront pas. Utilisez un ordinateur avec Chrome/Edge pour ORION.";
+  }
+  
+  if (userAgent.includes('mac')) {
+    return "Sur macOS: ✅ Chrome 113+, ✅ Edge 113+ (recommandés) | ⚠️ Safari 17+ (expérimental, bugs possibles) | ⚠️ Firefox 121+ (expérimental)";
   }
   
   if (userAgent.includes('windows')) {
-    return "Sur Windows: Chrome 113+, Edge 113+, ou Firefox (support WebGPU partiel)";
+    return "Sur Windows: ✅ Chrome 113+, ✅ Edge 113+ (recommandés) | ⚠️ Firefox 121+ (expérimental)";
   }
   
   if (userAgent.includes('linux')) {
-    return "Sur Linux: Chrome 113+ ou Firefox (support WebGPU en développement)";
+    return "Sur Linux: ✅ Chrome 113+ (recommandé) | ⚠️ Firefox 121+ (expérimental, activez dom.webgpu.enabled)";
   }
   
-  return "Navigateurs recommandés: Chrome 113+, Edge 113+";
+  if (userAgent.includes('android')) {
+    return "Sur Android: ⚠️ Chrome 113+ (support limité, modèles légers uniquement) | ❌ Firefox non supporté";
+  }
+  
+  return "Navigateurs recommandés: ✅ Chrome 113+, ✅ Edge 113+ | ⚠️ Firefox 121+ (expérimental) | ❌ Safari (instable)";
 }
 
 /**
