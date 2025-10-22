@@ -36,14 +36,45 @@ export interface BrowserCompatibility {
 }
 
 /**
- * Détecte la compatibilité WebGPU
+ * Détecte la compatibilité WebGPU avec détails par navigateur
  */
 async function detectWebGPU(): Promise<{ supported: boolean; message: string }> {
+  const browserInfo = getBrowserInfoSync();
+  
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (!(navigator as any).gpu) {
+    // Messages spécifiques par navigateur
+    if (browserInfo.name === 'Safari') {
+      return {
+        supported: false,
+        message: "WebGPU sur Safari: Support expérimental disponible dans Safari Technology Preview. Utilisez Chrome 113+ ou Edge 113+ pour un support stable."
+      };
+    }
+    
+    if (browserInfo.name === 'Firefox') {
+      const version = parseInt(browserInfo.version);
+      if (version >= 121) {
+        return {
+          supported: false,
+          message: "WebGPU sur Firefox: Activez 'dom.webgpu.enabled' dans about:config (support expérimental). Recommandé: Chrome 113+ ou Edge 113+ pour un support stable."
+        };
+      }
+      return {
+        supported: false,
+        message: "WebGPU non disponible sur Firefox. Utilisez Chrome 113+ ou Edge 113+ pour des performances optimales."
+      };
+    }
+    
+    if (browserInfo.os === 'iOS') {
+      return {
+        supported: false,
+        message: "WebGPU n'est pas disponible sur iOS Safari. Les modèles IA complexes ne sont pas supportés sur iOS."
+      };
+    }
+    
     return {
       supported: false,
-      message: "WebGPU n'est pas disponible dans votre navigateur. Utilisez Chrome 113+ ou Edge 113+ pour des performances optimales."
+      message: "WebGPU n'est pas disponible. Utilisez Chrome 113+, Edge 113+ ou Firefox 121+ (expérimental) pour des performances optimales."
     };
   }
 
@@ -53,20 +84,70 @@ async function detectWebGPU(): Promise<{ supported: boolean; message: string }> 
     if (!adapter) {
       return {
         supported: false,
-        message: "Aucun adaptateur WebGPU disponible. Vérifiez que votre GPU est compatible."
+        message: "Aucun adaptateur WebGPU disponible. Vérifiez que votre GPU est compatible et que les pilotes sont à jour."
       };
     }
 
+    // Obtenir les informations du GPU
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const features = Array.from((adapter as any).features || []);
+    const limits = (adapter as any).limits;
+    
+    console.log('[WebGPU] Adaptateur trouvé:', {
+      features: features.slice(0, 5), // Premières features
+      maxBufferSize: limits?.maxBufferSize,
+      maxTextureDimension2D: limits?.maxTextureDimension2D
+    });
+
     return {
       supported: true,
-      message: "WebGPU est disponible et fonctionnel."
+      message: `WebGPU disponible et fonctionnel avec ${features.length} features GPU.`
     };
   } catch (error) {
     return {
       supported: false,
-      message: `Erreur lors de la détection WebGPU: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+      message: `Erreur lors de la détection WebGPU: ${error instanceof Error ? error.message : 'Erreur inconnue'}. Vérifiez que WebGPU est activé dans les paramètres du navigateur.`
     };
   }
+}
+
+/**
+ * Version synchrone de getBrowserInfo pour usage interne
+ */
+function getBrowserInfoSync(): {
+  name: string;
+  version: string;
+  os: string;
+} {
+  const userAgent = navigator.userAgent;
+  
+  let name = "Inconnu";
+  let version = "0";
+  let os = "Inconnu";
+  
+  // Détecter le navigateur
+  if (userAgent.includes("Edg/")) {
+    name = "Edge";
+    version = userAgent.match(/Edg\/(\d+)/)?.[1] || "0";
+  } else if (userAgent.includes("Chrome/")) {
+    name = "Chrome";
+    version = userAgent.match(/Chrome\/(\d+)/)?.[1] || "0";
+  } else if (userAgent.includes("Firefox/")) {
+    name = "Firefox";
+    version = userAgent.match(/Firefox\/(\d+)/)?.[1] || "0";
+  } else if (userAgent.includes("Safari/") && !userAgent.includes("Chrome")) {
+    name = "Safari";
+    version = userAgent.match(/Version\/(\d+)/)?.[1] || "0";
+  }
+  
+  // Détecter l'OS
+  if (userAgent.includes("Windows")) os = "Windows";
+  else if (userAgent.includes("Mac")) os = "macOS";
+  else if (userAgent.includes("Linux")) os = "Linux";
+  else if (userAgent.includes("Android")) os = "Android";
+  else if (userAgent.includes("iOS") || userAgent.includes("iPhone") || userAgent.includes("iPad")) os = "iOS";
+  
+  return { name, version, os };
 }
 
 /**
@@ -250,24 +331,32 @@ export async function detectBrowserCompatibility(): Promise<BrowserCompatibility
 }
 
 /**
- * Obtient une recommandation de navigateur basée sur l'OS
+ * Obtient une recommandation de navigateur basée sur l'OS avec détails de compatibilité
  */
 export function getBrowserRecommendation(): string {
   const userAgent = navigator.userAgent.toLowerCase();
   
-  if (userAgent.includes('mac') || userAgent.includes('iphone') || userAgent.includes('ipad')) {
-    return "Sur macOS/iOS: Chrome 113+ ou Edge 113+ (Safari a un support WebGPU limité)";
+  if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
+    return "Sur iOS: ❌ WebGPU non supporté. Les modèles IA ne fonctionneront pas. Utilisez un ordinateur avec Chrome/Edge pour ORION.";
+  }
+  
+  if (userAgent.includes('mac')) {
+    return "Sur macOS: ✅ Chrome 113+, ✅ Edge 113+ (recommandés) | ⚠️ Safari 17+ (expérimental, bugs possibles) | ⚠️ Firefox 121+ (expérimental)";
   }
   
   if (userAgent.includes('windows')) {
-    return "Sur Windows: Chrome 113+, Edge 113+, ou Firefox (support WebGPU partiel)";
+    return "Sur Windows: ✅ Chrome 113+, ✅ Edge 113+ (recommandés) | ⚠️ Firefox 121+ (expérimental)";
   }
   
   if (userAgent.includes('linux')) {
-    return "Sur Linux: Chrome 113+ ou Firefox (support WebGPU en développement)";
+    return "Sur Linux: ✅ Chrome 113+ (recommandé) | ⚠️ Firefox 121+ (expérimental, activez dom.webgpu.enabled)";
   }
   
-  return "Navigateurs recommandés: Chrome 113+, Edge 113+";
+  if (userAgent.includes('android')) {
+    return "Sur Android: ⚠️ Chrome 113+ (support limité, modèles légers uniquement) | ❌ Firefox non supporté";
+  }
+  
+  return "Navigateurs recommandés: ✅ Chrome 113+, ✅ Edge 113+ | ⚠️ Firefox 121+ (expérimental) | ❌ Safari (instable)";
 }
 
 /**

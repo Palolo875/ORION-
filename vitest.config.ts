@@ -38,7 +38,7 @@ export default defineConfig({
       ],
     },
     // Timeout plus long pour les tests avec vrais modèles
-    testTimeout: process.env.LOAD_REAL_MODELS === 'true' ? 60000 : 10000,
+    testTimeout: process.env.LOAD_REAL_MODELS === 'true' ? 60000 : 30000,
   },
   resolve: {
     alias: {

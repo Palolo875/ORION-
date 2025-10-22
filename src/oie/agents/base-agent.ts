@@ -5,10 +5,26 @@
 
 import { IAgent, AgentMetadata, AgentState, AgentInput, AgentOutput } from '../types/agent.types';
 
+/**
+ * Type pour les modèles d'agents
+ * Peut être @mlc-ai/web-llm Engine ou autre
+ */
+export type AgentModel = unknown;
+
+/**
+ * Erreur structurée pour les agents
+ */
+export interface AgentError extends Error {
+  agentId?: string;
+  phase?: 'loading' | 'processing' | 'unloading';
+  modelId?: string;
+  originalError?: Error;
+}
+
 export abstract class BaseAgent implements IAgent {
   public metadata: AgentMetadata;
   public state: AgentState = 'unloaded';
-  protected model: any = null;
+  protected model: AgentModel = null;
   
   constructor(metadata: AgentMetadata) {
     this.metadata = metadata;
@@ -27,17 +43,17 @@ export abstract class BaseAgent implements IAgent {
       this.state = 'ready';
       const loadTime = performance.now() - loadStartTime;
       console.log(`[${this.metadata.name}] Prêt en ${(loadTime / 1000).toFixed(1)}s`);
-    } catch (error: any) {
+    } catch (error) {
       this.state = 'error';
-      const errorMessage = `Échec du chargement de ${this.metadata.name}: ${error.message || 'Erreur inconnue'}`;
+      const errorMessage = `Échec du chargement de ${this.metadata.name}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`;
       console.error(`[${this.metadata.name}] ${errorMessage}`, error);
       
       // Créer une erreur structurée
-      const structuredError = new Error(errorMessage);
-      (structuredError as any).agentId = this.metadata.id;
-      (structuredError as any).phase = 'loading';
-      (structuredError as any).modelId = this.metadata.modelId;
-      (structuredError as any).originalError = error;
+      const structuredError: AgentError = new Error(errorMessage);
+      structuredError.agentId = this.metadata.id;
+      structuredError.phase = 'loading';
+      structuredError.modelId = this.metadata.modelId;
+      structuredError.originalError = error instanceof Error ? error : new Error(String(error));
       
       throw structuredError;
     }
@@ -53,8 +69,9 @@ export abstract class BaseAgent implements IAgent {
       this.model = null;
       this.state = 'unloaded';
       console.log(`[${this.metadata.name}] Déchargé`);
-    } catch (error: any) {
-      console.error(`[${this.metadata.name}] Erreur lors du déchargement:`, error);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[${this.metadata.name}] Erreur lors du déchargement:`, errorMsg);
       // Ne pas bloquer sur une erreur de déchargement
       this.model = null;
       this.state = 'unloaded';
@@ -63,9 +80,8 @@ export abstract class BaseAgent implements IAgent {
   
   async process(input: AgentInput): Promise<AgentOutput> {
     if (this.state !== 'ready') {
-      const error = new Error(`Agent ${this.metadata.name} non prêt (statut actuel: ${this.state})`);
-      (error as any).agentId = this.metadata.id;
-      (error as any).agentState = this.state;
+      const error: AgentError = new Error(`Agent ${this.metadata.name} non prêt (statut actuel: ${this.state})`);
+      error.agentId = this.metadata.id;
       throw error;
     }
     
@@ -80,21 +96,17 @@ export abstract class BaseAgent implements IAgent {
         ...output,
         processingTime: performance.now() - startTime
       };
-    } catch (error: any) {
+    } catch (error) {
       this.state = 'ready';
       
       // Enrichir l'erreur avec du contexte
-      const processError = new Error(
-        `Erreur lors du traitement par ${this.metadata.name}: ${error.message || 'Erreur inconnue'}`
+      const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+      const processError: AgentError = new Error(
+        `Erreur lors du traitement par ${this.metadata.name}: ${errorMsg}`
       );
-      (processError as any).agentId = this.metadata.id;
-      (processError as any).phase = 'processing';
-      (processError as any).input = {
-        contentLength: input.content?.length || 0,
-        hasImages: !!(input.images && input.images.length > 0),
-        hasContext: !!input.context
-      };
-      (processError as any).originalError = error;
+      processError.agentId = this.metadata.id;
+      processError.phase = 'processing';
+      processError.originalError = error instanceof Error ? error : new Error(String(error));
       
       throw processError;
     }
