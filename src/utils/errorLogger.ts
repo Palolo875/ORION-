@@ -173,6 +173,10 @@ export const UserMessages = {
   STORAGE_FAILED: "Impossible d'accéder au stockage local. Vos données pourraient ne pas être sauvegardées.",
   WEBGPU_NOT_AVAILABLE: "WebGPU n'est pas disponible sur cet appareil. Les performances pourraient être réduites.",
   WORKER_FAILED: "Un composant système a rencontré une erreur. ORION va tenter de continuer.",
+  WORKER_ERROR: "Une erreur est survenue dans un composant système. L'application va continuer de fonctionner.",
+  WORKER_INIT_FAILED: "Impossible d'initialiser un composant système. Veuillez rafraîchir la page.",
+  WORKER_NOT_READY: "Le système n'est pas encore prêt. Veuillez attendre quelques instants.",
   NETWORK_ERROR: "Erreur de connexion. Certaines fonctionnalités pourraient ne pas être disponibles.",
+  GENERIC_ERROR: "Une erreur est survenue. Veuillez réessayer.",
   UNKNOWN_ERROR: "Une erreur inattendue est survenue. Veuillez réessayer.",
 };
