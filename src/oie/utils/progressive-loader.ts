@@ -1,9 +1,43 @@
 /**
  * Utilitaire pour le chargement progressif avec sharding
  * Implémente le Time To First Token (TTFT) optimisé
+ * 
+ * Fonctionnalités avancées:
+ * - Chargement progressif avec sharding
+ * - Support Web Workers pour inférence en arrière-plan
+ * - Intégration avec le Model Registry
+ * - Optimisation TTFT (Time To First Token)
  */
 
 import { ShardingConfig, LoadingProgress, LoadingStats } from '../types/optimization.types';
+import { debugLogger } from './debug-logger';
+
+/**
+ * Configuration du Model Registry
+ */
+interface ModelRegistryConfig {
+  id: string;
+  name: string;
+  size_mb: number;
+  urls: {
+    base: string;
+    shards: string[] | null;
+  };
+  config: {
+    max_tokens?: number;
+    temperature?: number;
+    top_p?: number;
+  };
+}
+
+/**
+ * Configuration du Worker
+ */
+interface WorkerConfig {
+  useWorker: boolean;
+  workerPath?: string;
+  maxWorkers?: number;
+}
 
 export interface ProgressiveLoadResult {
   /**
@@ -27,6 +61,244 @@ export interface ProgressiveLoadResult {
  * Permet un Time To First Token rapide en chargeant d'abord les shards essentiels
  */
 export class ProgressiveLoader {
+  private static modelRegistry: Map<string, ModelRegistryConfig> = new Map();
+  private static workers: Map<string, Worker> = new Map();
+  private static workerPool: Worker[] = [];
+  
+  /**
+   * Initialise le Model Registry depuis le fichier JSON
+   */
+  static async initializeRegistry(registryPath: string = '/models.json'): Promise<void> {
+    try {
+      debugLogger.info('ProgressiveLoader', 'Initialisation du Model Registry', { registryPath });
+      
+      const response = await fetch(registryPath);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const registry = await response.json();
+      
+      // Charger les modèles dans le registry
+      for (const [agentId, config] of Object.entries(registry.models)) {
+        this.modelRegistry.set(agentId, config as ModelRegistryConfig);
+      }
+      
+      // Charger les modèles custom si présents
+      if (registry.custom_models) {
+        for (const [agentId, config] of Object.entries(registry.custom_models)) {
+          this.modelRegistry.set(agentId, config as ModelRegistryConfig);
+        }
+      }
+      
+      debugLogger.info('ProgressiveLoader', 'Model Registry initialisé', {
+        totalModels: this.modelRegistry.size,
+        models: Array.from(this.modelRegistry.keys())
+      });
+      
+    } catch (error: any) {
+      debugLogger.error('ProgressiveLoader', 'Erreur lors de l\'initialisation du registry', error);
+      throw new Error(`Impossible de charger le Model Registry: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Obtient la configuration d'un modèle depuis le registry
+   */
+  static getModelConfig(agentId: string): ModelRegistryConfig | undefined {
+    return this.modelRegistry.get(agentId);
+  }
+  
+  /**
+   * Initialise un pool de Web Workers pour l'inférence
+   */
+  static initializeWorkerPool(config: WorkerConfig): void {
+    if (!config.useWorker) {
+      debugLogger.debug('ProgressiveLoader', 'Web Workers désactivés');
+      return;
+    }
+    
+    const maxWorkers = config.maxWorkers || navigator.hardwareConcurrency || 4;
+    debugLogger.info('ProgressiveLoader', 'Initialisation du pool de workers', { maxWorkers });
+    
+    for (let i = 0; i < maxWorkers; i++) {
+      const worker = new Worker(
+        config.workerPath || new URL('../../workers/llm.worker.ts', import.meta.url),
+        { type: 'module' }
+      );
+      
+      this.workerPool.push(worker);
+    }
+    
+    debugLogger.info('ProgressiveLoader', 'Pool de workers initialisé', {
+      poolSize: this.workerPool.length
+    });
+  }
+  
+  /**
+   * Obtient un worker disponible depuis le pool
+   */
+  static getAvailableWorker(): Worker | null {
+    if (this.workerPool.length === 0) {
+      debugLogger.warn('ProgressiveLoader', 'Aucun worker disponible dans le pool');
+      return null;
+    }
+    
+    // Pour l'instant, utiliser une stratégie round-robin simple
+    // Dans une implémentation avancée, on pourrait tracker l'utilisation de chaque worker
+    const worker = this.workerPool[Math.floor(Math.random() * this.workerPool.length)];
+    
+    debugLogger.debug('ProgressiveLoader', 'Worker obtenu du pool');
+    return worker;
+  }
+  
+  /**
+   * Charge un modèle depuis le registry avec support Web Worker
+   */
+  static async loadFromRegistry(
+    agentId: string,
+    options?: {
+      useWorker?: boolean;
+      shardingConfig?: ShardingConfig;
+      onProgress?: (progress: LoadingProgress) => void;
+    }
+  ): Promise<ProgressiveLoadResult> {
+    const config = this.getModelConfig(agentId);
+    
+    if (!config) {
+      throw new Error(`Modèle '${agentId}' non trouvé dans le registry`);
+    }
+    
+    debugLogger.info('ProgressiveLoader', `Chargement du modèle depuis le registry`, {
+      agentId,
+      modelId: config.id,
+      sizeMB: config.size_mb,
+      useWorker: options?.useWorker,
+      hasShards: !!config.urls.shards
+    });
+    
+    // Déterminer si on utilise un worker
+    if (options?.useWorker) {
+      return this.loadModelInWorker(config, options.shardingConfig, options.onProgress);
+    }
+    
+    // Sinon, chargement dans le thread principal
+    return this.loadModel(config.id, options?.shardingConfig, options?.onProgress);
+  }
+  
+  /**
+   * Charge un modèle dans un Web Worker
+   */
+  private static async loadModelInWorker(
+    config: ModelRegistryConfig,
+    shardingConfig?: ShardingConfig,
+    onProgress?: (progress: LoadingProgress) => void
+  ): Promise<ProgressiveLoadResult> {
+    const worker = this.getAvailableWorker();
+    
+    if (!worker) {
+      debugLogger.warn('ProgressiveLoader', 'Fallback au thread principal (pas de worker)');
+      return this.loadModel(config.id, shardingConfig, onProgress);
+    }
+    
+    const startTime = performance.now();
+    
+    return new Promise((resolve, reject) => {
+      // Écouter les messages du worker
+      const messageHandler = (event: MessageEvent) => {
+        const { type, data } = event.data;
+        
+        switch (type) {
+          case 'progress':
+            if (onProgress) {
+              onProgress(data);
+            }
+            break;
+            
+          case 'loaded':
+            debugLogger.info('ProgressiveLoader', 'Modèle chargé dans le worker', {
+              modelId: config.id,
+              loadTime: performance.now() - startTime
+            });
+            
+            worker.removeEventListener('message', messageHandler);
+            
+            resolve({
+              engine: worker, // Le worker agit comme l'engine
+              stats: {
+                totalTime: performance.now() - startTime,
+                shardsLoaded: data.shardsLoaded || 1,
+                downloadedSizeMB: config.size_mb,
+                fromCache: data.fromCache || false,
+                timeToFirstToken: data.timeToFirstToken
+              }
+            });
+            break;
+            
+          case 'error':
+            debugLogger.error('ProgressiveLoader', 'Erreur dans le worker', data.error);
+            worker.removeEventListener('message', messageHandler);
+            reject(new Error(data.error));
+            break;
+        }
+      };
+      
+      worker.addEventListener('message', messageHandler);
+      
+      // Envoyer la commande de chargement au worker
+      worker.postMessage({
+        type: 'loadModel',
+        data: {
+          modelId: config.id,
+          shardingConfig,
+          modelConfig: config.config
+        }
+      });
+      
+      // Timeout de sécurité
+      setTimeout(() => {
+        worker.removeEventListener('message', messageHandler);
+        reject(new Error(`Timeout lors du chargement du modèle ${config.id}`));
+      }, 120000); // 2 minutes
+    });
+  }
+  
+  /**
+   * Décharge un modèle depuis un worker
+   */
+  static async unloadFromWorker(worker: Worker): Promise<void> {
+    return new Promise((resolve) => {
+      const messageHandler = (event: MessageEvent) => {
+        if (event.data.type === 'unloaded') {
+          worker.removeEventListener('message', messageHandler);
+          resolve();
+        }
+      };
+      
+      worker.addEventListener('message', messageHandler);
+      worker.postMessage({ type: 'unloadModel' });
+      
+      // Timeout
+      setTimeout(() => {
+        worker.removeEventListener('message', messageHandler);
+        resolve();
+      }, 5000);
+    });
+  }
+  
+  /**
+   * Nettoie le pool de workers
+   */
+  static terminateWorkerPool(): void {
+    debugLogger.info('ProgressiveLoader', 'Arrêt du pool de workers');
+    
+    for (const worker of this.workerPool) {
+      worker.terminate();
+    }
+    
+    this.workerPool = [];
+    this.workers.clear();
+  }
   /**
    * Charge un modèle WebLLM avec sharding et chargement progressif
    */

@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://orion.ai/schemas/models.json",
+  "title": "ORION Model Registry Schema",
+  "description": "Schema for ORION's centralized model registry",
+  "type": "object",
+  "required": ["version", "models"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Version du schéma du registry"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Date de dernière mise à jour"
+    },
+    "models": {
+      "type": "object",
+      "description": "Modèles disponibles par agent",
+      "patternProperties": {
+        "^[a-z-]+$": {
+          "$ref": "#/definitions/ModelConfig"
+        }
+      }
+    },
+    "custom_models": {
+      "type": "object",
+      "description": "Modèles personnalisés ajoutés par l'utilisateur",
+      "patternProperties": {
+        "^[a-z-]+$": {
+          "$ref": "#/definitions/ModelConfig"
+        }
+      }
+    },
+    "model_groups": {
+      "type": "object",
+      "description": "Groupes de modèles pour différents cas d'usage",
+      "patternProperties": {
+        "^[a-z_]+$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "object",
+      "description": "Recommandations de modèles par scénario",
+      "patternProperties": {
+        "^[a-z_]+$": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "ModelConfig": {
+      "type": "object",
+      "required": ["id", "name", "type", "size_mb", "quality", "speed"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identifiant unique du modèle"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nom convivial du modèle"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["causal-lm", "vision-language", "speech-recognition", "embedding"],
+          "description": "Type de modèle"
+        },
+        "size_mb": {
+          "type": "number",
+          "description": "Taille du modèle en MB"
+        },
+        "quality": {
+          "type": "string",
+          "enum": ["basic", "high", "very-high", "ultra"],
+          "description": "Niveau de qualité"
+        },
+        "speed": {
+          "type": "string",
+          "enum": ["very-fast", "fast", "moderate", "slow"],
+          "description": "Vitesse d'inférence"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description du modèle"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Capacités du modèle"
+        },
+        "min_ram_gb": {
+          "type": "number",
+          "description": "RAM minimale requise en GB"
+        },
+        "min_gpu": {
+          "type": "string",
+          "description": "GPU minimal recommandé"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Langues supportées (codes ISO)"
+        },
+        "prompt_format": {
+          "type": ["object", "null"],
+          "properties": {
+            "system_prefix": {
+              "type": "string"
+            },
+            "user_prefix": {
+              "type": "string"
+            },
+            "assistant_prefix": {
+              "type": "string"
+            },
+            "eos_token": {
+              "type": "string"
+            }
+          },
+          "description": "Format de prompt spécifique au modèle"
+        },
+        "urls": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "string",
+              "format": "uri",
+              "description": "URL de base du modèle"
+            },
+            "shards": {
+              "type": ["array", "null"],
+              "items": {
+                "type": "string",
+                "format": "uri"
+              },
+              "description": "URLs des shards pour chargement progressif"
+            }
+          },
+          "required": ["base"]
+        },
+        "config": {
+          "type": "object",
+          "description": "Configuration par défaut du modèle",
+          "properties": {
+            "max_tokens": {
+              "type": "number"
+            },
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "top_p": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "sample_rate": {
+              "type": "number"
+            },
+            "language": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
