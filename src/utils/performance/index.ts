@@ -4,3 +4,4 @@
  */
 
 export * from './predictiveLoader';
+export * from './deviceProfiler';
