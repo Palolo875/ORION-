@@ -11,7 +11,7 @@ export interface UseOIEResult {
   isProcessing: boolean;
   error: string | null;
   ask: (query: string, options?: InferOptions) => Promise<AgentOutput>;
-  getStats: () => any;
+  getStats: () => unknown;
   shutdown: () => Promise<void>;
   availableAgents: string[];
 }
@@ -60,9 +60,10 @@ export function useOIE(config: UseOIEConfig = {}): UseOIEResult {
         
         console.log('[useOIE] ✅ Moteur OIE initialisé');
         
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Erreur d\'initialisation du moteur OIE';
         console.error('[useOIE] ❌ Erreur d\'initialisation:', err);
-        setError(err.message || 'Erreur d\'initialisation du moteur OIE');
+        setError(errorMessage);
         setIsReady(false);
       }
     };
@@ -96,8 +97,8 @@ export function useOIE(config: UseOIEConfig = {}): UseOIEResult {
       const response = await engineRef.current.infer(query, options);
       return response;
       
-    } catch (err: any) {
-      const errorMessage = err.message || 'Erreur lors du traitement de la requête';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors du traitement de la requête';
       console.error('[useOIE] Erreur:', errorMessage);
       setError(errorMessage);
       throw err;

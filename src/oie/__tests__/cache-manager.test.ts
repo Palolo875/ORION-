@@ -33,7 +33,7 @@ class MockAgent implements IAgent {
     this.state = 'unloaded';
   }
   
-  async process(input: any): Promise<any> {
+  async process(input: AgentInput): Promise<AgentOutput> {
     return {
       agentId: this.metadata.id,
       content: 'Mock response',

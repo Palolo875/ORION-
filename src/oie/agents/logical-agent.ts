@@ -9,7 +9,7 @@ import { WebWorkerMLCEngine } from '@mlc-ai/web-llm';
 import { LOGICAL_AGENT } from '@/config/agents';
 
 export class LogicalAgent extends BaseAgent {
-  private engine: any = null;
+  private engine: unknown = null;
   
   constructor() {
     super({

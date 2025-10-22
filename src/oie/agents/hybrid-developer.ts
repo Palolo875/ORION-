@@ -18,7 +18,7 @@ import { OPTIMIZATION_PRESETS } from '../types/optimization.types';
 import { ProgressiveLoader } from '../utils/progressive-loader';
 
 export class HybridDeveloperAgent extends BaseAgent {
-  private engine: any = null;
+  private engine: unknown = null;
   private optimizationConfig = OPTIMIZATION_PRESETS['hybrid-developer'];
   
   constructor() {
@@ -73,9 +73,10 @@ export class HybridDeveloperAgent extends BaseAgent {
       console.log(`[HybridDeveloper] Taille optimisée: ${this.optimizationConfig.optimizedSize} Mo`);
       console.log(`[HybridDeveloper] Économie vs modèles séparés: ${this.optimizationConfig.originalSize - this.optimizationConfig.optimizedSize} Mo (${((1 - this.optimizationConfig.optimizedSize / this.optimizationConfig.originalSize) * 100).toFixed(1)}%)`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[HybridDeveloper] Erreur de chargement:`, error);
-      throw new Error(`Impossible de charger le modèle hybride: ${error.message}`);
+      throw new Error(`Impossible de charger le modèle hybride: ${errMsg}`);
     }
   }
   

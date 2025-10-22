@@ -105,7 +105,7 @@ export class SimpleRouter {
   /**
    * Détecte si la requête contient des images
    */
-  detectImages(query: string, attachments?: any[]): boolean {
+  detectImages(query: string, attachments?: Array<{ type?: string }>): boolean {
     return !!(attachments && attachments.length > 0 && 
              attachments.some(a => a.type?.startsWith('image')));
   }
@@ -118,7 +118,7 @@ export class SimpleRouter {
     options?: {
       hasImages?: boolean;
       hasAudio?: boolean;
-      conversationHistory?: any[];
+      conversationHistory?: Array<{ role: string; content: string }>;
       preferredCapability?: string;
     }
   ): Promise<RoutingDecision> {

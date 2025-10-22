@@ -10,7 +10,7 @@ import { OPTIMIZATION_PRESETS } from '../types/optimization.types';
 import { ProgressiveLoader } from '../utils/progressive-loader';
 
 export class MultilingualAgent extends BaseAgent {
-  private engine: any = null;
+  private engine: unknown = null;
   private optimizationConfig = OPTIMIZATION_PRESETS['multilingual-agent'];
   
   constructor() {
@@ -54,9 +54,10 @@ export class MultilingualAgent extends BaseAgent {
       
       console.log(`[MultilingualAgent] Modèle prêt (TTFT: ${result.stats.timeToFirstToken?.toFixed(0)}ms)`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[MultilingualAgent] Erreur de chargement:`, error);
-      throw new Error(`Impossible de charger le modèle multilingue: ${error.message}`);
+      throw new Error(`Impossible de charger le modèle multilingue: ${errMsg}`);
     }
   }
   
