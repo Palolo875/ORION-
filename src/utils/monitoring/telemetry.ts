@@ -10,7 +10,7 @@ export interface TelemetryEvent {
   category: string;
   action: string;
   value?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -104,7 +104,7 @@ export class TelemetryManager {
   trackError(
     error: Error,
     context: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): void {
     if (!this.config.enabled || !this.config.includeErrors) {
       return;
@@ -169,7 +169,7 @@ export class TelemetryManager {
     category: string,
     action: string,
     value?: number,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): void {
     if (!this.config.enabled || !this.config.includeUsage) {
       return;
@@ -297,7 +297,7 @@ export class TelemetryManager {
     return message
       // Retirer les chemins de fichiers
       .replace(/[A-Z]:\\[^\s]+/g, '[PATH]')
-      .replace(/\/[\w\/]+/g, '[PATH]')
+      .replace(/\/[\w/]+/g, '[PATH]')
       // Retirer les URLs complètes
       .replace(/https?:\/\/[^\s]+/g, '[URL]')
       // Retirer les adresses email
@@ -333,10 +333,10 @@ export class TelemetryManager {
   /**
    * Nettoie les métadonnées pour retirer les données sensibles
    */
-  private sanitizeMetadata(metadata?: Record<string, any>): Record<string, any> {
+  private sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, unknown> {
     if (!metadata) return {};
 
-    const sanitized: Record<string, any> = {};
+    const sanitized: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(metadata)) {
       // Skip les clés potentiellement sensibles
@@ -381,7 +381,7 @@ export class TelemetryManager {
   /**
    * Obtient des informations système anonymisées
    */
-  private getSystemInfo(): Record<string, any> {
+  private getSystemInfo(): Record<string, unknown> {
     return {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
@@ -389,7 +389,7 @@ export class TelemetryManager {
       screenResolution: `${screen.width}x${screen.height}`,
       colorDepth: screen.colorDepth,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      memory: (navigator as any).deviceMemory || 'unknown',
+      memory: (navigator as { deviceMemory?: number }).deviceMemory || 'unknown',
       cores: navigator.hardwareConcurrency || 'unknown',
       online: navigator.onLine
     };

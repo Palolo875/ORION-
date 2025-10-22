@@ -209,19 +209,19 @@ export class DebugLogger {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
       language: navigator.language,
-      memory: (performance as any).memory ? {
-        usedJSHeapSize: ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2) + ' MB',
-        totalJSHeapSize: ((performance as any).memory.totalJSHeapSize / 1024 / 1024).toFixed(2) + ' MB',
-        jsHeapSizeLimit: ((performance as any).memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2) + ' MB'
+      memory: (performance as { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory ? {
+        usedJSHeapSize: (((performance as { memory: { usedJSHeapSize: number } }).memory.usedJSHeapSize) / 1024 / 1024).toFixed(2) + ' MB',
+        totalJSHeapSize: (((performance as { memory: { totalJSHeapSize: number } }).memory.totalJSHeapSize) / 1024 / 1024).toFixed(2) + ' MB',
+        jsHeapSizeLimit: (((performance as { memory: { jsHeapSizeLimit: number } }).memory.jsHeapSizeLimit) / 1024 / 1024).toFixed(2) + ' MB'
       } : 'Non disponible',
       viewport: {
         width: window.innerWidth,
         height: window.innerHeight
       },
-      connection: (navigator as any).connection ? {
-        effectiveType: (navigator as any).connection.effectiveType,
-        downlink: (navigator as any).connection.downlink + ' Mbps',
-        rtt: (navigator as any).connection.rtt + ' ms'
+      connection: (navigator as { connection?: { effectiveType: string; downlink: number; rtt: number } }).connection ? {
+        effectiveType: (navigator as { connection: { effectiveType: string; downlink: number; rtt: number } }).connection.effectiveType,
+        downlink: (navigator as { connection: { effectiveType: string; downlink: number; rtt: number } }).connection.downlink + ' Mbps',
+        rtt: (navigator as { connection: { effectiveType: string; downlink: number; rtt: number } }).connection.rtt + ' ms'
       } : 'Non disponible'
     };
     
@@ -231,7 +231,7 @@ export class DebugLogger {
   /**
    * Log les performances d'une opération
    */
-  logPerformance(component: string, operation: string, duration: number, details?: any): void {
+  logPerformance(component: string, operation: string, duration: number, details?: unknown): void {
     const message = `${operation} - ${duration.toFixed(2)}ms`;
     const data = {
       operation,
@@ -252,8 +252,8 @@ export class DebugLogger {
   logMemoryUsage(component: string): void {
     if (!this.verboseMode) return;
     
-    if ((performance as any).memory) {
-      const memory = (performance as any).memory;
+    if ((performance as { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory) {
+      const memory = (performance as { memory: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
       const used = (memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
       const total = (memory.totalJSHeapSize / 1024 / 1024).toFixed(2);
       const limit = (memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2);
@@ -269,11 +269,11 @@ export const debugLogger = DebugLogger.getInstance();
 // Helper functions pour faciliter l'utilisation
 export const setVerboseMode = (enabled: boolean) => debugLogger.setVerbose(enabled);
 export const isVerboseMode = () => debugLogger.isVerbose();
-export const logDebug = (component: string, message: string, data?: any) => 
+export const logDebug = (component: string, message: string, data?: unknown) => 
   debugLogger.debug(component, message, data);
-export const logInfo = (component: string, message: string, data?: any) => 
+export const logInfo = (component: string, message: string, data?: unknown) => 
   debugLogger.info(component, message, data);
-export const logWarn = (component: string, message: string, data?: any) => 
+export const logWarn = (component: string, message: string, data?: unknown) => 
   debugLogger.warn(component, message, data);
-export const logError = (component: string, message: string, data?: any) => 
+export const logError = (component: string, message: string, data?: unknown) => 
   debugLogger.error(component, message, data);

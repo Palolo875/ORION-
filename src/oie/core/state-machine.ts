@@ -19,7 +19,7 @@ export interface OIEContext {
   routingTime?: number;
   loadingTime?: number;
   inferenceTime?: number;
-  options?: any;
+  options?: unknown;
   attempts?: number;
 }
 
@@ -27,7 +27,7 @@ export interface OIEContext {
  * Événements de la machine à états
  */
 export type OIEEvent =
-  | { type: 'START_INFERENCE'; query: string; options?: any }
+  | { type: 'START_INFERENCE'; query: string; options?: unknown }
   | { type: 'ROUTING_COMPLETE'; agentId: string; confidence: number }
   | { type: 'ROUTING_FAILED'; error: Error }
   | { type: 'AGENT_LOADED'; agentId: string }

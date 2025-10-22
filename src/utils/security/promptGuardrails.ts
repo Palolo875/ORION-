@@ -381,7 +381,7 @@ export class PromptGuardrails {
     }
 
     // Si on a des patterns personnalisés, on les applique en plus
-    let result = guardPrompt(prompt, {
+    const result = guardPrompt(prompt, {
       strictMode: this.config.strictMode,
       logOnly: this.config.logOnly
     });

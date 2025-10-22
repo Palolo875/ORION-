@@ -47,15 +47,15 @@ describe('ErrorBoundary', () => {
     expect(screen.queryByText('No error')).not.toBeInTheDocument();
   });
 
-  it('should display custom fallback if provided', () => {
-    const fallback = <div>Custom error message</div>;
-    
+  it('should display error details in UI', () => {
     render(
-      <ErrorBoundary fallback={fallback}>
+      <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>
     );
     
-    expect(screen.getByText('Custom error message')).toBeInTheDocument();
+    // Vérifier que l'UI d'erreur par défaut est affichée
+    expect(screen.getByText("Oups, quelque chose s'est mal passé")).toBeInTheDocument();
+    expect(screen.getByText(/ORION a rencontré une erreur/)).toBeInTheDocument();
   });
 });

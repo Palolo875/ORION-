@@ -91,6 +91,7 @@ async function detectWebGPU(): Promise<{ supported: boolean; message: string }> 
     // Obtenir les informations du GPU
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const features = Array.from((adapter as any).features || []);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const limits = (adapter as any).limits;
     
     console.log('[WebGPU] Adaptateur trouvé:', {

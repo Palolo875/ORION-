@@ -47,13 +47,14 @@ export class CacheManager {
         this.loadingPromises.delete(agentId);
         throw error;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       const cacheError = new Error(
-        `Échec de récupération de l'agent ${agentId}: ${error.message || 'Erreur inconnue'}`
-      );
-      (cacheError as any).agentId = agentId;
-      (cacheError as any).phase = 'cache_retrieval';
-      (cacheError as any).originalError = error;
+        `Échec de récupération de l'agent ${agentId}: ${errorMessage}`
+      ) as Error & { agentId: string; phase: string; originalError: unknown };
+      cacheError.agentId = agentId;
+      cacheError.phase = 'cache_retrieval';
+      cacheError.originalError = error;
       
       console.error(`[CacheManager] ❌ Erreur:`, cacheError);
       throw cacheError;
@@ -70,13 +71,14 @@ export class CacheManager {
       await this.cache.set(agent);
       console.log(`[CacheManager] ✅ Agent ${agentId} chargé et mis en cache`);
       return agent;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       const loadError = new Error(
-        `Échec du chargement de l'agent ${agentId}: ${error.message || 'Erreur inconnue'}`
-      );
-      (loadError as any).agentId = agentId;
-      (loadError as any).phase = 'agent_loading';
-      (loadError as any).originalError = error;
+        `Échec du chargement de l'agent ${agentId}: ${errorMessage}`
+      ) as Error & { agentId: string; phase: string; originalError: unknown };
+      loadError.agentId = agentId;
+      loadError.phase = 'agent_loading';
+      loadError.originalError = error;
       
       console.error(`[CacheManager] ❌ Erreur de chargement:`, loadError);
       throw loadError;
@@ -89,7 +91,7 @@ export class CacheManager {
     try {
       await this.cache.clear();
       console.log(`[CacheManager] ✅ Tous les agents déchargés`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[CacheManager] ⚠️ Erreur lors du déchargement complet:`, error);
       // Ne pas bloquer sur les erreurs de déchargement
     }
