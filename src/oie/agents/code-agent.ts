@@ -10,7 +10,7 @@ import { OPTIMIZATION_PRESETS } from '../types/optimization.types';
 import { ProgressiveLoader } from '../utils/progressive-loader';
 
 export class CodeAgent extends BaseAgent {
-  private engine: any = null;
+  private engine: unknown = null;
   private optimizationConfig = OPTIMIZATION_PRESETS['code-agent'];
   
   constructor() {
@@ -57,9 +57,10 @@ export class CodeAgent extends BaseAgent {
       console.log(`[CodeAgent] ✅ Modèle prêt (TTFT: ${result.stats.timeToFirstToken?.toFixed(0)}ms)`);
       console.log(`[CodeAgent] Taille optimisée: ${this.optimizationConfig.optimizedSize} Mo (économie: ${this.optimizationConfig.originalSize - this.optimizationConfig.optimizedSize} Mo)`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[CodeAgent] Erreur de chargement:`, error);
-      throw new Error(`Impossible de charger le modèle de code: ${error.message}`);
+      throw new Error(`Impossible de charger le modèle de code: ${errMsg}`);
     }
   }
   

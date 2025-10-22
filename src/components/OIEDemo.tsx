@@ -12,9 +12,11 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Send, CheckCircle2, XCircle, Cpu } from 'lucide-react';
 
+import type { AgentOutput } from '@/oie';
+
 export function OIEDemo() {
   const [query, setQuery] = useState('');
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<AgentOutput | null>(null);
   
   const { isReady, isProcessing, ask, error, getStats, availableAgents } = useOIE({
     maxMemoryMB: 8000,
@@ -179,7 +181,7 @@ export function OIEDemo() {
                 {stats.agents && stats.agents.length > 0 && (
                   <div className="space-y-2 mt-4">
                     <div className="text-xs text-muted-foreground">Agents en mémoire</div>
-                    {stats.agents.map((agent: any) => (
+                    {stats.agents.map((agent: { id: string; memoryMB: number; accessCount: number }) => (
                       <div key={agent.id} className="flex items-center justify-between text-xs">
                         <span className="font-medium">{agent.id}</span>
                         <div className="flex gap-2 text-muted-foreground">

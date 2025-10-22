@@ -45,9 +45,10 @@ export class SpeechToTextAgent extends BaseAgent {
       );
       
       console.log(`[SpeechToTextAgent] Modèle chargé avec succès`);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[SpeechToTextAgent] Erreur de chargement:`, error);
-      throw new Error(`Échec du chargement de Whisper: ${error.message}`);
+      throw new Error(`Échec du chargement de Whisper: ${errMsg}`);
     }
   }
   
@@ -93,9 +94,10 @@ export class SpeechToTextAgent extends BaseAgent {
         processingTime: 0 // Calculé par BaseAgent
       };
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[SpeechToTextAgent] Erreur de transcription:`, error);
-      throw new Error(`Échec de la transcription: ${error.message}`);
+      throw new Error(`Échec de la transcription: ${errMsg}`);
     }
   }
   

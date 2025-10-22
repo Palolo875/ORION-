@@ -15,6 +15,8 @@ import { circuitBreakerManager } from '../utils/resilience/circuitBreaker';
 import { requestQueue } from '../utils/resilience/requestQueue';
 import { predictiveLoader } from '../utils/performance/predictiveLoader';
 import { telemetry } from '../utils/monitoring/telemetry';
+import type { CircuitBreakerStats } from '../utils/resilience/circuitBreaker';
+import type { QueueStats } from '../utils/resilience/requestQueue';
 
 interface SecuritySettingsProps {
   onClose?: () => void;
@@ -25,8 +27,8 @@ export function SecuritySettings({ onClose }: SecuritySettingsProps) {
   const [strictMode, setStrictMode] = useState(true);
   const [telemetryEnabled, setTelemetryEnabled] = useState(false);
   const [predictiveLoadingEnabled, setPredictiveLoadingEnabled] = useState(true);
-  const [circuitBreakerStats, setCircuitBreakerStats] = useState<any>(null);
-  const [queueStats, setQueueStats] = useState<any>(null);
+  const [circuitBreakerStats, setCircuitBreakerStats] = useState<{ healthy: number; degraded: number; down: number; total: number } | null>(null);
+  const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
 
   // Charger les préférences au montage
   useEffect(() => {

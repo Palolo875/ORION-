@@ -5,7 +5,7 @@
 
 import { logger } from '../logger';
 
-export interface QueuedRequest<T = any> {
+export interface QueuedRequest<T = unknown> {
   id: string;
   execute: () => Promise<T>;
   priority: number;
@@ -13,7 +13,7 @@ export interface QueuedRequest<T = any> {
   resolve: (value: T) => void;
   reject: (error: Error) => void;
   abortController: AbortController;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface QueueConfig {
@@ -81,7 +81,7 @@ export class RequestQueue {
     fn: (signal: AbortSignal) => Promise<T>,
     options?: {
       priority?: number;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<T> {
     const id = this.generateId();
@@ -311,7 +311,7 @@ export class RequestQueue {
     id: string;
     priority: number;
     waitTime: number;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }> {
     const now = Date.now();
     

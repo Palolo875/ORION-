@@ -10,7 +10,7 @@ import { OPTIMIZATION_PRESETS } from '../types/optimization.types';
 import { ProgressiveLoader } from '../utils/progressive-loader';
 
 export class VisionAgent extends BaseAgent {
-  private engine: any = null;
+  private engine: unknown = null;
   private optimizationConfig = OPTIMIZATION_PRESETS['vision-agent'];
   
   constructor() {
@@ -68,9 +68,10 @@ export class VisionAgent extends BaseAgent {
       console.log(`[VisionAgent] Taille optimisée: ${this.optimizationConfig.optimizedSize} Mo (économie: ${this.optimizationConfig.originalSize - this.optimizationConfig.optimizedSize} Mo)`);
       console.log(`[VisionAgent] ⚠️ Quantification prudente pour préserver la qualité des analyses visuelles`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[VisionAgent] Erreur de chargement:`, error);
-      throw new Error(`Impossible de charger le modèle de vision: ${error.message}`);
+      throw new Error(`Impossible de charger le modèle de vision: ${errMsg}`);
     }
   }
   

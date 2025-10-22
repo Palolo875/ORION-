@@ -27,10 +27,15 @@ export interface AgentMetadata {
 
 export type AgentState = 'unloaded' | 'loading' | 'ready' | 'busy' | 'error';
 
+export interface ConversationMessage {
+  role: string;
+  content: string;
+}
+
 export interface AgentInput {
   content: string;
   context?: {
-    conversationHistory?: Array<{role: string; content: string}>;
+    conversationHistory?: ConversationMessage[];
     ambientContext?: string;
   };
   images?: Array<{ content: string; type: string }>; // Support multimodal

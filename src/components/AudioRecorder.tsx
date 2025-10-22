@@ -77,9 +77,10 @@ export function AudioRecorder({
           // Envoyer les données audio
           onAudioRecorded(audioData, 16000);
           
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error instanceof Error ? error : new Error(String(error));
           console.error('[AudioRecorder] Erreur de traitement:', error);
-          onError?.(error);
+          onError?.(err);
         } finally {
           setIsProcessing(false);
           cleanup();
@@ -92,9 +93,10 @@ export function AudioRecorder({
       
       console.log('[AudioRecorder] 🎤 Enregistrement démarré');
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error('[AudioRecorder] Erreur d\'accès au micro:', error);
-      onError?.(new Error(`Impossible d'accéder au microphone: ${error.message}`));
+      onError?.(new Error(`Impossible d'accéder au microphone: ${errMsg}`));
       setIsRecording(false);
     }
   }, [onAudioRecorded, onError]);
@@ -159,7 +161,7 @@ export function AudioRecorder({
  */
 async function convertBlobToFloat32Array(blob: Blob): Promise<Float32Array> {
   // Créer un AudioContext
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
+  const audioContext = new (window.AudioContext || (window as Window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({
     sampleRate: 16000
   });
   

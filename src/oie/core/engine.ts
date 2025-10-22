@@ -13,7 +13,7 @@ import { LogicalAgent } from '../agents/logical-agent';
 import { SpeechToTextAgent } from '../agents/speech-to-text-agent';
 import { CreativeAgent } from '../agents/creative-agent';
 import { MultilingualAgent } from '../agents/multilingual-agent';
-import { IAgent, AgentInput, AgentOutput } from '../types/agent.types';
+import { IAgent, AgentInput, AgentOutput, type ConversationMessage } from '../types/agent.types';
 import { debugLogger } from '../utils/debug-logger';
 import { promptGuardrails } from '../../utils/security/promptGuardrails';
 import { validateUserInput } from '../../utils/security/inputValidator';
@@ -43,7 +43,7 @@ export interface OIEConfig {
 }
 
 export interface InferOptions {
-  conversationHistory?: any[];
+  conversationHistory?: ConversationMessage[];
   ambientContext?: string;
   forceAgent?: string;
   images?: Array<{ content: string; type: string }>;
@@ -325,8 +325,8 @@ export class OrionInferenceEngine {
       
       // Si c'est une requête audio, ajouter les données audio
       if (options?.audioData) {
-        (input as any).audioData = options.audioData;
-        (input as any).sampleRate = options.sampleRate;
+        (input as AgentInput & { audioData?: Float32Array | ArrayBuffer; sampleRate?: number }).audioData = options.audioData;
+        (input as AgentInput & { audioData?: Float32Array | ArrayBuffer; sampleRate?: number }).sampleRate = options.sampleRate;
       }
       
       // 4. Traiter la requête avec circuit-breaker
@@ -397,20 +397,22 @@ export class OrionInferenceEngine {
       
       return output;
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       const totalTime = performance.now() - startTime;
       console.error(`[OIE] ❌ Erreur après ${totalTime.toFixed(0)}ms:`, error);
       
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      
       // Tracker l'erreur dans la télémétrie
       if (this.config.enableTelemetry) {
-        telemetry.trackError(error, 'OIE.infer', {
+        telemetry.trackError(errorObj, 'OIE.infer', {
           totalTime,
           hasImages: !!(options?.images && options.images.length > 0)
         });
       }
       
       // Enrichir l'erreur avec du contexte
-      const enrichedError = this.enrichError(error, {
+      const enrichedError = this.enrichError(errorObj, {
         query: userQuery.substring(0, 100),
         agentId: options?.forceAgent,
         hasImages: !!(options?.images && options.images.length > 0),
@@ -430,13 +432,14 @@ export class OrionInferenceEngine {
             images: undefined // Retirer les images pour le fallback
           });
         } catch (fallbackError: any) {
-          console.error(`[OIE] ❌ Échec du fallback:`, fallbackError);
-          this.reportError(fallbackError, 'fallback');
+          const fallbackErrObj = fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError));
+          console.error(`[OIE] ❌ Échec du fallback:`, fallbackErrObj);
+          this.reportError(fallbackErrObj, 'fallback');
           
           // Retourner une erreur structurée à l'utilisateur
           throw new Error(
             `Désolé, une erreur est survenue lors du traitement de votre requête. ` +
-            `Détails: ${error.message || 'Erreur inconnue'}`
+            `Détails: ${errorObj.message || 'Erreur inconnue'}`
           );
         }
       }
@@ -476,12 +479,12 @@ export class OrionInferenceEngine {
   /**
    * Enrichit une erreur avec du contexte
    */
-  private enrichError(error: Error, context: Record<string, any>): Error {
+  private enrichError(error: Error, context: Record<string, unknown>): Error {
     const enriched = new Error(error.message);
     enriched.name = error.name;
     enriched.stack = error.stack;
-    (enriched as any).context = context;
-    (enriched as any).originalError = error;
+    (enriched as Error & { context?: Record<string, unknown>; originalError?: Error }).context = context;
+    (enriched as Error & { context?: Record<string, unknown>; originalError?: Error }).originalError = error;
     return enriched;
   }
   
@@ -501,7 +504,7 @@ export class OrionInferenceEngine {
   /**
    * Log conditionnel selon le mode verbose
    */
-  private log(message: string, ...args: any[]): void {
+  private log(message: string, ...args: unknown[]): void {
     if (this.config.verboseLogging) {
       console.log(message, ...args);
     } else {

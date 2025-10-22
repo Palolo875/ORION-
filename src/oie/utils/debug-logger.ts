@@ -10,7 +10,7 @@ export interface LogEntry {
   level: LogLevel;
   component: string;
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 export class DebugLogger {
@@ -47,7 +47,7 @@ export class DebugLogger {
   /**
    * Log un message de débogage (uniquement en mode verbose)
    */
-  debug(component: string, message: string, data?: any): void {
+  debug(component: string, message: string, data?: unknown): void {
     if (!this.verboseMode) return;
     this.log('debug', component, message, data);
   }
@@ -55,28 +55,28 @@ export class DebugLogger {
   /**
    * Log un message d'information
    */
-  info(component: string, message: string, data?: any): void {
+  info(component: string, message: string, data?: unknown): void {
     this.log('info', component, message, data);
   }
   
   /**
    * Log un avertissement
    */
-  warn(component: string, message: string, data?: any): void {
+  warn(component: string, message: string, data?: unknown): void {
     this.log('warn', component, message, data);
   }
   
   /**
    * Log une erreur
    */
-  error(component: string, message: string, data?: any): void {
+  error(component: string, message: string, data?: unknown): void {
     this.log('error', component, message, data);
   }
   
   /**
    * Méthode interne de logging
    */
-  private log(level: LogLevel, component: string, message: string, data?: any): void {
+  private log(level: LogLevel, component: string, message: string, data?: unknown): void {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,

@@ -10,7 +10,7 @@ import { OPTIMIZATION_PRESETS } from '../types/optimization.types';
 import { ProgressiveLoader } from '../utils/progressive-loader';
 
 export class ConversationAgent extends BaseAgent {
-  private engine: any = null;
+  private engine: unknown = null;
   private optimizationConfig = OPTIMIZATION_PRESETS['conversation-agent'];
   
   constructor() {
@@ -57,9 +57,10 @@ export class ConversationAgent extends BaseAgent {
       console.log(`[ConversationAgent] ✅ Modèle prêt (TTFT: ${result.stats.timeToFirstToken?.toFixed(0)}ms)`);
       console.log(`[ConversationAgent] Taille optimisée: ${this.optimizationConfig.optimizedSize} Mo (économie: ${this.optimizationConfig.originalSize - this.optimizationConfig.optimizedSize} Mo)`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[ConversationAgent] Erreur de chargement:`, error);
-      throw new Error(`Impossible de charger le modèle de conversation: ${error.message}`);
+      throw new Error(`Impossible de charger le modèle de conversation: ${errMsg}`);
     }
   }
   

@@ -12,7 +12,7 @@ import { AgentInput, AgentOutput } from '../types/agent.types';
 import { OPTIMIZATION_PRESETS } from '../types/optimization.types';
 
 export class CreativeAgent extends BaseAgent {
-  private engine: any = null;
+  private engine: unknown = null;
   private optimizationConfig = OPTIMIZATION_PRESETS['image-generation-agent'];
   
   constructor() {
@@ -92,9 +92,10 @@ export class CreativeAgent extends BaseAgent {
         console.log(`[CreativeAgent] ⚠️ Modèle en mode simulation - structure prête pour intégration`);
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[CreativeAgent] Erreur de chargement:`, error);
-      throw new Error(`Impossible de charger le modèle de génération d'images: ${error.message}`);
+      throw new Error(`Impossible de charger le modèle de génération d'images: ${errMsg}`);
     }
   }
   
@@ -162,9 +163,10 @@ export class CreativeAgent extends BaseAgent {
           }
         }
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(
-        `Erreur lors de la génération d'image: ${error.message}\n` +
+        `Erreur lors de la génération d'image: ${errMsg}\n` +
         `Le Creative Agent est structurellement prêt mais nécessite l'intégration de SDXL WebGPU.`
       );
     }
