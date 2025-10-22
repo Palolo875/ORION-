@@ -5,7 +5,7 @@
  */
 
 import { logger as productionLogger, LogLevel } from './logger';
-import { debugLogger } from '../oie/utils/debug-logger';
+import { debugLogger, type LogData } from '../oie/utils/debug-logger';
 
 /**
  * Configuration du logger unifié
@@ -60,7 +60,7 @@ class UnifiedLogger {
   /**
    * Log de debug (développement uniquement)
    */
-  debug(component: string, message: string, data?: any): void {
+  debug(component: string, message: string, data?: LogData): void {
     if (this.config.enableDebugLogger) {
       debugLogger.debug(component, message, data);
     }
@@ -73,7 +73,7 @@ class UnifiedLogger {
   /**
    * Log d'information
    */
-  info(component: string, message: string, data?: any): void {
+  info(component: string, message: string, data?: LogData): void {
     if (this.config.enableDebugLogger) {
       debugLogger.info(component, message, data);
     }
@@ -86,7 +86,7 @@ class UnifiedLogger {
   /**
    * Log d'avertissement
    */
-  warn(component: string, message: string, data?: any): void {
+  warn(component: string, message: string, data?: LogData): void {
     if (this.config.enableDebugLogger) {
       debugLogger.warn(component, message, data);
     }
@@ -126,7 +126,7 @@ class UnifiedLogger {
   /**
    * Log des performances
    */
-  performance(component: string, operation: string, duration: number, details?: any): void {
+  performance(component: string, operation: string, duration: number, details?: Record<string, unknown>): void {
     if (this.config.enableDebugLogger) {
       debugLogger.logPerformance(component, operation, duration, details);
     }
@@ -153,12 +153,12 @@ class UnifiedLogger {
    */
   createContextLogger(component: string) {
     return {
-      debug: (message: string, data?: any) => this.debug(component, message, data),
-      info: (message: string, data?: any) => this.info(component, message, data),
-      warn: (message: string, data?: any) => this.warn(component, message, data),
+      debug: (message: string, data?: LogData) => this.debug(component, message, data),
+      info: (message: string, data?: LogData) => this.info(component, message, data),
+      warn: (message: string, data?: LogData) => this.warn(component, message, data),
       error: (message: string, error?: Error | unknown) => this.error(component, message, error),
       critical: (message: string, error?: Error | unknown) => this.critical(component, message, error),
-      performance: (operation: string, duration: number, details?: any) => 
+      performance: (operation: string, duration: number, details?: Record<string, unknown>) => 
         this.performance(component, operation, duration, details),
       memory: () => this.memory(component),
     };
@@ -177,8 +177,22 @@ class UnifiedLogger {
   /**
    * Obtient les statistiques de logging
    */
-  getStats() {
-    const stats: any = {};
+  getStats(): {
+    debug?: {
+      total: number;
+      errors: number;
+      warnings: number;
+    };
+    production?: ReturnType<typeof productionLogger.getStats>;
+  } {
+    const stats: {
+      debug?: {
+        total: number;
+        errors: number;
+        warnings: number;
+      };
+      production?: ReturnType<typeof productionLogger.getStats>;
+    } = {};
     
     if (this.config.enableDebugLogger) {
       stats.debug = {

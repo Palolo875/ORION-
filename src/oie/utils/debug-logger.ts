@@ -3,14 +3,30 @@
  * Fournit un mode verbose avec des logs structurés et détaillés
  */
 
+// Types pour les APIs non-standard du navigateur
+interface PerformanceMemory {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+  jsHeapSizeLimit: number;
+}
+
+interface NetworkInformation {
+  effectiveType: string;
+  downlink: number;
+  rtt: number;
+}
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+// Type pour les données de log - peut être n'importe quoi de sérialisable
+export type LogData = Record<string, unknown> | string | number | boolean | null | undefined;
 
 export interface LogEntry {
   timestamp: string;
   level: LogLevel;
   component: string;
   message: string;
-  data?: any;
+  data?: LogData;
 }
 
 export class DebugLogger {
@@ -47,7 +63,7 @@ export class DebugLogger {
   /**
    * Log un message de débogage (uniquement en mode verbose)
    */
-  debug(component: string, message: string, data?: any): void {
+  debug(component: string, message: string, data?: LogData): void {
     if (!this.verboseMode) return;
     this.log('debug', component, message, data);
   }
@@ -55,28 +71,28 @@ export class DebugLogger {
   /**
    * Log un message d'information
    */
-  info(component: string, message: string, data?: any): void {
+  info(component: string, message: string, data?: LogData): void {
     this.log('info', component, message, data);
   }
   
   /**
    * Log un avertissement
    */
-  warn(component: string, message: string, data?: any): void {
+  warn(component: string, message: string, data?: LogData): void {
     this.log('warn', component, message, data);
   }
   
   /**
    * Log une erreur
    */
-  error(component: string, message: string, data?: any): void {
+  error(component: string, message: string, data?: LogData): void {
     this.log('error', component, message, data);
   }
   
   /**
    * Méthode interne de logging
    */
-  private log(level: LogLevel, component: string, message: string, data?: any): void {
+  private log(level: LogLevel, component: string, message: string, data?: LogData): void {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
@@ -209,29 +225,53 @@ export class DebugLogger {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
       language: navigator.language,
-      memory: (performance as any).memory ? {
-        usedJSHeapSize: ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2) + ' MB',
-        totalJSHeapSize: ((performance as any).memory.totalJSHeapSize / 1024 / 1024).toFixed(2) + ' MB',
-        jsHeapSizeLimit: ((performance as any).memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2) + ' MB'
-      } : 'Non disponible',
+      memory: this.getMemoryInfo(),
       viewport: {
         width: window.innerWidth,
         height: window.innerHeight
       },
-      connection: (navigator as any).connection ? {
-        effectiveType: (navigator as any).connection.effectiveType,
-        downlink: (navigator as any).connection.downlink + ' Mbps',
-        rtt: (navigator as any).connection.rtt + ' ms'
-      } : 'Non disponible'
+      connection: this.getConnectionInfo()
     };
     
     this.debug('System', 'Informations système', info);
   }
   
   /**
+   * Récupère les informations mémoire si disponibles
+   */
+  private getMemoryInfo(): string | Record<string, string> {
+    const perfWithMemory = performance as typeof performance & { memory?: PerformanceMemory };
+    if (perfWithMemory.memory) {
+      const memory = perfWithMemory.memory;
+      return {
+        usedJSHeapSize: (memory.usedJSHeapSize / 1024 / 1024).toFixed(2) + ' MB',
+        totalJSHeapSize: (memory.totalJSHeapSize / 1024 / 1024).toFixed(2) + ' MB',
+        jsHeapSizeLimit: (memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2) + ' MB'
+      };
+    }
+    return 'Non disponible';
+  }
+  
+  /**
+   * Récupère les informations de connexion si disponibles
+   */
+  private getConnectionInfo(): string | Record<string, string> {
+    const navWithConnection = navigator as typeof navigator & { connection?: NetworkInformation };
+    if (navWithConnection.connection) {
+      const conn = navWithConnection.connection;
+      return {
+        effectiveType: conn.effectiveType,
+        downlink: conn.downlink + ' Mbps',
+        rtt: conn.rtt + ' ms'
+      };
+    }
+    return 'Non disponible';
+  }
+  
+  /**
    * Log les performances d'une opération
    */
-  logPerformance(component: string, operation: string, duration: number, details?: any): void {
+  logPerformance(component: string, operation: string, duration: number, details?: Record<string, unknown>): void {
     const message = `${operation} - ${duration.toFixed(2)}ms`;
     const data = {
       operation,
@@ -252,8 +292,9 @@ export class DebugLogger {
   logMemoryUsage(component: string): void {
     if (!this.verboseMode) return;
     
-    if ((performance as any).memory) {
-      const memory = (performance as any).memory;
+    const perfWithMemory = performance as typeof performance & { memory?: PerformanceMemory };
+    if (perfWithMemory.memory) {
+      const memory = perfWithMemory.memory;
       const used = (memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
       const total = (memory.totalJSHeapSize / 1024 / 1024).toFixed(2);
       const limit = (memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2);
@@ -269,11 +310,11 @@ export const debugLogger = DebugLogger.getInstance();
 // Helper functions pour faciliter l'utilisation
 export const setVerboseMode = (enabled: boolean) => debugLogger.setVerbose(enabled);
 export const isVerboseMode = () => debugLogger.isVerbose();
-export const logDebug = (component: string, message: string, data?: any) => 
+export const logDebug = (component: string, message: string, data?: LogData) => 
   debugLogger.debug(component, message, data);
-export const logInfo = (component: string, message: string, data?: any) => 
+export const logInfo = (component: string, message: string, data?: LogData) => 
   debugLogger.info(component, message, data);
-export const logWarn = (component: string, message: string, data?: any) => 
+export const logWarn = (component: string, message: string, data?: LogData) => 
   debugLogger.warn(component, message, data);
-export const logError = (component: string, message: string, data?: any) => 
+export const logError = (component: string, message: string, data?: LogData) => 
   debugLogger.error(component, message, data);
