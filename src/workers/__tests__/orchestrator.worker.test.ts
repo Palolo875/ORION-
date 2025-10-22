@@ -25,7 +25,7 @@ describe('Orchestrator Worker (avec mocks)', () => {
   });
 
   describe('Initialization', () => {
-    it('devrait initialiser correctement tous les workers', (done) => {
+    it('devrait initialiser correctement tous les workers', async () => {
       orchestratorWorker.postMessage({
         type: 'init',
         payload: {},
@@ -34,10 +34,8 @@ describe('Orchestrator Worker (avec mocks)', () => {
 
       // Le worker devrait être prêt (pas de message de retour pour init dans l'orchestrator actuel)
       // Mais on vérifie qu'il ne crash pas
-      setTimeout(() => {
-        expect(orchestratorWorker).toBeDefined();
-        done();
-      }, 500);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(orchestratorWorker).toBeDefined();
     });
   });
 

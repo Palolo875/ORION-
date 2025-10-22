@@ -42,7 +42,8 @@ describe('SafeMessage', () => {
   });
 
   it('should handle null or undefined content gracefully', () => {
-    // @ts-expect-error Testing edge case
+    // Test intentionnel d'un cas limite : null au lieu d'une string
+    // @ts-expect-error - Test volontaire avec une valeur invalide
     const { container } = render(<SafeMessage content={null} />);
     
     expect(container).toBeInTheDocument();

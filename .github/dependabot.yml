@@ -1,0 +1,80 @@
+# Configuration Dependabot pour ORION
+# Gère automatiquement les mises à jour de dépendances
+
+version: 2
+updates:
+  # Mises à jour des dépendances npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "orion-team"
+    assignees:
+      - "orion-team"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "automated"
+    # Regrouper les mises à jour mineures et patch
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignorer certaines dépendances si nécessaire
+    ignore:
+      # Exemple: ignorer les mises à jour majeures pour des packages critiques
+      # - dependency-name: "@mlc-ai/web-llm"
+      #   update-types: ["version-update:semver-major"]
+    # Autoriser les mises à jour uniquement pour les versions stables
+    versioning-strategy: increase
+    # Configuration de sécurité
+    insecure-external-code-execution: deny
+
+  # Mises à jour des GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "ci/cd"
+      - "dependencies"
+      - "automated"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Mises à jour Dockerfile (si présent dans le futur)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "docker"
+    labels:
+      - "docker"
+      - "dependencies"
+      - "automated"

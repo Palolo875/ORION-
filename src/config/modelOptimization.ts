@@ -151,10 +151,8 @@ export async function detectMemoryPressure(): Promise<{
   usedMemory: number;
   totalMemory: number;
 }> {
-  // Utiliser l'API Performance Memory si disponible
-  // @ts-expect-error - memory API non standard mais disponible dans Chrome
+  // Utiliser l'API Performance Memory si disponible (définie dans global.d.ts)
   if (performance.memory) {
-    // @ts-expect-error - memory API
     const { usedJSHeapSize, totalJSHeapSize, jsHeapSizeLimit } = performance.memory;
     
     const usageRatio = usedJSHeapSize / jsHeapSizeLimit;

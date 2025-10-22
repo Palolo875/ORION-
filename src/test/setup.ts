@@ -24,7 +24,8 @@ if (USE_REAL_MODELS) {
   console.log('🎭 Tests avec MOCKS (rapide)');
   
   // Mock des Workers avec nos classes mockées
-  // @ts-expect-error - Mock global du constructeur Worker
+  // Note: Vitest ne type pas correctement les mocks globaux
+  // @ts-expect-error - Remplacement global du constructeur Worker pour les tests
   global.Worker = vi.fn((url) => {
     const urlString = typeof url === 'string' ? url : url.toString();
     
