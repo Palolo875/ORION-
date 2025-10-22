@@ -157,6 +157,37 @@ vi.mock('../agents/speech-to-text-agent', () => ({
   }
 }));
 
+vi.mock('../agents/creative-agent', () => ({
+  CreativeAgent: class MockCreativeAgent {
+    metadata = {
+      id: 'creative-agent',
+      name: 'Agent Créatif (Mock)',
+      capabilities: ['image_generation'],
+      modelSize: 4096,
+      priority: 11
+    };
+    state = 'unloaded';
+    
+    async load() {
+      this.state = 'ready';
+    }
+    
+    async unload() {
+      this.state = 'unloaded';
+    }
+    
+    async process(input: any) {
+      return {
+        agentId: 'creative-agent',
+        content: 'Image générée (mock)',
+        confidence: 85,
+        processingTime: 300,
+        imageData: 'data:image/png;base64,mock-image-data'
+      };
+    }
+  }
+}));
+
 describe('OrionInferenceEngine', () => {
   let engine: OrionInferenceEngine;
   
@@ -167,6 +198,7 @@ describe('OrionInferenceEngine', () => {
       enableVision: true,
       enableCode: true,
       enableSpeech: true,
+      useNeuralRouter: false, // Utiliser SimpleRouter pour les tests (plus rapide)
       verboseLogging: false
     });
     
@@ -192,7 +224,9 @@ describe('OrionInferenceEngine', () => {
     });
     
     it('should throw error when inferring before initialization', async () => {
-      const uninitializedEngine = new OrionInferenceEngine();
+      const uninitializedEngine = new OrionInferenceEngine({
+        useNeuralRouter: false // Utiliser SimpleRouter pour les tests
+      });
       
       await expect(
         uninitializedEngine.infer('test')
@@ -263,6 +297,7 @@ describe('OrionInferenceEngine', () => {
       const errors: Array<{ error: Error; context: string }> = [];
       
       const engineWithReporting = new OrionInferenceEngine({
+        useNeuralRouter: false, // Utiliser SimpleRouter pour les tests
         errorReporting: (error, context) => {
           errors.push({ error, context });
         }

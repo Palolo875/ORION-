@@ -58,28 +58,39 @@ export class SimpleRouter {
     ];
     
     // Chercher la meilleure correspondance
-    let bestMatch: { rule: typeof rules[0]; score: number } | null = null;
+    let bestMatch: { rule: typeof rules[0]; score: number; matches: string[] } | null = null;
     
     for (const rule of rules) {
       const matches = rule.keywords.filter(kw => query.includes(kw));
       
       if (matches.length > 0) {
-        const score = (matches.length / rule.keywords.length) * rule.priority;
+        // Score basé sur la priorité et le nombre de matches
+        // Plus de matches = score plus élevé
+        const score = rule.priority * matches.length;
         
         if (!bestMatch || score > bestMatch.score) {
-          bestMatch = { rule, score };
+          bestMatch = { rule, score, matches };
         }
       }
     }
     
     // Si correspondance trouvée
     if (bestMatch) {
-      const confidence = Math.min(bestMatch.score / 10, 0.95);
+      // Calculer la confiance basée sur le nombre de matches
+      // 1 match = 0.5, 2 matches = 0.7, 3+ matches = 0.85+
+      const baseConfidence = Math.min(0.4 + (bestMatch.matches.length * 0.2), 0.95);
+      const confidence = baseConfidence;
+      
+      // Construire le reasoning en incluant la capacité pour plus de clarté
+      let reasoning = `Mots-clés détectés: ${bestMatch.matches.join(', ')}`;
+      if (bestMatch.rule.capability) {
+        reasoning += ` (${bestMatch.rule.capability})`;
+      }
       
       return {
         selectedAgent: bestMatch.rule.agentId,
         confidence,
-        reasoning: `Mots-clés détectés: ${bestMatch.rule.keywords.filter(kw => query.includes(kw)).join(', ')}`
+        reasoning
       };
     }
     
@@ -111,21 +122,22 @@ export class SimpleRouter {
       preferredCapability?: string;
     }
   ): Promise<RoutingDecision> {
-    // Si des données audio sont présentes, forcer l'agent de transcription
-    if (options?.hasAudio) {
-      return {
-        selectedAgent: 'speech-to-text-agent',
-        confidence: 1.0,
-        reasoning: 'Audio détecté - utilisation de l\'agent de transcription'
-      };
-    }
-    
+    // Prioriser les images sur l'audio car l'analyse visuelle est généralement plus importante
     // Si des images sont présentes, forcer l'agent vision
     if (options?.hasImages) {
       return {
         selectedAgent: 'vision-agent',
         confidence: 1.0,
         reasoning: 'Images détectées - utilisation de l\'agent vision'
+      };
+    }
+    
+    // Si des données audio sont présentes, forcer l'agent de transcription
+    if (options?.hasAudio) {
+      return {
+        selectedAgent: 'speech-to-text-agent',
+        confidence: 1.0,
+        reasoning: 'Audio détecté - utilisation de l\'agent de transcription'
       };
     }
     

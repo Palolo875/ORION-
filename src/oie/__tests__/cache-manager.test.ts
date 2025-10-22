@@ -138,10 +138,19 @@ describe('CacheManager', () => {
   
   describe('Statistics', () => {
     it('should provide cache statistics', async () => {
-      const factory = () => new MockAgent();
+      const factory1 = () => {
+        const agent = new MockAgent();
+        agent.metadata.id = 'agent-1';
+        return agent;
+      };
+      const factory2 = () => {
+        const agent = new MockAgent();
+        agent.metadata.id = 'agent-2';
+        return agent;
+      };
       
-      await cacheManager.getAgent('agent-1', factory);
-      await cacheManager.getAgent('agent-2', factory);
+      await cacheManager.getAgent('agent-1', factory1);
+      await cacheManager.getAgent('agent-2', factory2);
       
       const stats = cacheManager.getStats();
       

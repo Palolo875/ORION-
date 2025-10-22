@@ -55,7 +55,7 @@ const INJECTION_PATTERNS = [
   {
     pattern: /act\s+as\s+(if|a|an)\s+\w+/i,
     threat: 'Tentative de simulation de rôle',
-    severity: 'medium'
+    severity: 'high' // Élevé à high pour bloquer ces tentatives
   },
   
   // Tentatives de bypass de sécurité
@@ -128,16 +128,17 @@ const INJECTION_PATTERNS = [
 
 /**
  * Contextes suspects qui augmentent le score de risque
+ * Ces patterns sont traités avec une sévérité élevée car ils indiquent souvent une tentative de jailbreak
  */
 const SUSPICIOUS_CONTEXTS = [
-  'override',
-  'jailbreak',
-  'DAN', // "Do Anything Now"
-  'unrestricted',
-  'no limits',
-  'no restrictions',
-  'without filters',
-  'bypass mode'
+  { keyword: 'override', severity: 'high' },
+  { keyword: 'jailbreak', severity: 'critical' },
+  { keyword: 'DAN', severity: 'critical' }, // "Do Anything Now"
+  { keyword: 'unrestricted', severity: 'high' },
+  { keyword: 'no limits', severity: 'high' },
+  { keyword: 'no restrictions', severity: 'high' },
+  { keyword: 'without filters', severity: 'high' },
+  { keyword: 'bypass mode', severity: 'critical' }
 ];
 
 /**
@@ -178,10 +179,25 @@ export function analyzePrompt(prompt: string): GuardrailResult {
 
   // 2. Détection de contextes suspects
   const lowerPrompt = prompt.toLowerCase();
-  for (const context of SUSPICIOUS_CONTEXTS) {
-    if (lowerPrompt.includes(context.toLowerCase())) {
-      threats.push(`Contexte suspect: "${context}"`);
-      severityScore += 15;
+  for (const { keyword, severity } of SUSPICIOUS_CONTEXTS) {
+    if (lowerPrompt.includes(keyword.toLowerCase())) {
+      threats.push(`Contexte suspect: "${keyword}"`);
+      
+      // Appliquer le score selon la sévérité
+      switch (severity) {
+        case 'critical':
+          severityScore += 100;
+          break;
+        case 'high':
+          severityScore += 50;
+          break;
+        case 'medium':
+          severityScore += 25;
+          break;
+        case 'low':
+          severityScore += 10;
+          break;
+      }
     }
   }
 
@@ -351,7 +367,7 @@ export class PromptGuardrails {
   }
 
   /**
-   * Valide un prompt
+   * Valide un prompt avec les patterns personnalisés
    */
   validate(prompt: string): GuardrailResult {
     if (!this.config.enabled) {
@@ -364,10 +380,56 @@ export class PromptGuardrails {
       };
     }
 
-    return guardPrompt(prompt, {
+    // Si on a des patterns personnalisés, on les applique en plus
+    let result = guardPrompt(prompt, {
       strictMode: this.config.strictMode,
       logOnly: this.config.logOnly
     });
+    
+    // Appliquer les patterns personnalisés
+    if (this.customPatterns.length > 0) {
+      let customSeverityScore = 0;
+      const customThreats: string[] = [];
+      
+      for (const { pattern, threat, severity } of this.customPatterns) {
+        if (pattern.test(prompt)) {
+          customThreats.push(threat);
+          
+          switch (severity) {
+            case 'critical':
+              customSeverityScore += 100;
+              break;
+            case 'high':
+              customSeverityScore += 50;
+              break;
+            case 'medium':
+              customSeverityScore += 25;
+              break;
+            case 'low':
+              customSeverityScore += 10;
+              break;
+          }
+        }
+      }
+      
+      // Fusionner les résultats
+      if (customThreats.length > 0) {
+        result.threats = [...result.threats, ...customThreats];
+        const totalScore = (result.confidence * 100) + customSeverityScore;
+        result.confidence = Math.min(totalScore / 100, 1);
+        
+        // Recalculer l'action et isSafe
+        if (totalScore >= 100) {
+          result.action = 'block';
+          result.isSafe = false;
+        } else if (totalScore >= 50) {
+          result.action = 'sanitize';
+          result.isSafe = false;
+        }
+      }
+    }
+
+    return result;
   }
 
   /**
