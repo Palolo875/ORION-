@@ -10,6 +10,7 @@ import { CodeAgent } from '../agents/code-agent';
 import { VisionAgent } from '../agents/vision-agent';
 import { LogicalAgent } from '../agents/logical-agent';
 import { SpeechToTextAgent } from '../agents/speech-to-text-agent';
+import { CreativeAgent } from '../agents/creative-agent';
 import { IAgent, AgentInput, AgentOutput } from '../types/agent.types';
 import { debugLogger } from '../utils/debug-logger';
 
@@ -19,6 +20,7 @@ export interface OIEConfig {
   enableVision?: boolean;
   enableCode?: boolean;
   enableSpeech?: boolean;
+  enableCreative?: boolean;
   verboseLogging?: boolean;
   errorReporting?: (error: Error, context: string) => void;
 }
@@ -48,6 +50,7 @@ export class OrionInferenceEngine {
       enableVision: config.enableVision ?? true,
       enableCode: config.enableCode ?? true,
       enableSpeech: config.enableSpeech ?? true,
+      enableCreative: config.enableCreative ?? true,
       verboseLogging: config.verboseLogging ?? false,
       errorReporting: config.errorReporting,
     };
@@ -82,6 +85,10 @@ export class OrionInferenceEngine {
     
     if (this.config.enableSpeech) {
       this.registerAgent('speech-to-text-agent', () => new SpeechToTextAgent());
+    }
+    
+    if (this.config.enableCreative) {
+      this.registerAgent('creative-agent', () => new CreativeAgent());
     }
     
     this.isReady = true;

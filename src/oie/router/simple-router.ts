@@ -20,7 +20,13 @@ export class SimpleRouter {
     // Règles de détection par ordre de priorité
     const rules = [
       {
-        keywords: ['image', 'photo', 'picture', 'analyser image', 'voir', 'regarde'],
+        keywords: ['génère image', 'crée image', 'dessine', 'illustre', 'génère illustration', 'créer visuel', 'image de', 'picture of', 'draw', 'generate image', 'create image'],
+        agentId: 'creative-agent',
+        capability: 'image_generation',
+        priority: 11
+      },
+      {
+        keywords: ['image', 'photo', 'picture', 'analyser image', 'voir', 'regarde', 'what do you see', 'describe this'],
         agentId: 'vision-agent',
         capability: 'image_analysis',
         priority: 10

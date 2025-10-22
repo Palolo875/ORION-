@@ -3,3 +3,4 @@
  */
 
 export * from './simple-router';
+export * from './neural-router';
