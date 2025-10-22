@@ -25,8 +25,8 @@ const PURIFY_CONFIG = {
   // Interdire les data URIs
   ALLOW_DATA_ATTR: false,
   
-  // Supprimer les balises non autorisées (pas juste leur contenu)
-  KEEP_CONTENT: false,
+  // Supprimer les balises non autorisées mais garder le contenu texte
+  KEEP_CONTENT: true,
   
   // Retourner une string (pas un DOM Node)
   RETURN_DOM: false,
