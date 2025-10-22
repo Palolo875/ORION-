@@ -43,7 +43,10 @@ export class CreativeAgent extends BaseAgent {
       
       // Option 1: Essayer @huggingface/transformers (recommandé)
       try {
-        const { pipeline } = await import('@huggingface/transformers');
+        // Import dynamique pour éviter les erreurs de résolution si le package n'est pas installé
+        // Utiliser une variable pour empêcher Vite de résoudre l'import au build time
+        const packageName = '@huggingface/transformers';
+        const { pipeline } = await import(/* @vite-ignore */ packageName);
         
         console.log(`[CreativeAgent] 📥 20% - Création du pipeline...`);
         

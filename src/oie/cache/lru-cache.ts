@@ -107,7 +107,8 @@ export class LRUCache {
   
   getStats() {
     return {
-      agentsLoaded: this.cache.size,
+      loadedAgents: this.cache.size, // Utiliser loadedAgents pour cohérence avec les tests
+      agentsLoaded: this.cache.size, // Garder aussi agentsLoaded pour rétrocompatibilité
       totalMemoryMB: this.totalMemory,
       maxMemoryMB: this.config.maxMemoryMB,
       memoryUsagePercent: (this.totalMemory / this.config.maxMemoryMB) * 100,
