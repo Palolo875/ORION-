@@ -100,10 +100,20 @@ export class SimpleRouter {
     userQuery: string, 
     options?: {
       hasImages?: boolean;
+      hasAudio?: boolean;
       conversationHistory?: any[];
       preferredCapability?: string;
     }
   ): Promise<RoutingDecision> {
+    // Si des données audio sont présentes, forcer l'agent de transcription
+    if (options?.hasAudio) {
+      return {
+        selectedAgent: 'speech-to-text-agent',
+        confidence: 1.0,
+        reasoning: 'Audio détecté - utilisation de l\'agent de transcription'
+      };
+    }
+    
     // Si des images sont présentes, forcer l'agent vision
     if (options?.hasImages) {
       return {

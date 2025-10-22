@@ -20,14 +20,26 @@ export abstract class BaseAgent implements IAgent {
     this.state = 'loading';
     console.log(`[${this.metadata.name}] Chargement...`);
     
+    const loadStartTime = performance.now();
+    
     try {
       await this.loadModel();
       this.state = 'ready';
-      console.log(`[${this.metadata.name}] Prêt`);
-    } catch (error) {
+      const loadTime = performance.now() - loadStartTime;
+      console.log(`[${this.metadata.name}] Prêt en ${(loadTime / 1000).toFixed(1)}s`);
+    } catch (error: any) {
       this.state = 'error';
-      console.error(`[${this.metadata.name}] Erreur:`, error);
-      throw error;
+      const errorMessage = `Échec du chargement de ${this.metadata.name}: ${error.message || 'Erreur inconnue'}`;
+      console.error(`[${this.metadata.name}] ${errorMessage}`, error);
+      
+      // Créer une erreur structurée
+      const structuredError = new Error(errorMessage);
+      (structuredError as any).agentId = this.metadata.id;
+      (structuredError as any).phase = 'loading';
+      (structuredError as any).modelId = this.metadata.modelId;
+      (structuredError as any).originalError = error;
+      
+      throw structuredError;
     }
   }
   
@@ -35,14 +47,26 @@ export abstract class BaseAgent implements IAgent {
     if (this.state === 'unloaded') return;
     
     console.log(`[${this.metadata.name}] Déchargement...`);
-    await this.unloadModel();
-    this.model = null;
-    this.state = 'unloaded';
+    
+    try {
+      await this.unloadModel();
+      this.model = null;
+      this.state = 'unloaded';
+      console.log(`[${this.metadata.name}] Déchargé`);
+    } catch (error: any) {
+      console.error(`[${this.metadata.name}] Erreur lors du déchargement:`, error);
+      // Ne pas bloquer sur une erreur de déchargement
+      this.model = null;
+      this.state = 'unloaded';
+    }
   }
   
   async process(input: AgentInput): Promise<AgentOutput> {
     if (this.state !== 'ready') {
-      throw new Error(`Agent ${this.metadata.name} non prêt`);
+      const error = new Error(`Agent ${this.metadata.name} non prêt (statut actuel: ${this.state})`);
+      (error as any).agentId = this.metadata.id;
+      (error as any).agentState = this.state;
+      throw error;
     }
     
     this.state = 'busy';
@@ -56,9 +80,23 @@ export abstract class BaseAgent implements IAgent {
         ...output,
         processingTime: performance.now() - startTime
       };
-    } catch (error) {
+    } catch (error: any) {
       this.state = 'ready';
-      throw error;
+      
+      // Enrichir l'erreur avec du contexte
+      const processError = new Error(
+        `Erreur lors du traitement par ${this.metadata.name}: ${error.message || 'Erreur inconnue'}`
+      );
+      (processError as any).agentId = this.metadata.id;
+      (processError as any).phase = 'processing';
+      (processError as any).input = {
+        contentLength: input.content?.length || 0,
+        hasImages: !!(input.images && input.images.length > 0),
+        hasContext: !!input.context
+      };
+      (processError as any).originalError = error;
+      
+      throw processError;
     }
   }
   
