@@ -9,3 +9,4 @@ export * from './vision-agent';
 export * from './logical-agent';
 export * from './speech-to-text-agent';
 export * from './creative-agent';
+export * from './multilingual-agent';

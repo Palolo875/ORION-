@@ -5,3 +5,4 @@
 export * from './agent.types';
 export * from './cache.types';
 export * from './router.types';
+export * from './optimization.types';
