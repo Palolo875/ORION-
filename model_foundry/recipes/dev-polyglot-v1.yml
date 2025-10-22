@@ -1,0 +1,47 @@
+# Recette de fusion pour l'agent "Développeur Polyglotte" v1
+# Cet agent hybride combine les capacités de code de CodeGemma avec
+# les capacités multilingues de Qwen2 pour créer un agent unique
+# qui excelle en programmation ET comprend plusieurs langues.
+
+# Modèles parents à fusionner
+# Ces modèles seront téléchargés automatiquement depuis Hugging Face
+models:
+  - model: google/codegemma-2b
+    # CodeGemma 2B - Expert en génération de code
+    # Spécialisé en: Python, JavaScript, TypeScript, C++, Java
+    # Taille: ~2.5 GB
+    
+  - model: Qwen/Qwen2-1.5B-Instruct
+    # Qwen2 1.5B - Expert multilingue
+    # Langues supportées: EN, FR, ES, DE, IT, PT, ZH, JA, KO, AR
+    # Taille: ~1.8 GB
+
+# Méthode de fusion
+# SLERP (Spherical Linear Interpolation) est la méthode recommandée
+# pour fusionner deux modèles de tailles similaires tout en préservant
+# leurs capacités respectives
+merge_method: slerp
+
+# Paramètres de la fusion
+# t = ratio de fusion (0.0 = 100% premier modèle, 1.0 = 100% second modèle)
+# On choisit 0.4 pour favoriser légèrement les capacités de code (60%)
+# tout en conservant une forte influence multilingue (40%)
+parameters:
+  t: 0.4  # 60% CodeGemma + 40% Qwen2
+
+# Précision des calculs
+# bfloat16 offre un excellent compromis entre vitesse et précision
+# Recommandé pour les modèles de taille moyenne (< 7B paramètres)
+dtype: bfloat16
+
+# Métadonnées (optionnel, pour documentation)
+metadata:
+  created_by: "ORION Model Foundry"
+  version: "1.0.0"
+  description: "Agent hybride code + multilingue"
+  target_tasks:
+    - "Code generation (Python, JS, TS, etc.)"
+    - "Code explanation in multiple languages"
+    - "Multilingual programming assistance"
+  estimated_size_gb: 2.0
+  recommended_quantization: "q4f16_1"

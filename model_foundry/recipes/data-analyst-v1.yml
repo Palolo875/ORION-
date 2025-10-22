@@ -1,0 +1,41 @@
+# Recette de fusion pour l'agent "Data Analyst" v1
+# Agent spécialisé en analyse de données (code + raisonnement logique)
+
+# Modèles parents à fusionner
+models:
+  - model: google/codegemma-2b
+    # CodeGemma 2B - Expert en code Python/data science
+    
+  - model: meta-llama/Llama-3.2-3B-Instruct
+    # Llama 3.2 3B - Expert en raisonnement logique
+
+# Méthode de fusion
+merge_method: slerp
+
+# Paramètres de fusion
+# Équilibre parfait entre code et raisonnement
+parameters:
+  t: 0.5  # 50% CodeGemma + 50% Llama = Équilibre parfait
+
+# Précision des calculs
+dtype: bfloat16
+
+# Métadonnées
+metadata:
+  created_by: "ORION Model Foundry"
+  version: "1.0.0"
+  description: "Expert en analyse de données et raisonnement"
+  target_tasks:
+    - "Data analysis with Python (pandas, numpy, etc.)"
+    - "Statistical reasoning"
+    - "Data visualization code generation"
+    - "SQL query generation and optimization"
+    - "Machine learning pipeline design"
+  estimated_size_gb: 3.0
+  recommended_quantization: "q4f16_1"
+  specialized_libraries:
+    - "pandas"
+    - "numpy"
+    - "matplotlib"
+    - "scikit-learn"
+    - "SQL"
