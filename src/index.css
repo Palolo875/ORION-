@@ -39,7 +39,17 @@ All colors MUST be HSL.
     --input: 240 6% 90%;
     --ring: 250 70% 60%;
 
-    --radius: 1.5rem;
+    --radius: 2rem;
+
+    /* Couleurs pastel organiques */
+    --pastel-linen: 30 45% 92%;
+    --pastel-feather: 210 20% 95%;
+    --pastel-violet: 270 60% 85%;
+    --pastel-rose: 340 75% 90%;
+    --pastel-lavender: 260 50% 88%;
+    --pastel-mint: 150 40% 90%;
+    --pastel-peach: 20 80% 90%;
+    --pastel-sky: 200 60% 88%;
 
     /* Liquid glass effect */
     --glass-bg: 0 0% 100% / 0.7;
@@ -85,6 +95,16 @@ All colors MUST be HSL.
     --border: 240 10% 20%;
     --input: 240 10% 20%;
     --ring: 250 70% 65%;
+
+    /* Couleurs pastel organiques - dark mode */
+    --pastel-linen: 30 20% 25%;
+    --pastel-feather: 210 15% 22%;
+    --pastel-violet: 270 40% 35%;
+    --pastel-rose: 340 50% 30%;
+    --pastel-lavender: 260 35% 30%;
+    --pastel-mint: 150 25% 28%;
+    --pastel-peach: 20 45% 32%;
+    --pastel-sky: 200 35% 30%;
 
     /* Liquid glass effect - dark mode */
     --glass-bg: 240 10% 12% / 0.7;
