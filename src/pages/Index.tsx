@@ -33,6 +33,7 @@ const Index = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isControlPanelOpen, setIsControlPanelOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [deviceProfile, setDeviceProfile] = useState<DeviceProfile | null>(null);
   const [flowState, setFlowState] = useState<{ currentStep: FlowStep; stepDetails: string }>({
     currentStep: 'idle',
@@ -291,6 +292,8 @@ const Index = () => {
         onRenameConversation={handleRenameConversation}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
 
       {/* Main Content */}
