@@ -13,7 +13,9 @@ import {
   Pin,
   Filter,
   TrendingUp,
-  Clock
+  Clock,
+  PanelLeftClose,
+  PanelLeftOpen
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -50,6 +52,8 @@ interface SidebarProps {
   onRenameConversation: (id: string, newTitle: string) => void;
   isOpen: boolean;
   onClose: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const Sidebar = ({
@@ -60,7 +64,9 @@ export const Sidebar = ({
   onDeleteConversation,
   onRenameConversation,
   isOpen,
-  onClose
+  onClose,
+  isCollapsed = false,
+  onToggleCollapse
 }: SidebarProps) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -135,51 +141,104 @@ export const Sidebar = ({
       />
 
       {/* Sidebar */}
-      <div className="fixed left-0 top-0 bottom-0 w-80 z-50 glass border-r border-[hsl(var(--glass-border))] lg:relative lg:z-auto">
+      <div className={cn(
+        "fixed left-0 top-0 bottom-0 z-50 glass border-r border-[hsl(var(--glass-border))] lg:relative lg:z-auto transition-all duration-300",
+        isCollapsed ? "w-16" : "w-80"
+      )}>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-4 border-b border-[hsl(var(--glass-border))] space-y-3">
-            <Button
-              onClick={onNewConversation}
-              className="w-full justify-start gap-2 h-10 glass-hover rounded-xl"
-              variant="outline"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="font-medium">Nouvelle conversation</span>
-            </Button>
+            {!isCollapsed && (
+              <Button
+                onClick={onNewConversation}
+                className="w-full justify-start gap-2 h-10 glass-hover rounded-xl"
+                variant="outline"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="font-medium">Nouvelle conversation</span>
+              </Button>
+            )}
+            
+            {isCollapsed && (
+              <Button
+                onClick={onNewConversation}
+                className="w-full h-10 glass-hover rounded-xl"
+                variant="outline"
+                size="icon"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
+            
+            {/* Collapse/Expand button */}
+            {onToggleCollapse && (
+              <Button
+                onClick={onToggleCollapse}
+                variant="ghost"
+                size="icon"
+                className="w-full h-8 rounded-lg hover:bg-accent/50"
+                title={isCollapsed ? "Développer" : "Réduire"}
+              >
+                {isCollapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4" />
+                )}
+              </Button>
+            )}
 
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher..."
-                className="pl-9 h-9 rounded-xl bg-background/50"
-              />
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="glass rounded-lg p-2">
-                <div className="text-lg font-semibold">{conversations.length}</div>
-                <div className="text-xs text-muted-foreground">Total</div>
-              </div>
-              <div className="glass rounded-lg p-2">
-                <div className="text-lg font-semibold">{todayConversations.length}</div>
-                <div className="text-xs text-muted-foreground">Aujourd'hui</div>
-              </div>
-              <div className="glass rounded-lg p-2">
-                <div className="text-lg font-semibold text-primary">
-                  <TrendingUp className="h-4 w-4 mx-auto" />
+            {!isCollapsed && (
+              <>
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Rechercher..."
+                    className="pl-9 h-9 rounded-xl bg-background/50"
+                  />
                 </div>
-                <div className="text-xs text-muted-foreground">Actif</div>
-              </div>
-            </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="glass rounded-lg p-2">
+                    <div className="text-lg font-semibold">{conversations.length}</div>
+                    <div className="text-xs text-muted-foreground">Total</div>
+                  </div>
+                  <div className="glass rounded-lg p-2">
+                    <div className="text-lg font-semibold">{todayConversations.length}</div>
+                    <div className="text-xs text-muted-foreground">Aujourd'hui</div>
+                  </div>
+                  <div className="glass rounded-lg p-2">
+                    <div className="text-lg font-semibold text-primary">
+                      <TrendingUp className="h-4 w-4 mx-auto" />
+                    </div>
+                    <div className="text-xs text-muted-foreground">Actif</div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Content */}
           <ScrollArea className="flex-1 p-2">
+            {isCollapsed ? (
+              <div className="space-y-2">
+                {filteredConversations.slice(0, 10).map((conversation) => (
+                  <Button
+                    key={conversation.id}
+                    variant={conversation.id === currentConversationId ? "default" : "ghost"}
+                    size="icon"
+                    onClick={() => onSelectConversation(conversation.id)}
+                    className="w-full h-10 rounded-lg"
+                    title={conversation.title}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                  </Button>
+                ))}
+              </div>
+            ) : (
             <div className="space-y-2">
               {/* Today's conversations */}
               {todayConversations.length > 0 && (
@@ -281,6 +340,7 @@ export const Sidebar = ({
                 </div>
               )}
             </div>
+            )}
           </ScrollArea>
         </div>
       </div>

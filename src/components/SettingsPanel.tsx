@@ -134,24 +134,30 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
         onClick={onClose}
       />
 
-      {/* Panel */}
-      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-full sm:max-w-md z-50 glass border-l border-[hsl(var(--glass-border))] animate-slide-in-right">
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
-            <h2 className="text-xl sm:text-2xl font-semibold">Paramètres</h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
-            >
-              <X className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-          </div>
+      {/* Popover centrée - Style Manus */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div className="w-full max-w-4xl max-h-[90vh] glass rounded-3xl shadow-2xl border border-[hsl(var(--glass-border))] pointer-events-auto animate-scale-in">
+          <div className="flex flex-col h-full max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <Settings className="h-5 w-5 text-primary" />
+                </div>
+                <h2 className="text-2xl font-semibold">Paramètres</h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="rounded-full hover:bg-accent/50 h-10 w-10"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
             <Tabs defaultValue="ai" className="w-full">
               <TabsList className="grid w-full grid-cols-4 glass rounded-xl sm:rounded-2xl p-1">
                 <TabsTrigger value="ai" className="rounded-lg sm:rounded-xl gap-1 sm:gap-2 text-xs sm:text-sm">
@@ -694,6 +700,7 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
             </Tabs>
           </div>
         </div>
+      </div>
       </div>
     </>
   );
