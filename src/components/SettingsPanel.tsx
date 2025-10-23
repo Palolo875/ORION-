@@ -1,6 +1,5 @@
 import { X, User, Settings, BarChart3, Moon, Sun, Globe, Bell, Keyboard, Download, Info, Zap, Brain, Shield, Palette, Check, Sparkles, Rocket, ChevronRight, Database, Trash2, RefreshCw, Eye, Image as ImageIcon } from "lucide-react";
 import { Button } from "./ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
@@ -21,7 +20,21 @@ interface SettingsPanelProps {
   onModelChange?: (modelId: string) => void;
 }
 
+type SettingsSection = 'ai' | 'appearance' | 'account' | 'advanced';
+
+const navigationItems: Array<{
+  id: SettingsSection;
+  label: string;
+  icon: React.ElementType;
+}> = [
+  { id: 'ai', label: 'IA', icon: Brain },
+  { id: 'appearance', label: 'Apparence', icon: Palette },
+  { id: 'account', label: 'Compte', icon: User },
+  { id: 'advanced', label: 'Avancé', icon: Settings },
+];
+
 export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: SettingsPanelProps) => {
+  const [activeSection, setActiveSection] = useState<SettingsSection>('ai');
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [selectedModelKey, setSelectedModelKey] = useState<string>("standard");
   const [deviceCapabilities, setDeviceCapabilities] = useState<DeviceCapabilities | null>(null);
@@ -128,75 +141,131 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop avec effet de flou */}
       <div
-        className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 animate-fade-in"
+        className="fixed inset-0 bg-background/60 backdrop-blur-md z-40 animate-fade-in"
         onClick={onClose}
       />
 
-      {/* Popover centrée - Style Manus */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div className="w-full max-w-4xl max-h-[90vh] glass rounded-3xl shadow-2xl border border-[hsl(var(--glass-border))] pointer-events-auto animate-scale-in">
-          <div className="flex flex-col h-full max-h-[90vh]">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-border">
+      {/* Panneau modal centré - Style moderne avec navigation verticale */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 pointer-events-none">
+        <div className="w-full max-w-5xl max-h-[90vh] sm:max-h-[85vh] glass rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl border border-[hsl(var(--glass-border))] pointer-events-auto animate-scale-in overflow-hidden flex flex-col sm:flex-row">
+          {/* Navigation verticale à gauche - cachée sur mobile, remplacée par des tabs en haut */}
+          <div className="hidden sm:flex sm:w-64 bg-gradient-to-b from-[hsl(var(--pastel-feather))]/30 to-[hsl(var(--pastel-linen))]/20 border-r border-border/50 p-6 flex-col">
+            {/* Header avec icône de fermeture */}
+            <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-primary/10">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-[hsl(var(--pastel-violet))]/40 to-[hsl(var(--pastel-rose))]/40">
                   <Settings className="h-5 w-5 text-primary" />
                 </div>
-                <h2 className="text-2xl font-semibold">Paramètres</h2>
+                <h2 className="text-xl font-semibold">Paramètres</h2>
+              </div>
+            </div>
+
+            {/* Navigation items */}
+            <nav className="flex-1 space-y-2">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveSection(item.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all duration-200",
+                      "hover:scale-[1.02] active:scale-[0.98]",
+                      isActive
+                        ? "bg-gradient-to-r from-primary/15 to-accent/15 text-primary shadow-md border border-primary/20"
+                        : "hover:bg-[hsl(var(--pastel-feather))]/40 text-muted-foreground"
+                    )}
+                  >
+                    <Icon className={cn("h-5 w-5", isActive && "text-primary")} />
+                    <span className="font-medium">{item.label}</span>
+                    {isActive && <ChevronRight className="h-4 w-4 ml-auto" />}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Footer avec bouton fermer */}
+            <Button
+              variant="ghost"
+              onClick={onClose}
+              className="w-full mt-4 rounded-2xl hover:bg-destructive/10 hover:text-destructive"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Fermer
+            </Button>
+          </div>
+
+          {/* Navigation mobile en haut */}
+          <div className="sm:hidden border-b border-border/50 bg-gradient-to-r from-[hsl(var(--pastel-feather))]/30 to-[hsl(var(--pastel-linen))]/20">
+            <div className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-2xl bg-gradient-to-br from-[hsl(var(--pastel-violet))]/40 to-[hsl(var(--pastel-rose))]/40">
+                  <Settings className="h-4 w-4 text-primary" />
+                </div>
+                <h2 className="text-lg font-semibold">Paramètres</h2>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onClose}
-                className="rounded-full hover:bg-accent/50 h-10 w-10"
+                className="rounded-2xl hover:bg-destructive/10 hover:text-destructive h-8 w-8"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </Button>
             </div>
+            <div className="flex overflow-x-auto px-4 pb-3 gap-2 scrollbar-thin">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveSection(item.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 whitespace-nowrap",
+                      isActive
+                        ? "bg-gradient-to-r from-primary/15 to-accent/15 text-primary border border-primary/20"
+                        : "bg-[hsl(var(--pastel-feather))]/40 text-muted-foreground"
+                    )}
+                  >
+                    <Icon className={cn("h-4 w-4", isActive && "text-primary")} />
+                    <span className="text-sm font-medium">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-            <Tabs defaultValue="ai" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 glass rounded-xl sm:rounded-2xl p-1">
-                <TabsTrigger value="ai" className="rounded-lg sm:rounded-xl gap-1 sm:gap-2 text-xs sm:text-sm">
-                  <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">IA</span>
-                </TabsTrigger>
-                <TabsTrigger value="appearance" className="rounded-lg sm:rounded-xl gap-1 sm:gap-2 text-xs sm:text-sm">
-                  <Palette className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Apparence</span>
-                </TabsTrigger>
-                <TabsTrigger value="account" className="rounded-lg sm:rounded-xl gap-1 sm:gap-2 text-xs sm:text-sm">
-                  <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Compte</span>
-                </TabsTrigger>
-                <TabsTrigger value="advanced" className="rounded-lg sm:rounded-xl gap-1 sm:gap-2 text-xs sm:text-sm">
-                  <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Avancé</span>
-                </TabsTrigger>
-              </TabsList>
+          {/* Contenu à droite */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Contenu scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 scrollbar-thin">
+              {/* IA Section */}
+              {activeSection === 'ai' && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-semibold flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-[hsl(var(--pastel-sky))]/30">
+                        <Brain className="h-6 w-6 text-blue-600" />
+                      </div>
+                      Configuration de l'IA
+                    </h3>
+                    <p className="text-sm text-muted-foreground pl-14">
+                      Personnalisez le comportement et les performances de l'assistant IA.
+                    </p>
+                  </div>
 
-              {/* AI Settings Tab */}
-              <TabsContent value="ai" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
-                <div className="space-y-1 sm:space-y-2">
-                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                    <Brain className="h-5 w-5" />
-                    Configuration de l'IA
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Personnalisez le comportement et les performances de l'assistant IA.
-                  </p>
-                </div>
+                  <Separator className="my-6" />
 
-                <div className="space-y-5 sm:space-y-6">
                   {/* Model Selection */}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs sm:text-sm font-medium">Modèle d'IA Local</Label>
+                      <Label className="text-base font-semibold">Modèle d'IA Local</Label>
                       {deviceCapabilities && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs rounded-full bg-[hsl(var(--pastel-mint))]/30 border-green-500/30">
                           RAM: {deviceCapabilities.ram}GB
                         </Badge>
                       )}
@@ -220,55 +289,53 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                             }}
                             disabled={!isCompatible}
                             className={cn(
-                              "w-full glass rounded-xl p-4 text-left transition-all relative overflow-hidden",
-                              "hover:scale-[1.01] hover:shadow-lg hover:border-primary/30",
-                              isSelected && "border-2 border-primary shadow-lg shadow-primary/20 bg-primary/5",
-                              !isCompatible && "opacity-50 cursor-not-allowed",
-                              "group"
+                              "w-full rounded-3xl p-5 text-left transition-all relative overflow-hidden",
+                              "hover:scale-[1.01] active:scale-[0.99]",
+                              "bg-gradient-to-br",
+                              isSelected 
+                                ? "from-[hsl(var(--pastel-violet))]/20 to-[hsl(var(--pastel-rose))]/20 border-2 border-primary shadow-lg shadow-primary/10" 
+                                : "from-[hsl(var(--pastel-feather))]/30 to-[hsl(var(--pastel-linen))]/20 border border-border/30 hover:border-primary/30",
+                              !isCompatible && "opacity-50 cursor-not-allowed"
                             )}
-                          >                            {isVisionModel && (
-                              <div className="absolute top-2 left-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
+                          >
+                            {isVisionModel && (
+                              <div className="absolute top-3 right-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5">
                                 <Eye className="h-3 w-3" />
                                 Vision
                               </div>
                             )}
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  <h4 className="text-sm font-semibold truncate">{model.name}</h4>
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                  <h4 className="text-base font-semibold">{model.name}</h4>
                                   {model.recommended && (
-                                    <Badge className="text-xs px-1.5 py-0 bg-gradient-to-r from-yellow-500 to-orange-500 border-0">
+                                    <Badge className="text-xs px-2 py-0.5 bg-gradient-to-r from-yellow-400 to-orange-400 border-0 rounded-full">
                                       <Sparkles className="h-3 w-3" />
                                     </Badge>
                                   )}
                                   {isRecommended && (
-                                    <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-green-500/20 text-green-700 dark:text-green-300">
+                                    <Badge variant="secondary" className="text-xs px-2 py-0.5 bg-green-500/20 text-green-700 dark:text-green-300 rounded-full">
                                       Optimal
                                     </Badge>
                                   )}
-                                  {isVisionModel && (
-                                    <Badge variant="outline" className="text-xs px-1.5 py-0 border-purple-500/50 text-purple-600 dark:text-purple-400">
-                                      <ImageIcon className="h-3 w-3" />
-                                    </Badge>
-                                  )}
                                 </div>
-                                <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                                   {model.description}
                                 </p>
                                 <div className="flex flex-wrap gap-2 text-xs">
-                                  <span className="px-2 py-1 bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded-md font-medium border border-blue-500/20">
+                                  <span className="px-3 py-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded-full font-medium border border-blue-500/20">
                                     {formatBytes(model.size)}
                                   </span>
-                                  <span className="px-2 py-1 bg-green-500/10 text-green-700 dark:text-green-300 rounded-md font-medium border border-green-500/20">
+                                  <span className="px-3 py-1.5 bg-green-500/10 text-green-700 dark:text-green-300 rounded-full font-medium border border-green-500/20">
                                     {model.maxTokens.toLocaleString()} tokens
                                   </span>
-                                  <span className="px-2 py-1 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 rounded-md font-medium border border-yellow-500/20">
+                                  <span className="px-3 py-1.5 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 rounded-full font-medium border border-yellow-500/20">
                                     {model.quality === 'basic' && '⭐'}
                                     {model.quality === 'high' && '⭐⭐'}
                                     {model.quality === 'very-high' && '⭐⭐⭐'}
                                     {model.quality === 'ultra' && '⭐⭐⭐⭐'}
                                   </span>
-                                  <span className="px-2 py-1 bg-purple-500/10 text-purple-700 dark:text-purple-300 rounded-md font-medium border border-purple-500/20">
+                                  <span className="px-3 py-1.5 bg-purple-500/10 text-purple-700 dark:text-purple-300 rounded-full font-medium border border-purple-500/20">
                                     {model.speed === 'very-fast' && '⚡⚡⚡'}
                                     {model.speed === 'fast' && '⚡⚡'}
                                     {model.speed === 'moderate' && '⚡'}
@@ -282,26 +349,24 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                                 )}
                               </div>
                               {isSelected && (
-                                <Check className="h-5 w-5 text-primary flex-shrink-0" />
+                                <div className="p-2 rounded-full bg-primary/20">
+                                  <Check className="h-5 w-5 text-primary" />
+                                </div>
                               )}
                             </div>
                           </button>
                         );
                       })}
                     </div>
-                    
-                    <p className="text-xs text-muted-foreground">
-                      💡 Tous les modèles fonctionnent 100% localement. Les modèles incompatibles sont grisés.
-                    </p>
                   </div>
 
-                  <Separator />
+                  <Separator className="my-6" />
 
                   {/* Temperature */}
-                  <div className="space-y-2 sm:space-y-3">
+                  <div className="space-y-3 p-5 rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-peach))]/20 to-[hsl(var(--pastel-rose))]/10">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs sm:text-sm font-medium">Température</Label>
-                      <span className="text-xs sm:text-sm text-muted-foreground font-mono">
+                      <Label className="text-base font-semibold">Température</Label>
+                      <span className="text-sm text-muted-foreground font-mono px-3 py-1 bg-background/50 rounded-full">
                         {temperature[0].toFixed(1)}
                       </span>
                     </div>
@@ -318,13 +383,11 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                     </p>
                   </div>
 
-                  <Separator />
-
                   {/* Max Tokens */}
-                  <div className="space-y-2 sm:space-y-3">
+                  <div className="space-y-3 p-5 rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-lavender))]/20 to-[hsl(var(--pastel-violet))]/10">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs sm:text-sm font-medium">Longueur maximale</Label>
-                      <span className="text-xs sm:text-sm text-muted-foreground font-mono">
+                      <Label className="text-base font-semibold">Longueur maximale</Label>
+                      <span className="text-sm text-muted-foreground font-mono px-3 py-1 bg-background/50 rounded-full">
                         {maxTokens[0]} tokens
                       </span>
                     </div>
@@ -341,54 +404,58 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                     </p>
                   </div>
                 </div>
-              </TabsContent>
+              )}
 
-              {/* Appearance Tab */}
-              <TabsContent value="appearance" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
-                <div className="space-y-1 sm:space-y-2">
-                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                    <Palette className="h-5 w-5" />
-                    Apparence et Interface
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Personnalisez l'apparence de l'interface selon vos préférences.
-                  </p>
-                </div>
+              {/* Appearance Section */}
+              {activeSection === 'appearance' && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-semibold flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-[hsl(var(--pastel-violet))]/30">
+                        <Palette className="h-6 w-6 text-purple-600" />
+                      </div>
+                      Apparence et Interface
+                    </h3>
+                    <p className="text-sm text-muted-foreground pl-14">
+                      Personnalisez l'apparence de l'interface selon vos préférences.
+                    </p>
+                  </div>
 
-                <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-5 sm:space-y-6">
+                  <Separator className="my-6" />
+
                   {/* Theme */}
-                  <div className="space-y-2 sm:space-y-3">
-                    <Label className="text-xs sm:text-sm font-medium">Thème</Label>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Thème</Label>
+                    <div className="grid grid-cols-2 gap-4">
                       <Button
                         variant={theme === "light" ? "default" : "outline"}
                         onClick={() => toggleTheme("light")}
-                        className="h-20 sm:h-24 flex-col gap-2 rounded-xl sm:rounded-2xl"
+                        className="h-32 flex-col gap-3 rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-feather))]/40 to-white hover:scale-105 transition-all"
                       >
-                        <Sun className="h-6 w-6 sm:h-7 sm:w-7" />
-                        <span className="text-xs sm:text-sm font-medium">Clair</span>
+                        <Sun className="h-8 w-8" />
+                        <span className="text-base font-medium">Clair</span>
                       </Button>
                       <Button
                         variant={theme === "dark" ? "default" : "outline"}
                         onClick={() => toggleTheme("dark")}
-                        className="h-20 sm:h-24 flex-col gap-2 rounded-xl sm:rounded-2xl"
+                        className="h-32 flex-col gap-3 rounded-3xl bg-gradient-to-br from-gray-800 to-gray-900 hover:scale-105 transition-all"
                       >
-                        <Moon className="h-6 w-6 sm:h-7 sm:w-7" />
-                        <span className="text-xs sm:text-sm font-medium">Sombre</span>
+                        <Moon className="h-8 w-8" />
+                        <span className="text-base font-medium">Sombre</span>
                       </Button>
                     </div>
                   </div>
 
-                  <Separator />
+                  <Separator className="my-6" />
 
                   {/* Language */}
-                  <div className="space-y-2 sm:space-y-3">
-                    <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                      <Globe className="h-4 w-4" />
+                  <div className="space-y-3 p-5 rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-sky))]/20 to-[hsl(var(--pastel-feather))]/20">
+                    <Label className="text-base font-semibold flex items-center gap-2">
+                      <Globe className="h-5 w-5" />
                       Langue
                     </Label>
                     <Select value={language} onValueChange={setLanguage}>
-                      <SelectTrigger className="w-full rounded-xl">
+                      <SelectTrigger className="w-full rounded-2xl">
                         <SelectValue placeholder="Sélectionner une langue" />
                       </SelectTrigger>
                       <SelectContent>
@@ -401,124 +468,128 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                     </Select>
                   </div>
 
-                  <Separator />
-
                   {/* Sound Effects */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-xs sm:text-sm font-medium">Effets sonores</Label>
-                      <p className="text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between p-5 rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-mint))]/20 to-[hsl(var(--pastel-sky))]/10">
+                    <div className="space-y-1">
+                      <Label className="text-base font-semibold">Effets sonores</Label>
+                      <p className="text-sm text-muted-foreground">
                         Sons pour les notifications et interactions
                       </p>
                     </div>
                     <Switch checked={soundEffects} onCheckedChange={setSoundEffects} />
                   </div>
                 </div>
-              </TabsContent>
+              )}
 
-              {/* Account Tab */}
-              <TabsContent value="account" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
-                <div className="space-y-1 sm:space-y-2">
-                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Informations du compte
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Gérez vos informations personnelles et votre abonnement.
-                  </p>
-                </div>
-
-                <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-5">
-                  <div className="space-y-1">
-                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">Email</p>
-                    <p className="text-sm sm:text-base font-medium">utilisateur@example.com</p>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="space-y-1">
-                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">Abonnement</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm sm:text-base font-medium">Plan Premium</p>
-                      <span className="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
-                        Pro
-                      </span>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Usage Stats */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground">Utilisation ce mois</p>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs sm:text-sm">
-                        <span className="font-medium">Messages</span>
-                        <span className="text-muted-foreground">847 / 5000</span>
+              {/* Account Section */}
+              {activeSection === 'account' && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-semibold flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-[hsl(var(--pastel-rose))]/30">
+                        <User className="h-6 w-6 text-pink-600" />
                       </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: "17%" }} />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs sm:text-sm">
-                        <span className="font-medium">Tokens utilisés</span>
-                        <span className="text-muted-foreground">124K / 1M</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: "12%" }} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <Button variant="outline" className="w-full rounded-xl">
-                    Mettre à niveau
-                  </Button>
-                </div>
-              </TabsContent>
-
-              {/* Advanced Tab */}
-              <TabsContent value="advanced" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
-                <div className="space-y-1 sm:space-y-2">
-                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    Paramètres avancés
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Options avancées et fonctionnalités expérimentales.
-                  </p>
-                </div>
-
-                {/* Security & Encryption */}
-                <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                      <Shield className="h-4 w-4" />
-                      Sécurité et chiffrement
-                    </Label>
-                  </div>
-                  <div className="text-xs sm:text-sm text-muted-foreground space-y-2">
-                    <div className="flex justify-between">
-                      <span>Support du chiffrement</span>
-                      <span className={cn("font-medium", encryptionSupported ? "text-green-600 dark:text-green-400" : "text-destructive")}>{encryptionSupported ? 'Oui' : 'Non'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Statut</span>
-                      <span className="font-medium">{encryptionActive ? 'Activé' : 'Désactivé (par défaut)'}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Le chiffrement n'est pas activé par défaut. Il dépend des capacités de sécurité du navigateur. Utilisez un navigateur à jour pour une compatibilité maximale.
+                      Informations du compte
+                    </h3>
+                    <p className="text-sm text-muted-foreground pl-14">
+                      Gérez vos informations personnelles et votre abonnement.
                     </p>
                   </div>
-                  <div className="flex gap-2">
+
+                  <Separator className="my-6" />
+
+                  <div className="rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-linen))]/30 to-[hsl(var(--pastel-feather))]/20 p-6 space-y-5">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">Email</p>
+                      <p className="text-base font-semibold">utilisateur@example.com</p>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">Abonnement</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-base font-semibold">Plan Premium</p>
+                        <Badge className="px-3 py-1 text-xs font-semibold bg-gradient-to-r from-primary/20 to-accent/20 text-primary rounded-full border-primary/20">
+                          Pro
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Usage Stats */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                        <p className="text-sm font-medium text-muted-foreground">Utilisation ce mois</p>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">Messages</span>
+                          <span className="text-muted-foreground">847 / 5000</span>
+                        </div>
+                        <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all" style={{ width: "17%" }} />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">Tokens utilisés</span>
+                          <span className="text-muted-foreground">124K / 1M</span>
+                        </div>
+                        <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all" style={{ width: "12%" }} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button variant="outline" className="w-full rounded-2xl hover:scale-105 transition-all">
+                      Mettre à niveau
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Advanced Section */}
+              {activeSection === 'advanced' && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-semibold flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-[hsl(var(--pastel-peach))]/30">
+                        <Settings className="h-6 w-6 text-orange-600" />
+                      </div>
+                      Paramètres avancés
+                    </h3>
+                    <p className="text-sm text-muted-foreground pl-14">
+                      Options avancées et fonctionnalités expérimentales.
+                    </p>
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Security & Encryption */}
+                  <div className="rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-mint))]/20 to-[hsl(var(--pastel-sky))]/10 p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Shield className="h-5 w-5 text-green-600" />
+                      <Label className="text-base font-semibold">Sécurité et chiffrement</Label>
+                    </div>
+                    <div className="text-sm text-muted-foreground space-y-2">
+                      <div className="flex justify-between p-3 bg-background/30 rounded-xl">
+                        <span>Support du chiffrement</span>
+                        <span className={cn("font-medium", encryptionSupported ? "text-green-600 dark:text-green-400" : "text-destructive")}>{encryptionSupported ? 'Oui' : 'Non'}</span>
+                      </div>
+                      <div className="flex justify-between p-3 bg-background/30 rounded-xl">
+                        <span>Statut</span>
+                        <span className="font-medium">{encryptionActive ? 'Activé' : 'Désactivé (par défaut)'}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground pt-2">
+                        Le chiffrement n'est pas activé par défaut. Il dépend des capacités de sécurité du navigateur.
+                      </p>
+                    </div>
                     <Button
                       variant={encryptionActive ? "outline" : "default"}
-                      className="rounded-xl"
+                      className="rounded-2xl w-full hover:scale-105 transition-all"
                       onClick={handleEnableEncryption}
                       disabled={!encryptionSupported || encryptionActive || isEnablingEncryption}
                     >
@@ -540,167 +611,159 @@ export const SettingsPanel = ({ isOpen, onClose, currentModel, onModelChange }: 
                       )}
                     </Button>
                   </div>
-                </div>
 
-                {/* Storage Status Section */}
-                {storageInfo && (
-                  <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                        <Database className="h-4 w-4" />
-                        Gestion du stockage
-                      </Label>
+                  {/* Storage Status Section */}
+                  {storageInfo && (
+                    <div className="rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-lavender))]/20 to-[hsl(var(--pastel-violet))]/10 p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Database className="h-5 w-5 text-purple-600" />
+                          <Label className="text-base font-semibold">Gestion du stockage</Label>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={checkStorage}
+                          className="gap-2 rounded-xl"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+
+                      <StorageIndicator
+                        percentage={storageInfo.percentage}
+                        usage={storageInfo.usage}
+                        quota={storageInfo.quota}
+                        formatBytes={formatStorageBytes}
+                      />
+
+                      {storageWarning && storageWarning.level !== 'info' && (
+                        <div className={cn(
+                          "p-4 rounded-2xl text-sm",
+                          storageWarning.level === 'critical' && "bg-destructive/10 text-destructive border border-destructive/20",
+                          storageWarning.level === 'warning' && "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-500/20"
+                        )}>
+                          <p className="font-medium mb-1">{storageWarning.message}</p>
+                          <p className="opacity-90 text-xs">{storageWarning.recommendation}</p>
+                        </div>
+                      )}
+
+                      {recommendations.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-muted-foreground">Recommandations :</p>
+                          <ul className="space-y-2 text-sm text-muted-foreground">
+                            {recommendations.map((rec, idx) => (
+                              <li key={idx} className="flex items-start gap-2 p-2 bg-background/30 rounded-xl">
+                                <span className="text-primary mt-0.5">•</span>
+                                <span>{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
                       <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={checkStorage}
-                        className="gap-2"
+                        variant="outline"
+                        className="w-full gap-2 rounded-2xl hover:scale-105 transition-all"
+                        onClick={handleClearCache}
+                        disabled={isClearing}
                       >
-                        <RefreshCw className="h-3.5 w-3.5" />
+                        {isClearing ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            Nettoyage en cours...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4" />
+                            Vider le cache
+                          </>
+                        )}
                       </Button>
                     </div>
+                  )}
 
-                    <StorageIndicator
-                      percentage={storageInfo.percentage}
-                      usage={storageInfo.usage}
-                      quota={storageInfo.quota}
-                      formatBytes={formatStorageBytes}
-                    />
-
-                    {storageWarning && storageWarning.level !== 'info' && (
-                      <div className={cn(
-                        "p-3 rounded-lg text-xs",
-                        storageWarning.level === 'critical' && "bg-destructive/10 text-destructive border border-destructive/20",
-                        storageWarning.level === 'warning' && "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-500/20"
-                      )}>
-                        <p className="font-medium mb-1">{storageWarning.message}</p>
-                        <p className="opacity-90">{storageWarning.recommendation}</p>
+                  {/* Other settings */}
+                  <div className="space-y-4">
+                    {/* Notifications */}
+                    <div className="flex items-center justify-between p-5 rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-rose))]/20 to-[hsl(var(--pastel-peach))]/10">
+                      <div className="space-y-1">
+                        <Label className="text-base font-semibold flex items-center gap-2">
+                          <Bell className="h-5 w-5" />
+                          Notifications
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Recevoir des notifications pour les réponses
+                        </p>
                       </div>
-                    )}
+                      <Switch checked={notifications} onCheckedChange={setNotifications} />
+                    </div>
 
-                    {recommendations.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">Recommandations :</p>
-                        <ul className="space-y-1.5 text-xs text-muted-foreground">
-                          {recommendations.map((rec, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <span className="text-primary mt-0.5">•</span>
-                              <span>{rec}</span>
-                            </li>
-                          ))}
-                        </ul>
+                    {/* Auto-save */}
+                    <div className="flex items-center justify-between p-5 rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-sky))]/20 to-[hsl(var(--pastel-feather))]/10">
+                      <div className="space-y-1">
+                        <Label className="text-base font-semibold flex items-center gap-2">
+                          <Zap className="h-5 w-5" />
+                          Sauvegarde automatique
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Enregistrer automatiquement les conversations
+                        </p>
                       </div>
-                    )}
+                      <Switch checked={autoSave} onCheckedChange={setAutoSave} />
+                    </div>
 
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2"
-                      onClick={handleClearCache}
-                      disabled={isClearing}
-                    >
-                      {isClearing ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                          Nettoyage en cours...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="h-4 w-4" />
-                          Vider le cache
-                        </>
-                      )}
+                    {/* Shortcuts */}
+                    <div className="space-y-3 p-5 rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-linen))]/30 to-[hsl(var(--pastel-feather))]/20">
+                      <Label className="text-base font-semibold flex items-center gap-2">
+                        <Keyboard className="h-5 w-5" />
+                        Raccourcis clavier
+                      </Label>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center p-3 rounded-2xl bg-background/40">
+                          <span>Nouvelle conversation</span>
+                          <kbd className="px-3 py-1.5 bg-muted rounded-xl border text-xs font-medium">Ctrl + N</kbd>
+                        </div>
+                        <div className="flex justify-between items-center p-3 rounded-2xl bg-background/40">
+                          <span>Rechercher</span>
+                          <kbd className="px-3 py-1.5 bg-muted rounded-xl border text-xs font-medium">Ctrl + K</kbd>
+                        </div>
+                        <div className="flex justify-between items-center p-3 rounded-2xl bg-background/40">
+                          <span>Paramètres</span>
+                          <kbd className="px-3 py-1.5 bg-muted rounded-xl border text-xs font-medium">Ctrl + ,</kbd>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Export Data */}
+                    <Button variant="outline" className="w-full rounded-2xl justify-start gap-2 hover:scale-105 transition-all">
+                      <Download className="h-5 w-5" />
+                      Exporter mes données
                     </Button>
-                  </div>
-                )}
 
-                <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-5 sm:space-y-6">
-                  {/* Notifications */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                        <Bell className="h-4 w-4" />
-                        Notifications
+                    {/* App Info */}
+                    <div className="space-y-3 p-5 rounded-3xl bg-gradient-to-br from-[hsl(var(--pastel-violet))]/20 to-[hsl(var(--pastel-lavender))]/10">
+                      <Label className="text-base font-semibold flex items-center gap-2">
+                        <Info className="h-5 w-5" />
+                        Informations
                       </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Recevoir des notifications pour les réponses
-                      </p>
-                    </div>
-                    <Switch checked={notifications} onCheckedChange={setNotifications} />
-                  </div>
-
-                  <Separator />
-
-                  {/* Auto-save */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                        <Zap className="h-4 w-4" />
-                        Sauvegarde automatique
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Enregistrer automatiquement les conversations
-                      </p>
-                    </div>
-                    <Switch checked={autoSave} onCheckedChange={setAutoSave} />
-                  </div>
-
-                  <Separator />
-
-                  {/* Shortcuts */}
-                  <div className="space-y-2">
-                    <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                      <Keyboard className="h-4 w-4" />
-                      Raccourcis clavier
-                    </Label>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between items-center p-2 rounded-lg bg-muted/30">
-                        <span>Nouvelle conversation</span>
-                        <kbd className="px-2 py-1 bg-background rounded border">Ctrl + N</kbd>
-                      </div>
-                      <div className="flex justify-between items-center p-2 rounded-lg bg-muted/30">
-                        <span>Rechercher</span>
-                        <kbd className="px-2 py-1 bg-background rounded border">Ctrl + K</kbd>
-                      </div>
-                      <div className="flex justify-between items-center p-2 rounded-lg bg-muted/30">
-                        <span>Paramètres</span>
-                        <kbd className="px-2 py-1 bg-background rounded border">Ctrl + ,</kbd>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Export Data */}
-                  <Button variant="outline" className="w-full rounded-xl justify-start gap-2">
-                    <Download className="h-4 w-4" />
-                    Exporter mes données
-                  </Button>
-
-                  <Separator />
-
-                  {/* App Info */}
-                  <div className="space-y-2">
-                    <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                      <Info className="h-4 w-4" />
-                      Informations
-                    </Label>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span>Version</span>
-                        <span className="font-mono">1.0.0</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Dernière mise à jour</span>
-                        <span>Il y a 2 jours</span>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between p-3 bg-background/30 rounded-xl">
+                          <span>Version</span>
+                          <span className="font-mono font-medium">1.0.0</span>
+                        </div>
+                        <div className="flex justify-between p-3 bg-background/30 rounded-xl">
+                          <span>Dernière mise à jour</span>
+                          <span className="font-medium">Il y a 2 jours</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </TabsContent>
-            </Tabs>
+              )}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </>
   );

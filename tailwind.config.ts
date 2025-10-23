@@ -59,6 +59,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        pastel: {
+          linen: "hsl(var(--pastel-linen))",
+          feather: "hsl(var(--pastel-feather))",
+          violet: "hsl(var(--pastel-violet))",
+          rose: "hsl(var(--pastel-rose))",
+          lavender: "hsl(var(--pastel-lavender))",
+          mint: "hsl(var(--pastel-mint))",
+          peach: "hsl(var(--pastel-peach))",
+          sky: "hsl(var(--pastel-sky))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -445,27 +445,27 @@ export const ChatInput = ({
         </div>
       )}
 
-      {/* Input container */}
-      <div className="glass rounded-2xl sm:rounded-3xl p-2 sm:p-3 glass-hover shadow-2xl border border-[hsl(var(--glass-border))]">
+      {/* Input container avec design organique */}
+      <div className="glass rounded-[2rem] sm:rounded-[2.5rem] p-3 sm:p-4 glass-hover shadow-2xl border-2 border-[hsl(var(--glass-border))] bg-gradient-to-br from-[hsl(var(--pastel-feather))]/20 to-white/50 dark:from-[hsl(var(--pastel-feather))]/10 dark:to-transparent">
         <div className="flex items-end gap-2 sm:gap-3">
-          {/* Attachment button */}
+          {/* Attachment button avec design organique */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="shrink-0 rounded-xl hover:bg-accent/50 transition-colors h-9 w-9"
+                className="shrink-0 rounded-2xl hover:bg-gradient-to-br hover:from-[hsl(var(--pastel-violet))]/20 hover:to-[hsl(var(--pastel-rose))]/10 transition-all h-10 w-10 hover:scale-110"
                 disabled={disabled || isGenerating}
                 aria-label="Joindre un fichier"
                 title="Joindre un fichier"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
               side="top"
               align="start"
-              className="glass rounded-2xl border-[hsl(var(--glass-border))] p-2 w-64"
+              className="glass rounded-3xl border-[hsl(var(--glass-border))] p-3 w-64"
             >
               <UploadPopover onFileSelect={handleFileUpload} />
             </PopoverContent>
@@ -495,12 +495,12 @@ export const ChatInput = ({
             )}
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-1 sm:gap-2">
+          {/* Action buttons avec design organique */}
+          <div className="flex items-center gap-2">
             {/* Voice input with recording indicator */}
             <div className="relative flex items-center gap-2">
               {isRecording && (
-                <div className="flex items-center gap-2 bg-red-500/10 rounded-xl px-3 py-2 animate-fade-in">
+                <div className="flex items-center gap-2 bg-gradient-to-r from-red-500/20 to-red-500/10 rounded-2xl px-3 py-2 animate-fade-in border border-red-500/30">
                   <div className="flex gap-1">
                     <div className="w-1 h-4 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
                     <div className="w-1 h-4 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
@@ -516,54 +516,55 @@ export const ChatInput = ({
                 variant={isRecording ? "default" : "ghost"}
                 size="icon"
                 className={cn(
-                  "shrink-0 rounded-xl transition-all h-9 w-9",
+                  "shrink-0 rounded-2xl transition-all h-10 w-10 hover:scale-110",
                   isRecording 
-                    ? "bg-red-500 hover:bg-red-600" 
-                    : "hover:bg-accent/50"
+                    ? "bg-gradient-to-br from-red-500 to-red-600 shadow-lg" 
+                    : "hover:bg-gradient-to-br hover:from-[hsl(var(--pastel-mint))]/20 hover:to-[hsl(var(--pastel-sky))]/10"
                 )}
                 disabled={disabled || isGenerating}
                 aria-label={isRecording ? "Arrêter l'enregistrement vocal" : "Démarrer l'enregistrement vocal"}
                 aria-pressed={isRecording}
                 title={isRecording ? "Arrêter l'enregistrement" : "Enregistrement vocal"}
               >
-                <Mic className={cn("h-4 w-4", isRecording && "text-white")} />
+                <Mic className={cn("h-5 w-5", isRecording && "text-white")} />
               </Button>
             </div>
 
-            {/* Send/Stop button */}
+            {/* Send/Stop button avec design organique */}
             {isGenerating ? (
               <Button
                 onClick={onStopGeneration}
                 size="icon"
-                className="shrink-0 rounded-xl bg-destructive hover:bg-destructive/90 transition-all h-9 w-9"
+                className="shrink-0 rounded-2xl bg-gradient-to-br from-destructive to-destructive/80 hover:scale-110 transition-all h-10 w-10 shadow-lg"
                 aria-label="Arrêter la génération"
                 title="Arrêter la génération de la réponse"
               >
-                <StopCircle className="h-4 w-4" />
+                <StopCircle className="h-5 w-5" />
               </Button>
             ) : (
               <Button
                 onClick={handleSend}
                 disabled={(!message.trim() && attachments.length === 0) || disabled || isProcessing}
                 size="icon"
-                className="shrink-0 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-50 transition-all h-9 w-9"
+                className="shrink-0 rounded-2xl bg-gradient-to-br from-primary to-accent hover:scale-110 disabled:opacity-50 disabled:hover:scale-100 transition-all h-10 w-10 shadow-lg"
                 aria-label="Envoyer le message"
                 title="Envoyer (Entrée)"
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-5 w-5" />
               </Button>
             )}
           </div>
         </div>
 
-        {/* Footer with suggestions */}
-        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+        {/* Footer with suggestions - design organique */}
+        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
-            <span>Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne</span>
+            <span className="hidden sm:inline">Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne</span>
+            <span className="sm:hidden">Entrée pour envoyer</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-[hsl(var(--pastel-feather))]/30">
             <Wand2 className="h-3 w-3" />
-            <span>ORION peut faire des erreurs</span>
+            <span className="hidden sm:inline">ORION peut faire des erreurs</span>
           </div>
         </div>
       </div>
