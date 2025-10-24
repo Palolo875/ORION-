@@ -138,6 +138,42 @@ Les Web Workers sont sandboxés :
 - Mises à jour régulières des dépendances
 - Revue manuelle des PRs Dependabot
 
+## ⚠️ Vulnérabilités Connues
+
+### État Actuel (Octobre 2025)
+
+**Vulnérabilités npm audit** : 2 vulnérabilités modérées
+
+#### 1. esbuild (via vite 5.4.19)
+- **CVE**: GHSA-67mh-4wv8-2f99
+- **Sévérité**: Modérée (CVSS 5.3)
+- **Description**: Le serveur de développement esbuild peut permettre à un site malveillant d'envoyer des requêtes et de lire les réponses
+- **Impact**: **Développement uniquement** - N'affecte pas la production
+- **Scope**: Dev server uniquement, pas de build production
+- **Mitigation**: 
+  - Ne pas exposer le dev server publiquement
+  - Utiliser un firewall pour limiter l'accès au dev server
+  - Le build de production n'est pas affecté
+- **Status**: Accepté (risque faible en dev)
+- **Action future**: Upgrade vers vite 7.x lors de la prochaine mise à jour majeure (breaking changes)
+
+#### 2. esbuild (dépendance transitive)
+- Même package, même CVE
+- Impact identique (dev uniquement)
+
+**Décision** : Ces vulnérabilités sont **acceptées** car :
+1. ✅ Elles n'affectent que le serveur de développement
+2. ✅ Le build de production n'est pas impacté
+3. ✅ Les développeurs locaux ne sont pas exposés publiquement
+4. ✅ Upgrade vers vite 7.x nécessite des breaking changes (planifié pour v3.0)
+
+### Historique des Correctifs
+
+| Date | CVE | Sévérité | Correctif | Version |
+|------|-----|----------|-----------|---------|
+| Oct 2025 | GHSA-67mh-4wv8-2f99 | Modérée | Documenté | 2.0 |
+| - | - | - | - | - |
+
 ## 🔍 Audits de Sécurité
 
 ### Audits Automatiques
@@ -146,11 +182,14 @@ Les Web Workers sont sandboxés :
 # Audit npm des vulnérabilités
 npm audit
 
-# Audit avec correction automatique
+# Audit avec correction automatique (non-breaking)
 npm audit fix
 
 # Audit strict (CI/CD)
 npm audit --audit-level=high
+
+# Pour voir les détails JSON
+npm audit --json
 ```
 
 ### Audits Manuels

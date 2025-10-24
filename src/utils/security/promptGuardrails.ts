@@ -20,6 +20,14 @@ export interface GuardrailResult {
   threats: ThreatDetection[];
   sanitized: string;
   confidence: number;
+  isSafe: boolean;
+}
+
+export interface GuardrailOptions {
+  enabled?: boolean;
+  strictMode?: boolean;
+  maxLength?: number;
+  logOnly?: boolean;
 }
 
 /**
@@ -28,7 +36,7 @@ export interface GuardrailResult {
 const INJECTION_PATTERNS = [
   // Tentatives de contournement direct
   {
-    pattern: /ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?|commands?)/gi,
+    pattern: /(ignore|disregard)\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?|commands?)/gi,
     type: 'instruction_override',
     level: 'critical' as ThreatLevel,
     description: 'Tentative d\'ignorer les instructions précédentes'
@@ -131,6 +139,26 @@ const INJECTION_PATTERNS = [
     level: 'high' as ThreatLevel,
     description: 'Tentative de détournement de conversation'
   },
+  
+  // Injection HTML/Script
+  {
+    pattern: /<script[^>]*>.*?<\/script>/gis,
+    type: 'script_injection',
+    level: 'critical' as ThreatLevel,
+    description: 'Tentative d\'injection de script malveillant'
+  },
+  {
+    pattern: /<iframe[^>]*>.*?<\/iframe>/gis,
+    type: 'iframe_injection',
+    level: 'high' as ThreatLevel,
+    description: 'Tentative d\'injection d\'iframe'
+  },
+  {
+    pattern: /on(load|error|click|mouseover|focus)\s*=/gi,
+    type: 'event_handler_injection',
+    level: 'high' as ThreatLevel,
+    description: 'Tentative d\'injection de gestionnaire d\'événements'
+  },
 ];
 
 /**
@@ -153,6 +181,17 @@ const SUSPICIOUS_KEYWORDS = [
  * Classe principale des garde-fous
  */
 export class PromptGuardrails {
+  private enabled: boolean;
+  private strictMode: boolean;
+  private maxLength: number;
+  private logOnly: boolean;
+  private customPatterns: Array<{
+    pattern: RegExp;
+    type: string;
+    level: ThreatLevel;
+    description: string;
+  }> = [];
+  
   private enabledChecks = {
     injectionPatterns: true,
     suspiciousKeywords: true,
@@ -160,6 +199,13 @@ export class PromptGuardrails {
     repetitionDetection: true,
     specialTokens: true,
   };
+  
+  constructor(options: GuardrailOptions = {}) {
+    this.enabled = options.enabled ?? true;
+    this.strictMode = options.strictMode ?? false;
+    this.maxLength = options.maxLength ?? 10000;
+    this.logOnly = options.logOnly ?? false;
+  }
 
   /**
    * Valide un prompt utilisateur
@@ -168,13 +214,44 @@ export class PromptGuardrails {
     strictMode?: boolean;
     maxLength?: number;
   }): GuardrailResult {
-    const strictMode = options?.strictMode ?? false;
-    const maxLength = options?.maxLength ?? 10000;
+    // Si désactivé, retourner immédiatement safe
+    if (!this.enabled) {
+      return {
+        action: 'allow',
+        threats: [],
+        sanitized: prompt,
+        confidence: 1.0,
+        isSafe: true,
+      };
+    }
+    
+    // Si en mode log-only, tout est autorisé mais on log quand même
+    if (this.logOnly) {
+      const result = this.performValidation(prompt, options);
+      return {
+        ...result,
+        action: 'allow',
+        isSafe: true,
+      };
+    }
+    
+    return this.performValidation(prompt, options);
+  }
+  
+  private performValidation(prompt: string, options?: {
+    strictMode?: boolean;
+    maxLength?: number;
+  }): GuardrailResult {
+    const strictMode = options?.strictMode ?? this.strictMode;
+    const maxLength = options?.maxLength ?? this.maxLength;
     const threats: ThreatDetection[] = [];
     let sanitized = prompt;
+    
+    // 0. Nettoyer les caractères invisibles et suspects
+    sanitized = this.sanitizeInvisibleCharacters(sanitized);
 
     // 1. Vérifier la longueur
-    if (this.enabledChecks.lengthLimit && prompt.length > maxLength) {
+    if (this.enabledChecks.lengthLimit && prompt.length >= maxLength) {
       threats.push({
         type: 'excessive_length',
         level: 'low',
@@ -183,9 +260,10 @@ export class PromptGuardrails {
       sanitized = prompt.substring(0, maxLength);
     }
 
-    // 2. Détecter les patterns d'injection
+    // 2. Détecter les patterns d'injection (builtin + custom)
     if (this.enabledChecks.injectionPatterns) {
-      for (const pattern of INJECTION_PATTERNS) {
+      const allPatterns = [...INJECTION_PATTERNS, ...this.customPatterns];
+      for (const pattern of allPatterns) {
         const matches = prompt.match(pattern.pattern);
         if (matches) {
           threats.push({
@@ -244,14 +322,32 @@ export class PromptGuardrails {
       });
     }
 
+    const isSafe = threats.length === 0 || action === 'allow';
+    
     return {
       action,
       threats,
       sanitized,
       confidence,
+      isSafe,
     };
   }
 
+  /**
+   * Nettoie les caractères invisibles et suspects
+   */
+  private sanitizeInvisibleCharacters(text: string): string {
+    return text
+      // Zero-width characters
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      // Non-breaking spaces (conserver les espaces normaux)
+      .replace(/\u00A0/g, ' ')
+      // Direction marks
+      .replace(/[\u202A-\u202E]/g, '')
+      // Variation selectors
+      .replace(/[\uFE00-\uFE0F]/g, '');
+  }
+  
   /**
    * Détecte les répétitions excessives (potentiel DoS)
    */
@@ -355,7 +451,55 @@ export class PromptGuardrails {
   getEnabledChecks(): Record<string, boolean> {
     return { ...this.enabledChecks };
   }
+  
+  /**
+   * Ajoute un pattern custom de détection
+   */
+  addCustomPattern(pattern: RegExp, description: string, level: ThreatLevel): void {
+    this.customPatterns.push({
+      pattern,
+      type: 'custom_pattern',
+      level,
+      description,
+    });
+    logger.info('PromptGuardrails', `Custom pattern ajouté: ${description} (${level})`);
+  }
+  
+  /**
+   * Active ou désactive complètement les guardrails
+   */
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+    logger.info('PromptGuardrails', `Guardrails ${enabled ? 'enabled' : 'disabled'}`);
+  }
+  
+  /**
+   * Vérifie si les guardrails sont activés
+   */
+  isEnabled(): boolean {
+    return this.enabled;
+  }
 }
 
 // Export singleton
 export const promptGuardrails = new PromptGuardrails();
+
+/**
+ * Fonction helper pour analyser un prompt (utilise le singleton)
+ */
+export function analyzePrompt(prompt: string): GuardrailResult {
+  return promptGuardrails.validate(prompt);
+}
+
+/**
+ * Fonction helper pour protéger un prompt avec options
+ * Par défaut, utilise le mode strict
+ */
+export function guardPrompt(prompt: string, options?: GuardrailOptions): GuardrailResult {
+  const defaultOptions: GuardrailOptions = {
+    strictMode: true, // Mode strict par défaut pour guardPrompt
+    ...options,
+  };
+  const guardrails = new PromptGuardrails(defaultOptions);
+  return guardrails.validate(prompt);
+}
