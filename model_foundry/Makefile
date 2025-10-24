@@ -1,145 +1,189 @@
 # ORION Model Foundry - Makefile
-# Commandes automatisées pour le pipeline de création de modèles
+# Création automatisée des modèles hybrides ORION
 
-.PHONY: help install clean build-all build-dev-polyglot optimize test
-
-# Variables
+SHELL := /bin/bash
 PYTHON := python3
-POETRY := poetry
-MODELS_DIR := merged_models
-OPTIMIZED_DIR := optimized_models
-PUBLIC_DIR := ../public/models
+MERGEKIT := /home/ubuntu/.local/bin/mergekit-yaml
+
+# Répertoires
 RECIPES_DIR := recipes
+MERGED_DIR := merged_models
+OUTPUT_DIR := ../public/models
 
-# Couleurs pour output
-RED := \033[0;31m
-GREEN := \033[0;32m
-YELLOW := \033[0;33m
-BLUE := \033[0;34m
-NC := \033[0m # No Color
+# Cibles principales
+.PHONY: all help install clean build-all-orion
 
-help: ## Afficher cette aide
-	@echo "$(BLUE)ORION Model Foundry - Commandes disponibles:$(NC)"
+help:
+	@echo "🔨 ORION Model Foundry - Makefile"
 	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo "Commandes disponibles:"
+	@echo "  make install           - Installer les dépendances"
+	@echo "  make build-all-orion   - Créer les 3 modèles ORION (2-3h)"
+	@echo "  make build-code-logic  - Créer ORION Code & Logic (~30-45 min)"
+	@echo "  make build-creative    - Créer ORION Creative & Multilingual (~30-45 min)"
+	@echo "  make build-vision      - Créer ORION Vision & Logic (~40-60 min)"
+	@echo "  make clean             - Nettoyer les fichiers temporaires"
+	@echo "  make clean-all         - Nettoyer tout (y compris modèles)"
 	@echo ""
+	@echo "Pour lancer en arrière-plan:"
+	@echo "  nohup make build-all-orion > build.log 2>&1 &"
+	@echo ""
+	@echo "Puis suivre la progression:"
+	@echo "  tail -f build.log"
 
-install: ## Installer les dépendances avec Poetry
-	@echo "$(BLUE)Installation des dépendances...$(NC)"
-	$(POETRY) install
-	@echo "$(GREEN)✓ Installation terminée$(NC)"
+install:
+	@echo "📦 Installation des dépendances..."
+	pip3 install --user torch transformers accelerate huggingface-hub pyyaml tqdm
+	pip3 install --user git+https://github.com/arcee-ai/mergekit.git
+	@echo "✅ Dépendances installées!"
 
-install-pip: ## Installer les dépendances avec pip (alternative)
-	@echo "$(BLUE)Installation des dépendances avec pip...$(NC)"
-	pip install -r requirements.txt
-	@echo "$(GREEN)✓ Installation terminée$(NC)"
+build-all-orion: build-code-logic build-creative build-vision
+	@echo ""
+	@echo "🎉 Les 3 modèles ORION ont été créés avec succès!"
+	@echo ""
+	@echo "Modèles disponibles:"
+	@ls -lh $(OUTPUT_DIR)/ORION-*/
+	@echo ""
+	@echo "Vous pouvez maintenant les utiliser dans ORION!"
 
-clean: ## Nettoyer les fichiers temporaires
-	@echo "$(YELLOW)Nettoyage des fichiers temporaires...$(NC)"
-	rm -rf $(MODELS_DIR)/*
-	rm -rf $(OPTIMIZED_DIR)/*
-	rm -rf __pycache__
-	rm -rf .pytest_cache
-	rm -rf *.pyc
-	@echo "$(GREEN)✓ Nettoyage terminé$(NC)"
-
-build-all: ## Créer tous les modèles hybrides
-	@echo "$(BLUE)Création de tous les modèles hybrides...$(NC)"
-	$(MAKE) build-dev-polyglot
-	@echo "$(GREEN)✓ Tous les modèles créés$(NC)"
-
-build-dev-polyglot: ## Créer ORION-Dev-Polyglot-v1
-	@echo "$(BLUE)Création du modèle ORION-Dev-Polyglot-v1...$(NC)"
-	@echo "  - Fusion: CodeGemma 2B + Qwen2 1.5B"
-	@echo "  - Ratio: 60/40"
-	@echo "  - Méthode: SLERP"
-	@mkdir -p $(MODELS_DIR)
-	$(POETRY) run mergekit-yaml \
-		$(RECIPES_DIR)/dev-polyglot-v1.yml \
-		$(MODELS_DIR)/ORION-Dev-Polyglot-v1 \
+# ORION Code & Logic v1
+build-code-logic:
+	@echo ""
+	@echo "🔨 [1/3] Création de ORION Code & Logic v1"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "Fusion: CodeGemma 2B + Llama 3.2 3B (50/50)"
+	@echo "Taille estimée: ~1.5 Go"
+	@echo "Temps estimé: 30-45 minutes"
+	@echo ""
+	
+	@mkdir -p $(MERGED_DIR) $(OUTPUT_DIR)
+	
+	@echo "📥 Étape 1/3: Fusion des modèles avec SLERP..."
+	@$(MERGEKIT) $(RECIPES_DIR)/orion-code-logic-v1.yml \
+		$(MERGED_DIR)/ORION-Code-Logic-v1 \
 		--copy-tokenizer \
-		--allow-crimes
-	@echo "$(GREEN)✓ Modèle fusionné créé$(NC)"
+		--allow-crimes \
+		--verbose || (echo "❌ Erreur lors de la fusion"; exit 1)
+	
+	@echo "✅ Fusion terminée!"
 	@echo ""
-	@echo "$(BLUE)Optimisation pour le web...$(NC)"
-	$(MAKE) optimize-dev-polyglot
-	@echo "$(GREEN)✓ ORION-Dev-Polyglot-v1 prêt !$(NC)"
-
-optimize-dev-polyglot: ## Optimiser ORION-Dev-Polyglot-v1 (quantification + sharding)
-	@echo "$(BLUE)Optimisation de ORION-Dev-Polyglot-v1...$(NC)"
-	@mkdir -p $(PUBLIC_DIR)
-	$(POETRY) run $(PYTHON) optimize_pipeline.py \
-		--model_path $(MODELS_DIR)/ORION-Dev-Polyglot-v1 \
-		--output_path $(PUBLIC_DIR)/ORION-Dev-Polyglot-v1-q4 \
+	@echo "🔧 Étape 2/3: Quantification q4..."
+	@$(PYTHON) optimize_pipeline.py \
+		--model_path $(MERGED_DIR)/ORION-Code-Logic-v1 \
+		--output_path $(OUTPUT_DIR)/ORION-Code-Logic-v1-q4 \
 		--quantization q4 \
-		--shard_size 100 \
-		--verbose
-	@echo "$(GREEN)✓ Optimisation terminée$(NC)"
-
-quantize: ## Quantifier un modèle (usage: make quantize MODEL=path/to/model QUANT=q4)
-	@echo "$(BLUE)Quantification de $(MODEL) en $(QUANT)...$(NC)"
-	@mkdir -p $(OPTIMIZED_DIR)
-	$(POETRY) run $(PYTHON) quantize_model.py \
-		--model $(MODEL) \
-		--output $(OPTIMIZED_DIR)/$(notdir $(MODEL))-$(QUANT) \
-		--quantization $(QUANT)
-	@echo "$(GREEN)✓ Quantification terminée$(NC)"
-
-shard: ## Découper un modèle en shards (usage: make shard MODEL=path/to/model SIZE=100)
-	@echo "$(BLUE)Sharding de $(MODEL) (taille: $(SIZE)Mo/shard)...$(NC)"
-	@mkdir -p $(OPTIMIZED_DIR)
-	$(POETRY) run $(PYTHON) shard_model.py \
-		--model_path $(MODEL) \
-		--output_path $(OPTIMIZED_DIR)/$(notdir $(MODEL))-sharded \
-		--shard_size $(SIZE)
-	@echo "$(GREEN)✓ Sharding terminé$(NC)"
-
-test: ## Lancer les tests de validation
-	@echo "$(BLUE)Lancement des tests...$(NC)"
-	$(POETRY) run pytest tests/ -v
-	@echo "$(GREEN)✓ Tests terminés$(NC)"
-
-validate: ## Valider un modèle (usage: make validate MODEL=path/to/model)
-	@echo "$(BLUE)Validation de $(MODEL)...$(NC)"
-	$(POETRY) run $(PYTHON) scripts/validate_model.py \
-		--model_path $(MODEL) \
-		--benchmark hellaswag,arc
-	@echo "$(GREEN)✓ Validation terminée$(NC)"
-
-test-inference: ## Tester l'inférence d'un modèle (usage: make test-inference MODEL=path/to/model)
-	@echo "$(BLUE)Test d'inférence de $(MODEL)...$(NC)"
-	$(POETRY) run $(PYTHON) scripts/test_inference.py \
-		--model $(MODEL) \
-		--prompt "Écris une fonction Python qui trie une liste"
-	@echo "$(GREEN)✓ Test terminé$(NC)"
-
-benchmark: ## Benchmarker tous les modèles optimisés
-	@echo "$(BLUE)Benchmark des modèles...$(NC)"
-	$(POETRY) run $(PYTHON) scripts/benchmark_variants.py $(OPTIMIZED_DIR)/*
-	@echo "$(GREEN)✓ Benchmark terminé$(NC)"
-
-list-models: ## Lister tous les modèles créés
-	@echo "$(BLUE)Modèles fusionnés:$(NC)"
-	@ls -lh $(MODELS_DIR)/ 2>/dev/null || echo "  Aucun modèle fusionné"
+		--shard_size 150 || (echo "❌ Erreur lors de la quantification"; exit 1)
+	
+	@echo "✅ Quantification terminée!"
 	@echo ""
-	@echo "$(BLUE)Modèles optimisés:$(NC)"
-	@ls -lh $(OPTIMIZED_DIR)/ 2>/dev/null || echo "  Aucun modèle optimisé"
+	@echo "📦 Étape 3/3: Vérification..."
+	@ls -lh $(OUTPUT_DIR)/ORION-Code-Logic-v1-q4/
 	@echo ""
-	@echo "$(BLUE)Modèles déployés:$(NC)"
-	@ls -lh $(PUBLIC_DIR)/ 2>/dev/null || echo "  Aucun modèle déployé"
+	@echo "✅ ORION Code & Logic v1 créé avec succès!"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-info: ## Afficher les informations sur l'environnement
-	@echo "$(BLUE)Informations sur l'environnement:$(NC)"
-	@echo "  Python: $$($(PYTHON) --version)"
-	@echo "  Poetry: $$($(POETRY) --version)"
-	@echo "  PyTorch: $$($(PYTHON) -c 'import torch; print(torch.__version__)' 2>/dev/null || echo 'Non installé')"
-	@echo "  Transformers: $$($(PYTHON) -c 'import transformers; print(transformers.__version__)' 2>/dev/null || echo 'Non installé')"
-	@echo "  CUDA disponible: $$($(PYTHON) -c 'import torch; print(torch.cuda.is_available())' 2>/dev/null || echo 'N/A')"
+# ORION Creative & Multilingual v1
+build-creative:
+	@echo ""
+	@echo "🔨 [2/3] Création de ORION Creative & Multilingual v1"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "Fusion: Mistral 7B + Qwen2 1.5B (70/30)"
+	@echo "Taille estimée: ~2.6 Go"
+	@echo "Temps estimé: 30-45 minutes"
+	@echo ""
+	
+	@mkdir -p $(MERGED_DIR) $(OUTPUT_DIR)
+	
+	@echo "📥 Étape 1/3: Fusion des modèles avec SLERP..."
+	@$(MERGEKIT) $(RECIPES_DIR)/orion-creative-multilingual-v1.yml \
+		$(MERGED_DIR)/ORION-Creative-Multilingual-v1 \
+		--copy-tokenizer \
+		--allow-crimes \
+		--verbose || (echo "❌ Erreur lors de la fusion"; exit 1)
+	
+	@echo "✅ Fusion terminée!"
+	@echo ""
+	@echo "🔧 Étape 2/3: Quantification q4..."
+	@$(PYTHON) optimize_pipeline.py \
+		--model_path $(MERGED_DIR)/ORION-Creative-Multilingual-v1 \
+		--output_path $(OUTPUT_DIR)/ORION-Creative-Multilingual-v1-q4 \
+		--quantization q4 \
+		--shard_size 200 || (echo "❌ Erreur lors de la quantification"; exit 1)
+	
+	@echo "✅ Quantification terminée!"
+	@echo ""
+	@echo "📦 Étape 3/3: Vérification..."
+	@ls -lh $(OUTPUT_DIR)/ORION-Creative-Multilingual-v1-q4/
+	@echo ""
+	@echo "✅ ORION Creative & Multilingual v1 créé avec succès!"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Raccourcis
-dev-polyglot: build-dev-polyglot ## Alias pour build-dev-polyglot
+# ORION Vision & Logic v1
+build-vision:
+	@echo ""
+	@echo "🔨 [3/3] Création de ORION Vision & Logic v1"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "Fusion: LLaVA 1.5 (LLM) + Llama 3.2 3B (60/40)"
+	@echo "Taille estimée: ~3.4 Go"
+	@echo "Temps estimé: 40-60 minutes"
+	@echo ""
+	
+	@mkdir -p $(MERGED_DIR) $(OUTPUT_DIR)
+	
+	@echo "📥 Étape 1/3: Fusion des modèles avec SLERP..."
+	@$(MERGEKIT) $(RECIPES_DIR)/orion-vision-logic-v1.yml \
+		$(MERGED_DIR)/ORION-Vision-Logic-v1 \
+		--copy-tokenizer \
+		--allow-crimes \
+		--verbose || (echo "❌ Erreur lors de la fusion"; exit 1)
+	
+	@echo "✅ Fusion terminée!"
+	@echo ""
+	@echo "🔧 Étape 2/3: Quantification q4..."
+	@$(PYTHON) optimize_pipeline.py \
+		--model_path $(MERGED_DIR)/ORION-Vision-Logic-v1 \
+		--output_path $(OUTPUT_DIR)/ORION-Vision-Logic-v1-q4 \
+		--quantization q4 \
+		--shard_size 200 || (echo "❌ Erreur lors de la quantification"; exit 1)
+	
+	@echo "✅ Quantification terminée!"
+	@echo ""
+	@echo "📦 Étape 3/3: Vérification..."
+	@ls -lh $(OUTPUT_DIR)/ORION-Vision-Logic-v1-q4/
+	@echo ""
+	@echo "✅ ORION Vision & Logic v1 créé avec succès!"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Valeurs par défaut pour les paramètres
-MODEL ?= merged_models/ORION-Dev-Polyglot-v1
-QUANT ?= q4
-SIZE ?= 100
+# Nettoyage
+clean:
+	@echo "🧹 Nettoyage des fichiers temporaires..."
+	@rm -rf __pycache__ *.pyc .pytest_cache
+	@echo "✅ Nettoyage terminé!"
+
+clean-merged:
+	@echo "🧹 Suppression des modèles fusionnés (intermédiaires)..."
+	@rm -rf $(MERGED_DIR)/*
+	@echo "✅ Modèles fusionnés supprimés!"
+
+clean-all: clean clean-merged
+	@echo "🧹 Suppression de tous les modèles générés..."
+	@rm -rf $(OUTPUT_DIR)/ORION-*
+	@echo "⚠️  Tous les modèles ORION ont été supprimés!"
+
+# Informations
+info:
+	@echo "📊 État de la Model Foundry"
+	@echo ""
+	@echo "Recettes disponibles:"
+	@ls -1 $(RECIPES_DIR)/*.yml
+	@echo ""
+	@echo "Modèles fusionnés:"
+	@ls -1d $(MERGED_DIR)/* 2>/dev/null || echo "Aucun"
+	@echo ""
+	@echo "Modèles optimisés:"
+	@ls -1d $(OUTPUT_DIR)/ORION-* 2>/dev/null || echo "Aucun"
+	@echo ""
+	@echo "Espace disque:"
+	@df -h /workspace | grep -v Filesystem
+
+.DEFAULT_GOAL := help
