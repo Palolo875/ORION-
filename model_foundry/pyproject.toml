@@ -1,25 +1,47 @@
 [tool.poetry]
 name = "orion-model-foundry"
 version = "1.0.0"
-description = "Fonderie de modèles AI pour ORION - Fusion et optimisation de modèles"
+description = "Pipeline de création, fusion et optimisation de modèles pour ORION"
 authors = ["ORION Team"]
 readme = "README.md"
+packages = [{include = "foundry"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-torch = "^2.5.0"
-transformers = "^4.46.0"
-accelerate = "^0.34.0"
+torch = "^2.0.0"
+transformers = "^4.35.0"
+accelerate = "^0.25.0"
+optimum = {extras = ["onnxruntime"], version = "^1.16.0"}
+onnx = "^1.15.0"
+onnxruntime = "^1.16.0"
+bitsandbytes = "^0.41.0"
+numpy = "^1.24.0"
+tqdm = "^4.66.0"
+pyyaml = "^6.0"
+huggingface-hub = "^0.19.0"
 safetensors = "^0.4.0"
-sentencepiece = "^0.2.0"
-protobuf = "^4.25.0"
-huggingface-hub = "^0.26.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.0"
-black = "^24.10.0"
-flake8 = "^7.1.0"
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+black = "^23.0.0"
+isort = "^5.12.0"
+
+[tool.poetry.scripts]
+orion-merge = "foundry.merge:main"
+orion-quantize = "foundry.quantize:main"
+orion-shard = "foundry.shard:main"
+orion-optimize = "foundry.optimize:main"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100

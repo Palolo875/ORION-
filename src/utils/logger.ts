@@ -1,6 +1,15 @@
 /**
  * Logger structuré pour ORION
  * Remplace console.log avec un système de logging production-ready
+ * 
+ * Features:
+ * - Logs structurés au format JSON
+ * - Filtrage par niveau (DEBUG, INFO, WARN, ERROR, CRITICAL)
+ * - Sanitization automatique des données sensibles
+ * - Export pour debugging
+ * - Intégration avec monitoring (Sentry, etc.)
+ * - Trace IDs pour suivre les requêtes
+ * - Performance metrics
  */
 
 /**
@@ -23,6 +32,10 @@ interface LoggerConfig {
   enableStorage: boolean;
   maxStoredLogs: number;
   sensitiveFields: string[];
+  // Nouveaux champs
+  enablePerformanceTracking: boolean;
+  enableContextTracking: boolean;
+  outputFormat: 'pretty' | 'json';
 }
 
 /**
@@ -36,14 +49,21 @@ export interface LogEntry {
   data?: unknown;
   traceId?: string;
   userId?: string;
+  // Nouveaux champs
+  duration?: number; // Pour les métriques de performance
+  context?: Record<string, unknown>; // Contexte additionnel
+  tags?: string[]; // Tags pour filtrage
+  environment?: string; // dev, staging, production
 }
 
 /**
- * Logger production-ready
+ * Logger production-ready avec features avancées
  */
 class Logger {
   private config: LoggerConfig;
   private logs: LogEntry[] = [];
+  private performanceMarks = new Map<string, number>();
+  private globalContext: Record<string, unknown> = {};
   
   constructor(config?: Partial<LoggerConfig>) {
     const isDev = import.meta.env.DEV;
@@ -55,8 +75,20 @@ class Logger {
       enableStorage: true,
       maxStoredLogs: 1000,
       sensitiveFields: ['password', 'token', 'apiKey', 'secret', 'credential', 'key'],
+      enablePerformanceTracking: true,
+      enableContextTracking: true,
+      outputFormat: isDev ? 'pretty' : 'json',
       ...config
     };
+    
+    // Capturer l'environnement
+    if (this.config.enableContextTracking) {
+      this.globalContext = {
+        environment: isProd ? 'production' : 'development',
+        userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'unknown',
+        timestamp: Date.now(),
+      };
+    }
   }
   
   /**
@@ -132,17 +164,6 @@ class Logger {
    * Log vers la console (dev)
    */
   private logToConsole(entry: LogEntry): void {
-    const emoji = {
-      [LogLevel.DEBUG]: '🐛',
-      [LogLevel.INFO]: 'ℹ️',
-      [LogLevel.WARN]: '⚠️',
-      [LogLevel.ERROR]: '❌',
-      [LogLevel.CRITICAL]: '🔥'
-    }[entry.level];
-    
-    const timestamp = new Date(entry.timestamp).toISOString();
-    const prefix = `${emoji} [${entry.component}] ${timestamp}`;
-    
     const method = {
       [LogLevel.DEBUG]: console.debug,
       [LogLevel.INFO]: console.info,
@@ -151,10 +172,38 @@ class Logger {
       [LogLevel.CRITICAL]: console.error
     }[entry.level];
     
-    if (entry.data) {
-      method(prefix, entry.message, entry.data);
+    if (this.config.outputFormat === 'json') {
+      // Format JSON structuré (production)
+      method(JSON.stringify({
+        timestamp: new Date(entry.timestamp).toISOString(),
+        level: LogLevel[entry.level],
+        component: entry.component,
+        message: entry.message,
+        ...entry.data && { data: entry.data },
+        ...entry.traceId && { traceId: entry.traceId },
+        ...entry.duration && { duration: `${entry.duration}ms` },
+        ...entry.context && { context: entry.context },
+        ...entry.tags && { tags: entry.tags },
+      }));
     } else {
-      method(prefix, entry.message);
+      // Format pretty (development)
+      const emoji = {
+        [LogLevel.DEBUG]: '🐛',
+        [LogLevel.INFO]: 'ℹ️',
+        [LogLevel.WARN]: '⚠️',
+        [LogLevel.ERROR]: '❌',
+        [LogLevel.CRITICAL]: '🔥'
+      }[entry.level];
+      
+      const timestamp = new Date(entry.timestamp).toISOString();
+      const prefix = `${emoji} [${entry.component}] ${timestamp}`;
+      const suffix = entry.duration ? ` (${entry.duration}ms)` : '';
+      
+      if (entry.data) {
+        method(prefix, entry.message + suffix, entry.data);
+      } else {
+        method(prefix, entry.message + suffix);
+      }
     }
   }
   
@@ -299,10 +348,89 @@ class Logger {
       byComponent
     };
   }
+  
+  /**
+   * Marquer le début d'une opération pour mesurer la performance
+   */
+  startPerformance(operationId: string): void {
+    if (!this.config.enablePerformanceTracking) return;
+    this.performanceMarks.set(operationId, performance.now());
+  }
+  
+  /**
+   * Terminer une opération et logger sa durée
+   */
+  endPerformance(operationId: string, component: string, message: string): number | null {
+    if (!this.config.enablePerformanceTracking) return null;
+    
+    const startTime = this.performanceMarks.get(operationId);
+    if (!startTime) {
+      this.warn(component, `Performance mark not found: ${operationId}`);
+      return null;
+    }
+    
+    const duration = performance.now() - startTime;
+    this.performanceMarks.delete(operationId);
+    
+    this.info(component, message, { duration: `${duration.toFixed(2)}ms` });
+    return duration;
+  }
+  
+  /**
+   * Définir un contexte global pour tous les logs suivants
+   */
+  setGlobalContext(context: Record<string, unknown>): void {
+    this.globalContext = { ...this.globalContext, ...context };
+  }
+  
+  /**
+   * Obtenir le contexte global
+   */
+  getGlobalContext(): Record<string, unknown> {
+    return { ...this.globalContext };
+  }
+  
+  /**
+   * Créer un logger enfant avec un contexte spécifique
+   */
+  createChild(component: string, context?: Record<string, unknown>): ChildLogger {
+    return new ChildLogger(this, component, context);
+  }
+}
+
+/**
+ * Logger enfant avec contexte spécifique
+ */
+class ChildLogger {
+  constructor(
+    private parent: Logger,
+    private component: string,
+    private context?: Record<string, unknown>
+  ) {}
+  
+  debug(message: string, data?: unknown): void {
+    this.parent.debug(this.component, message, { ...this.context, ...data as object });
+  }
+  
+  info(message: string, data?: unknown): void {
+    this.parent.info(this.component, message, { ...this.context, ...data as object });
+  }
+  
+  warn(message: string, data?: unknown): void {
+    this.parent.warn(this.component, message, { ...this.context, ...data as object });
+  }
+  
+  error(message: string, error?: Error | unknown): void {
+    this.parent.error(this.component, message, error);
+  }
+  
+  critical(message: string, error?: Error | unknown): void {
+    this.parent.critical(this.component, message, error);
+  }
 }
 
 // Instance globale
 export const logger = new Logger();
 
 // Export pour tests
-export { Logger };
+export { Logger, ChildLogger };
