@@ -1,0 +1,92 @@
+# Recette ORION Code & Logique v1
+# Agent hybride optimisé pour le code ET le raisonnement logique
+# 
+# Objectif: Combiner expertise en code avec raisonnement structuré
+# Cas d'usage: Développement avec architecture complexe, design patterns, algorithmes
+# 
+# Fusion: CodeGemma 2B + Llama 3.2 3B
+# Ratio: 50% code expertise / 50% logical reasoning
+
+# Modèles parents
+models:
+  - model: google/codegemma-2b-it
+    # Expertise: Code generation, debugging, code explanation
+    # Taille: ~1.1 Go (q4)
+    # Forces: Génération de code précise, syntaxe correcte
+    
+  - model: meta-llama/Llama-3.2-3B-Instruct
+    # Expertise: Advanced reasoning, logical analysis, step-by-step thinking
+    # Taille: ~1.9 Go (q4)
+    # Forces: Raisonnement logique, décomposition de problèmes
+
+# Méthode de fusion
+# SLERP préserve les capacités des deux modèles
+merge_method: slerp
+
+# Paramètres de fusion
+parameters:
+  # t=0.5 => Équilibre parfait 50/50
+  # Justification: Le code nécessite autant de logique que de syntaxe
+  t: 0.5
+  
+  # Stratégie d'interpolation sphérique
+  # Préserve la norme des vecteurs de poids
+
+# Précision
+dtype: bfloat16
+
+# Métadonnées
+metadata:
+  name: "ORION-Code-Logic-v1"
+  description: "Agent hybride - Expert en code avec raisonnement logique avancé"
+  created_by: "ORION Model Foundry"
+  created_at: "2025-10-24"
+  version: "1.0.0"
+  
+  # Capabilities combinées
+  capabilities:
+    - code-generation
+    - code-architecture
+    - algorithm-design
+    - debugging
+    - logical-reasoning
+    - step-by-step-analysis
+    - design-patterns
+    - code-optimization
+  
+  # Cas d'usage
+  use_cases:
+    - "Architecture de systèmes complexes"
+    - "Design patterns et best practices"
+    - "Algorithmes et structures de données optimisées"
+    - "Code review avec analyse logique"
+    - "Refactoring guidé par la logique"
+    - "Debugging avec raisonnement déductif"
+  
+  # Tests de validation
+  validation_tests:
+    code:
+      - "Implémenter un algorithme de tri optimisé"
+      - "Créer une architecture MVC complète"
+      - "Refactoriser du code avec SOLID principles"
+    logical:
+      - "Analyser la complexité algorithmique"
+      - "Décomposer un problème en étapes"
+      - "Expliquer pourquoi un algorithme est optimal"
+    hybrid:
+      - "Concevoir une solution avec explication logique"
+      - "Optimiser du code avec justification étape par étape"
+      - "Debug avec raisonnement déductif"
+  
+  # Configuration recommandée
+  recommended_config:
+    temperature: 0.3  # Précis pour le code
+    max_tokens: 8192
+    top_p: 0.92
+    
+  # Optimisation web
+  web_optimization:
+    quantization: "q4"  # Bon équilibre qualité/taille
+    sharding: true
+    shard_size_mb: 150  # Modèle plus gros, shards plus gros
+    estimated_size_mb: 1500

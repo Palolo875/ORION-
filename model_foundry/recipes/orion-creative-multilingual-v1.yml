@@ -1,0 +1,113 @@
+# Recette ORION Créatif & Multilingue v1
+# Agent hybride pour la créativité dans plusieurs langues
+# 
+# Objectif: Créer un agent créatif capable de générer du contenu original multilingue
+# Cas d'usage: Écriture créative, brainstorming, génération d'idées en plusieurs langues
+# 
+# Fusion: Mistral 7B + Qwen2 1.5B
+# Ratio: 70% créativité / 30% multilingue
+
+# Modèles parents
+models:
+  - model: mistralai/Mistral-7B-Instruct-v0.2
+    # Expertise: Creative writing, expert reasoning, long-context
+    # Taille: ~4.5 Go (q4)
+    # Forces: Génération créative exceptionnelle, raisonnement expert
+    
+  - model: Qwen/Qwen2-1.5B-Instruct
+    # Expertise: Multilingual (14+ langues), translation
+    # Taille: ~800 Mo (q4)
+    # Forces: Support multilingue robuste
+
+# Méthode de fusion
+merge_method: slerp
+
+# Paramètres de fusion
+parameters:
+  # t=0.3 => 70% Mistral + 30% Qwen2
+  # Justification: On privilégie la créativité de Mistral tout en gardant
+  # les capacités multilingues de Qwen2
+  t: 0.3
+  
+  # La créativité est la force principale
+  # Le multilingue est un bonus important
+
+# Précision
+dtype: bfloat16
+
+# Métadonnées
+metadata:
+  name: "ORION-Creative-Multilingual-v1"
+  description: "Agent hybride - Créativité exceptionnelle avec support multilingue"
+  created_by: "ORION Model Foundry"
+  created_at: "2025-10-24"
+  version: "1.0.0"
+  
+  # Capabilities combinées
+  capabilities:
+    - creative-writing
+    - storytelling
+    - brainstorming
+    - content-generation
+    - multilingual-creativity
+    - translation
+    - cultural-adaptation
+    - expert-reasoning
+  
+  # Langues supportées
+  languages:
+    - en  # English
+    - fr  # Français
+    - es  # Español
+    - de  # Deutsch
+    - it  # Italiano
+    - pt  # Português
+    - zh  # 中文
+    - ja  # 日本語
+    - ko  # 한국어
+    - ar  # العربية
+    - ru  # Русский
+  
+  # Cas d'usage
+  use_cases:
+    - "Écriture créative multilingue (histoires, poèmes, scénarios)"
+    - "Brainstorming d'idées innovantes"
+    - "Génération de contenu marketing localisé"
+    - "Création de personnages et univers fictifs"
+    - "Adaptation culturelle de contenus"
+    - "Génération d'idées de produits/services"
+  
+  # Tests de validation
+  validation_tests:
+    creative:
+      - "Écrire une histoire courte originale"
+      - "Générer 10 idées de startup innovantes"
+      - "Créer un poème sur un thème donné"
+    multilingual:
+      - "Traduire un texte créatif en 5 langues"
+      - "Adapter une histoire pour différentes cultures"
+      - "Écrire une histoire en français puis en japonais"
+    hybrid:
+      - "Créer un slogan marketing en 8 langues"
+      - "Écrire une histoire avec dialogues multilingues"
+      - "Brainstorming pour audience internationale"
+  
+  # Configuration recommandée
+  recommended_config:
+    temperature: 0.8  # Haute créativité
+    max_tokens: 8192
+    top_p: 0.95
+    
+  # Optimisation web
+  web_optimization:
+    quantization: "q4"  # Mistral sensible, pas de q3
+    sharding: true
+    shard_size_mb: 200  # Gros modèle, gros shards
+    estimated_size_mb: 2600
+    
+  # Notes importantes
+  notes:
+    - "⚠️ Modèle volumineux (~2.6 Go) - Réserver pour devices avec >6 Go RAM"
+    - "✅ Créativité exceptionnelle héritée de Mistral 7B"
+    - "✅ Support multilingue robuste de Qwen2"
+    - "🎯 Parfait pour génération de contenu créatif à l'échelle mondiale"
