@@ -140,6 +140,84 @@ export const MODELS: Record<string, ModelConfig> = {
     minRAM: 6, // Réduit de 8GB à 6GB grâce à l'optimisation
     capabilities: ['chat', 'vision', 'image-understanding', 'multimodal', 'advanced-reasoning'],
   },
+
+  // ==========================================
+  // MODÈLES AUDIO (Speech-to-Text & Text-to-Speech)
+  // ==========================================
+  
+  whisperBase: {
+    id: 'whisper-base',
+    name: 'Whisper Base (STT)',
+    size: 290 * 1024 * 1024, // ~290MB
+    quality: 'high',
+    speed: 'fast',
+    description: 'Modèle de reconnaissance vocale multilingue optimisé pour le web',
+    maxTokens: 448, // Tokens audio
+    recommended: false,
+    minRAM: 2,
+    capabilities: ['speech-to-text', 'multilingual', 'transcription', 'real-time'],
+  },
+
+  kokoroTTS: {
+    id: 'kokoro-tts',
+    name: 'Kokoro TTS',
+    size: 150 * 1024 * 1024, // ~150MB
+    quality: 'very-high',
+    speed: 'very-fast',
+    description: 'Synthèse vocale naturelle et expressive pour le temps réel',
+    maxTokens: 2048,
+    recommended: false,
+    minRAM: 2,
+    capabilities: ['text-to-speech', 'natural-voice', 'real-time', 'multilingual'],
+  },
+
+  // ==========================================
+  // MODÈLES DE CLASSIFICATION ET DÉTECTION
+  // ==========================================
+  
+  mobilenetV3: {
+    id: 'mobilenet-v3-small',
+    name: 'MobileNetV3 Small',
+    size: 5 * 1024 * 1024, // ~5MB
+    quality: 'high',
+    speed: 'very-fast',
+    description: 'Classification d\'images ultra-rapide pour le pré-filtrage',
+    maxTokens: 1000,
+    recommended: false,
+    minRAM: 1,
+    capabilities: ['image-classification', 'fast-inference', 'mobile-optimized'],
+  },
+
+  yolov8Nano: {
+    id: 'yolov8-nano',
+    name: 'YOLOv8 Nano',
+    size: 6 * 1024 * 1024, // ~6MB
+    quality: 'high',
+    speed: 'very-fast',
+    description: 'Détection d\'objets en temps réel avec localisation précise',
+    maxTokens: 1000,
+    recommended: false,
+    minRAM: 1,
+    capabilities: ['object-detection', 'bounding-boxes', 'real-time', 'mobile-optimized'],
+  },
+
+  // ==========================================
+  // MODÈLES CRÉATIFS (Génération d'Images)
+  // ==========================================
+  
+  stableDiffusionTiny: {
+    id: 'stable-diffusion-tiny-q4',
+    name: 'Stable Diffusion Tiny',
+    size: 1.5 * 1024 * 1024 * 1024, // ~1.5GB avec quantization 4-bit
+    quality: 'high',
+    speed: 'moderate',
+    description: 'Génération d\'images locales avec quantization 4-bit',
+    maxTokens: 77, // Tokens du prompt
+    recommended: false,
+    minRAM: 4,
+    minGPU: 'Intégré ou dédié avec support WebGPU',
+    capabilities: ['text-to-image', 'image-generation', 'creative-ai', 'webgpu'],
+  },
 };
 
 export const DEFAULT_MODEL = 'standard';
