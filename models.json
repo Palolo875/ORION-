@@ -1,8 +1,34 @@
 {
   "$schema": "./models.schema.json",
   "version": "1.0.0",
-  "last_updated": "2025-10-22",
+  "last_updated": "2025-10-24",
   "models": {
+    "demo-agent": {
+      "id": "demo-agent",
+      "name": "🎯 Agent de Démo (0 Mo)",
+      "type": "demo",
+      "size_mb": 0,
+      "quality": "demo",
+      "speed": "instant",
+      "description": "Agent de démonstration ultra-léger - Aucun téléchargement requis. Parfait pour tester l'interface ORION immédiatement !",
+      "capabilities": ["demo", "instant-response", "code-examples", "no-download"],
+      "min_ram_gb": 0,
+      "prompt_format": null,
+      "urls": {
+        "base": null,
+        "shards": null
+      },
+      "config": {
+        "max_sequence_length": 0,
+        "quantization": "none"
+      },
+      "optimization": {
+        "strategy": "immediate_load",
+        "quantization": "none",
+        "sharding": false,
+        "reasoning": "Agent de démonstration simulé - aucun téléchargement, réponses pré-définies"
+      }
+    },
     "neural-router": {
       "id": "MobileBERT-uncased",
       "name": "MobileBERT Router",
