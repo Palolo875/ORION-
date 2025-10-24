@@ -136,25 +136,25 @@ export const Sidebar = ({
     <>
       {/* Backdrop for mobile */}
       <div
-        className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
+        className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
         onClick={onClose}
       />
 
-      {/* Sidebar */}
+      {/* Sidebar - Design flottant organique */}
       <div className={cn(
-        "fixed left-0 top-0 bottom-0 z-50 glass border-r border-[hsl(var(--glass-border))] lg:relative lg:z-auto transition-all duration-300",
+        "fixed top-4 bottom-4 left-4 z-50 floating-panel glass border border-[hsl(var(--glass-border))] lg:relative lg:top-0 lg:bottom-0 lg:left-0 lg:z-auto smooth-interaction animate-slide-in-left",
         isCollapsed ? "w-16" : "w-80"
       )}>
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="p-4 border-b border-[hsl(var(--glass-border))] space-y-3">
+        <div className="flex flex-col h-full rounded-[1.5rem] overflow-hidden">
+          {/* Header - Design organique */}
+          <div className="p-4 border-b border-[hsl(var(--glass-border))] space-y-3 bg-gradient-to-b from-[hsl(var(--pastel-feather))]/30 to-transparent">
             {!isCollapsed && (
               <Button
                 onClick={onNewConversation}
-                className="w-full justify-start gap-2 h-10 glass-hover rounded-xl"
+                className="w-full justify-start gap-2 h-11 glass-hover rounded-[1.5rem] bg-gradient-to-br from-[hsl(var(--pastel-sage))]/20 to-[hsl(var(--pastel-mint))]/10 border-[hsl(var(--pastel-sage))]/30 smooth-interaction"
                 variant="outline"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5" />
                 <span className="font-medium">Nouvelle conversation</span>
               </Button>
             )}
@@ -162,11 +162,11 @@ export const Sidebar = ({
             {isCollapsed && (
               <Button
                 onClick={onNewConversation}
-                className="w-full h-10 glass-hover rounded-xl"
+                className="w-full h-11 glass-hover rounded-[1.5rem] bg-gradient-to-br from-[hsl(var(--pastel-sage))]/20 to-[hsl(var(--pastel-mint))]/10 smooth-interaction"
                 variant="outline"
                 size="icon"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5" />
               </Button>
             )}
             
@@ -176,7 +176,7 @@ export const Sidebar = ({
                 onClick={onToggleCollapse}
                 variant="ghost"
                 size="icon"
-                className="w-full h-8 rounded-lg hover:bg-accent/50"
+                className="w-full h-9 rounded-[1.25rem] hover:bg-[hsl(var(--pastel-feather))]/50 smooth-interaction"
                 title={isCollapsed ? "Développer" : "Réduire"}
               >
                 {isCollapsed ? (
@@ -189,32 +189,32 @@ export const Sidebar = ({
 
             {!isCollapsed && (
               <>
-                {/* Search Bar */}
+                {/* Search Bar - Intégré dans la sidebar */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Rechercher..."
-                    className="pl-9 h-9 rounded-xl bg-background/50"
+                    className="pl-9 h-10 rounded-[1.25rem] bg-white/50 dark:bg-black/20 border-[hsl(var(--glass-border))] focus:border-[hsl(var(--pastel-sage))]/50 smooth-interaction"
                   />
                 </div>
 
-                {/* Stats */}
+                {/* Stats - Design organique */}
                 <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="glass rounded-lg p-2">
-                    <div className="text-lg font-semibold">{conversations.length}</div>
-                    <div className="text-xs text-muted-foreground">Total</div>
+                  <div className="glass rounded-[1rem] p-2.5 smooth-interaction hover:shadow-md bg-gradient-to-br from-[hsl(var(--pastel-sky))]/20 to-[hsl(var(--pastel-feather))]/10">
+                    <div className="text-lg font-bold text-foreground">{conversations.length}</div>
+                    <div className="text-xs text-muted-foreground font-medium">Total</div>
                   </div>
-                  <div className="glass rounded-lg p-2">
-                    <div className="text-lg font-semibold">{todayConversations.length}</div>
-                    <div className="text-xs text-muted-foreground">Aujourd'hui</div>
+                  <div className="glass rounded-[1rem] p-2.5 smooth-interaction hover:shadow-md bg-gradient-to-br from-[hsl(var(--pastel-sage))]/20 to-[hsl(var(--pastel-mint))]/10">
+                    <div className="text-lg font-bold text-primary">{todayConversations.length}</div>
+                    <div className="text-xs text-muted-foreground font-medium">Aujourd'hui</div>
                   </div>
-                  <div className="glass rounded-lg p-2">
-                    <div className="text-lg font-semibold text-primary">
-                      <TrendingUp className="h-4 w-4 mx-auto" />
+                  <div className="glass rounded-[1rem] p-2.5 smooth-interaction hover:shadow-md bg-gradient-to-br from-[hsl(var(--pastel-rose))]/20 to-[hsl(var(--pastel-peach))]/10">
+                    <div className="text-lg font-bold text-primary flex justify-center">
+                      <TrendingUp className="h-5 w-5" />
                     </div>
-                    <div className="text-xs text-muted-foreground">Actif</div>
+                    <div className="text-xs text-muted-foreground font-medium">Actif</div>
                   </div>
                 </div>
               </>
@@ -386,16 +386,16 @@ const ConversationItem = ({
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors",
+        "group relative flex items-center gap-2 p-2.5 rounded-[1.25rem] cursor-pointer smooth-interaction",
         isActive
-          ? "bg-primary/10 text-primary"
-          : "hover:bg-accent/50"
+          ? "bg-gradient-to-br from-[hsl(var(--pastel-sage))]/30 to-[hsl(var(--pastel-mint))]/20 shadow-sm border border-[hsl(var(--pastel-sage))]/30"
+          : "hover:bg-[hsl(var(--pastel-feather))]/40 hover:shadow-sm"
       )}
       onClick={!isEditing ? onSelect : undefined}
     >
       <div className="flex items-center gap-2 shrink-0">
-        <MessageSquare className="h-4 w-4" />
-        {isActive && <Badge variant="default" className="h-1.5 w-1.5 p-0 rounded-full" />}
+        <MessageSquare className={cn("h-4 w-4", isActive && "text-primary")} />
+        {isActive && <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />}
       </div>
       
       {isEditing ? (
@@ -410,7 +410,7 @@ const ConversationItem = ({
       ) : (
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-medium truncate flex-1">
+            <p className={cn("text-sm font-medium truncate flex-1", isActive && "text-primary")}>
               {conversation.title}
             </p>
             <Clock className="h-3 w-3 text-muted-foreground" />
@@ -431,33 +431,33 @@ const ConversationItem = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 hover:bg-accent/50"
+                className="h-7 w-7 hover:bg-[hsl(var(--pastel-feather))]/60 rounded-full smooth-interaction"
                 onClick={(e) => e.stopPropagation()}
               >
-                <MoreHorizontal className="h-3 w-3" />
+                <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
+            <DropdownMenuContent align="end" className="w-48 rounded-[1.25rem] glass border-[hsl(var(--glass-border))]">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }} className="rounded-lg">
                 <Pin className="h-4 w-4 mr-2" />
                 Épingler
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }} className="rounded-lg">
                 <Star className="h-4 w-4 mr-2" />
                 Favoris
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(); }}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRename(); }} className="rounded-lg">
                 <Edit3 className="h-4 w-4 mr-2" />
                 Renommer
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }} className="rounded-lg">
                 <Archive className="h-4 w-4 mr-2" />
                 Archiver
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="text-destructive focus:text-destructive"
+                className="text-destructive focus:text-destructive rounded-lg"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Supprimer
