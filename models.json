@@ -350,14 +350,165 @@
       }
     }
   },
-  "custom_models": {},
+  "custom_models": {
+    "orion-code-logic": {
+      "id": "ORION-Code-Logic-v1-q4f16_1-MLC",
+      "name": "ORION Code & Logic v1",
+      "type": "causal-lm",
+      "size_mb": 1500,
+      "quality": "very-high",
+      "speed": "fast",
+      "description": "Agent hybride - Expert en code avec raisonnement logique avancé",
+      "capabilities": ["code", "code-generation", "code-architecture", "algorithm-design", "debugging", "logical-reasoning", "step-by-step-analysis", "design-patterns"],
+      "min_ram_gb": 5,
+      "prompt_format": {
+        "system_prefix": "<start_of_turn>system\n",
+        "user_prefix": "<start_of_turn>user\n",
+        "assistant_prefix": "<start_of_turn>model\n",
+        "eos_token": "<end_of_turn>"
+      },
+      "urls": {
+        "base": "/models/ORION-Code-Logic-v1-q4/",
+        "shards": null
+      },
+      "config": {
+        "max_tokens": 8192,
+        "temperature": 0.3,
+        "top_p": 0.92
+      },
+      "optimization": {
+        "strategy": "progressive_sharding",
+        "quantization": "q4",
+        "sharding": true,
+        "shard_size_mb": 150,
+        "reasoning": "Modèle hybride - fusion 50/50 CodeGemma + Llama 3.2 pour code avec logique"
+      },
+      "metadata": {
+        "fusion": {
+          "method": "slerp",
+          "sources": ["google/codegemma-2b-it", "meta-llama/Llama-3.2-3B-Instruct"],
+          "ratio": 0.5,
+          "description": "50% CodeGemma (code) + 50% Llama 3.2 (logique)",
+          "created_by": "ORION Model Foundry",
+          "created_at": "2025-10-24",
+          "version": "1.0.0"
+        }
+      }
+    },
+    "orion-creative-multilingual": {
+      "id": "ORION-Creative-Multilingual-v1-q4f16_1-MLC",
+      "name": "ORION Creative & Multilingual v1",
+      "type": "causal-lm",
+      "size_mb": 2600,
+      "quality": "ultra",
+      "speed": "moderate",
+      "description": "Agent hybride - Créativité exceptionnelle avec support multilingue",
+      "capabilities": ["creative-writing", "storytelling", "brainstorming", "content-generation", "multilingual-creativity", "translation", "cultural-adaptation", "expert-reasoning"],
+      "min_ram_gb": 6,
+      "languages": ["en", "fr", "es", "de", "it", "pt", "zh", "ja", "ko", "ar", "ru"],
+      "prompt_format": {
+        "system_prefix": "[INST] ",
+        "user_prefix": "",
+        "assistant_prefix": "[/INST] ",
+        "eos_token": "</s>"
+      },
+      "urls": {
+        "base": "/models/ORION-Creative-Multilingual-v1-q4/",
+        "shards": null
+      },
+      "config": {
+        "max_tokens": 8192,
+        "temperature": 0.8,
+        "top_p": 0.95
+      },
+      "optimization": {
+        "strategy": "progressive_sharding",
+        "quantization": "q4",
+        "sharding": true,
+        "shard_size_mb": 200,
+        "reasoning": "Modèle volumineux - fusion 70/30 Mistral + Qwen2 pour créativité multilingue"
+      },
+      "metadata": {
+        "fusion": {
+          "method": "slerp",
+          "sources": ["mistralai/Mistral-7B-Instruct-v0.2", "Qwen/Qwen2-1.5B-Instruct"],
+          "ratio": 0.3,
+          "description": "70% Mistral (créativité) + 30% Qwen2 (multilingue)",
+          "created_by": "ORION Model Foundry",
+          "created_at": "2025-10-24",
+          "version": "1.0.0"
+        }
+      }
+    },
+    "orion-vision-logic": {
+      "id": "ORION-Vision-Logic-v1-q4f16_1-MLC",
+      "name": "ORION Vision & Logic v1",
+      "type": "vision-language",
+      "size_mb": 3400,
+      "quality": "ultra",
+      "speed": "moderate",
+      "description": "Agent hybride - Analyse visuelle avec raisonnement logique structuré",
+      "capabilities": ["vision", "image-understanding", "visual-qa", "object-detection", "scene-analysis", "logical-reasoning", "step-by-step-visual-analysis"],
+      "min_ram_gb": 7,
+      "prompt_format": {
+        "system_prefix": "### System:\n",
+        "user_prefix": "### Human:\n",
+        "assistant_prefix": "### Assistant:\n",
+        "eos_token": "</s>"
+      },
+      "urls": {
+        "base": "/models/ORION-Vision-Logic-v1-q4/",
+        "shards": null
+      },
+      "config": {
+        "max_tokens": 4096,
+        "temperature": 0.5,
+        "top_p": 0.9
+      },
+      "architecture": {
+        "vision_encoder": {
+          "name": "CLIP ViT-L/14",
+          "size_mb": 600,
+          "load_priority": "high"
+        },
+        "llm": {
+          "name": "Vicuna 7B + Llama 3.2 3B (fusionné)",
+          "size_mb": 2800,
+          "load_priority": "progressive"
+        }
+      },
+      "optimization": {
+        "strategy": "hybrid_loading",
+        "quantization": "q4",
+        "sharding": true,
+        "vision_encoder_sharding": false,
+        "llm_sharding": true,
+        "llm_shard_size_mb": 200,
+        "reasoning": "Vision sensible - encodeur complet, LLM fusionné avec sharding"
+      },
+      "metadata": {
+        "fusion": {
+          "method": "slerp",
+          "sources": ["liuhaotian/llava-v1.5-7b", "meta-llama/Llama-3.2-3B-Instruct"],
+          "ratio": 0.4,
+          "description": "60% LLaVA (vision) + 40% Llama 3.2 (logique) - LLM uniquement",
+          "created_by": "ORION Model Foundry",
+          "created_at": "2025-10-24",
+          "version": "1.0.0",
+          "notes": "Encodeur vision de LLaVA conservé intact"
+        }
+      }
+    }
+  },
   "model_groups": {
     "lightweight": ["conversation-agent", "multilingual-agent", "speech-to-text-agent"],
     "standard": ["conversation-agent", "code-agent", "multilingual-agent"],
     "advanced": ["logical-agent", "creative-agent", "vision-agent"],
-    "coding": ["code-agent", "hybrid-developer", "conversation-agent"],
-    "multimodal": ["vision-agent", "speech-to-text-agent", "conversation-agent"],
-    "hybrid": ["hybrid-developer"]
+    "coding": ["code-agent", "hybrid-developer", "orion-code-logic", "conversation-agent"],
+    "multimodal": ["vision-agent", "orion-vision-logic", "speech-to-text-agent", "conversation-agent"],
+    "hybrid": ["hybrid-developer", "orion-code-logic", "orion-creative-multilingual", "orion-vision-logic"],
+    "creative": ["creative-agent", "orion-creative-multilingual", "conversation-agent"],
+    "orion-custom": ["orion-code-logic", "orion-creative-multilingual", "orion-vision-logic"]
   },
   "recommendations": {
     "low_memory": "conversation-agent",
@@ -365,8 +516,14 @@
     "high_quality": "creative-agent",
     "coding": "hybrid-developer",
     "coding_specialist": "code-agent",
+    "coding_with_logic": "orion-code-logic",
     "vision": "vision-agent",
+    "vision_with_logic": "orion-vision-logic",
     "multilingual": "multilingual-agent",
-    "hybrid_coding": "hybrid-developer"
+    "creative_multilingual": "orion-creative-multilingual",
+    "hybrid_coding": "hybrid-developer",
+    "orion_ultimate_code": "orion-code-logic",
+    "orion_ultimate_creative": "orion-creative-multilingual",
+    "orion_ultimate_vision": "orion-vision-logic"
   }
 }

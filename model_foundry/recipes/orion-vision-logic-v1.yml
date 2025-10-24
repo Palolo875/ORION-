@@ -1,0 +1,134 @@
+# Recette ORION Vision & Logique v1
+# Agent hybride pour analyse visuelle avec raisonnement
+# 
+# NOTE IMPORTANTE:
+# Les modèles vision (multimodaux) sont complexes à fusionner car ils ont
+# deux composants: un encodeur d'images (CLIP) et un LLM.
+# 
+# Cette recette fusionne uniquement les LLM des modèles vision.
+# L'encodeur d'images de LLaVA est conservé intact.
+# 
+# Architecture: CLIP ViT (LLaVA) + LLM fusionné (Vicuna + Llama 3.2)
+
+# Modèles parents (LLM uniquement)
+models:
+  - model: liuhaotian/llava-v1.5-7b
+    # On extrait uniquement le LLM (Vicuna 7B)
+    # Expertise: Visual understanding, image description
+    # Taille LLM: ~3.4 Go (sans l'encodeur)
+    layers: llm  # Extraire uniquement les couches LLM
+    
+  - model: meta-llama/Llama-3.2-3B-Instruct
+    # Expertise: Logical reasoning, step-by-step analysis
+    # Taille: ~1.9 Go (q4)
+
+# Méthode de fusion
+merge_method: slerp
+
+# Paramètres de fusion
+parameters:
+  # t=0.4 => 60% LLaVA + 40% Llama 3.2
+  # Justification: On privilégie l'expertise vision de LLaVA
+  # tout en ajoutant les capacités de raisonnement de Llama 3.2
+  t: 0.4
+
+# Précision
+dtype: bfloat16
+
+# Métadonnées
+metadata:
+  name: "ORION-Vision-Logic-v1"
+  description: "Agent hybride - Analyse visuelle avec raisonnement logique structuré"
+  created_by: "ORION Model Foundry"
+  created_at: "2025-10-24"
+  version: "1.0.0"
+  
+  # Architecture
+  architecture:
+    vision_encoder:
+      source: "liuhaotian/llava-v1.5-7b"
+      component: "CLIP ViT-L/14"
+      size_mb: 600
+      frozen: true  # Non fusionné, utilisé tel quel
+    llm:
+      fusion: "Vicuna 7B (LLaVA) + Llama 3.2 3B"
+      method: "slerp"
+      ratio: "60/40"
+      size_mb: 2800
+  
+  # Capabilities combinées
+  capabilities:
+    - image-understanding
+    - visual-qa
+    - image-description
+    - object-detection
+    - scene-analysis
+    - logical-reasoning
+    - step-by-step-visual-analysis
+    - visual-debugging
+  
+  # Cas d'usage
+  use_cases:
+    - "Analyse d'images avec explication logique"
+    - "Détection et classification d'objets avec raisonnement"
+    - "Débogage visuel (UI, diagrammes, screenshots)"
+    - "Extraction de texte (OCR) avec contexte"
+    - "Analyse de graphiques et données visuelles"
+    - "Description détaillée de scènes complexes"
+  
+  # Tests de validation
+  validation_tests:
+    vision:
+      - "Décrire une image complexe en détail"
+      - "Identifier tous les objets dans une scène"
+      - "Lire et extraire du texte d'une image"
+    logical:
+      - "Expliquer pourquoi une scène est composée ainsi"
+      - "Analyser étape par étape un diagramme"
+      - "Déduire le contexte d'une image"
+    hybrid:
+      - "Analyser un bug UI avec raisonnement logique"
+      - "Décrire une architecture technique depuis un diagramme"
+      - "Expliquer un graphique de données complexe"
+  
+  # Configuration recommandée
+  recommended_config:
+    temperature: 0.5  # Équilibré
+    max_tokens: 4096
+    top_p: 0.9
+    
+  # Optimisation web
+  web_optimization:
+    quantization: "q4"  # Vision sensible, q4 minimum
+    sharding: true
+    # Stratégie de sharding spéciale:
+    # - Encodeur vision: 1 shard complet (600 Mo)
+    # - LLM: sharding progressif (2-4 shards initiaux)
+    vision_encoder_sharding: false
+    llm_sharding: true
+    llm_shard_size_mb: 200
+    estimated_size_mb: 3400
+    
+  # Notes importantes
+  notes:
+    - "⚠️ Architecture complexe: Encodeur vision + LLM fusionné"
+    - "⚠️ L'encodeur vision DOIT être chargé complètement"
+    - "✅ Le LLM peut utiliser le sharding progressif"
+    - "🎯 TTFT optimisé: Charger encodeur + premiers shards LLM (~1.2 Go)"
+    - "📊 Chargement complet en arrière-plan (~3.4 Go total)"
+  
+  # Stratégie de chargement optimale
+  loading_strategy:
+    phase_1_initial:
+      - component: "vision_encoder"
+        size_mb: 600
+        priority: "critical"
+      - component: "llm_shard_1_2"
+        size_mb: 400
+        priority: "critical"
+    phase_2_background:
+      - component: "llm_remaining_shards"
+        size_mb: 2400
+        priority: "low"
+    estimated_ttft: "8-12s"  # Time To First Token
+    estimated_full_load: "30-45s"  # Chargement complet
