@@ -1,19 +1,21 @@
 // src/workers/toolUser.worker.ts
 
 /**
- * ToolUser Worker (Enhanced)
+ * ToolUser Worker (Enhanced with Tool Gateway Integration)
  * 
  * Ce worker gère l'exécution sécurisée des outils pour ORION avec :
+ * - Intégration avec le nouveau système Tool Gateway
  * - Détection d'intention améliorée avec pattern matching sophistiqué
- * - Plus d'outils disponibles (calculatrice, conversions, etc.)
- * - Validation stricte avec whitelist
- * - Support pour des outils avec arguments
+ * - Support pour les 12 outils avancés (computation, data, code, audio, vision, etc.)
+ * - Validation stricte avec whitelist et Circuit Breaker
+ * - Architecture Actor Model avec isolation complète
  */
 
 import type { WorkerMessage } from '../types';
 import { TOOL_CONFIG } from '../config/constants';
 import { logger } from '../utils/logger';
 import { evaluate } from 'mathjs';
+import { getToolGateway, findToolByIntent, TOOL_REGISTRY } from '../tools';
 
 logger.info('ToolUserWorker', 'Worker chargé et prêt');
 
@@ -464,55 +466,189 @@ async function safeToolCall(toolName: string, args: unknown[] = []): Promise<str
   return Promise.race([executionPromise, timeoutPromise]);
 }
 
-// === Worker Principal ===
+// === Worker Principal avec Tool Gateway ===
+
+// Initialiser le Tool Gateway
+let toolGateway: ReturnType<typeof getToolGateway> | null = null;
 
 self.onmessage = async (event: MessageEvent<WorkerMessage<{ query: string }>>) => {
-  const { type, payload } = event.data;
+  const { type, payload, meta } = event.data;
 
   if (type === 'find_and_execute_tool') {
-    logger.debug('ToolUserWorker', 'Recherche d\'outil', { query: payload.query.substring(0, 50) });
+    logger.debug('ToolUserWorker', 'Recherche d\'outil avancée', { 
+      query: payload.query.substring(0, 50),
+      traceId: meta?.traceId,
+    });
     
-    const intent = detectIntent(payload.query);
+    // Essayer d'abord les outils simples (legacy)
+    const legacyIntent = detectIntent(payload.query);
     
-    if (intent && intent.confidence > 0.7) {
+    if (legacyIntent && legacyIntent.confidence > 0.7) {
       try {
-        const result = await safeToolCall(intent.toolName, intent.args);
+        const result = await safeToolCall(legacyIntent.toolName, legacyIntent.args);
         self.postMessage({ 
           type: 'tool_executed', 
           payload: { 
-            toolName: intent.toolName, 
+            toolName: legacyIntent.toolName, 
             result,
-            confidence: intent.confidence,
-          } 
+            confidence: legacyIntent.confidence,
+          },
+          meta,
         });
+        return;
       } catch (error) {
-        logger.error('ToolUserWorker', 'Erreur lors de l\'exécution', error);
+        logger.error('ToolUserWorker', 'Erreur outil legacy', error);
+      }
+    }
+    
+    // Essayer les outils avancés via Tool Gateway
+    const advancedTool = findToolByIntent(payload.query);
+    
+    if (advancedTool) {
+      try {
+        // Initialiser le gateway si nécessaire
+        if (!toolGateway) {
+          toolGateway = getToolGateway();
+        }
+        
+        // Extraire les arguments (simplification pour le moment)
+        const args = extractArgumentsForTool(payload.query, advancedTool.id);
+        
+        // Exécuter via le Tool Gateway
+        const toolResult = await toolGateway.executeTool(
+          advancedTool.id,
+          args,
+          {
+            timeout: advancedTool.timeout,
+            traceId: meta?.traceId,
+          }
+        );
+        
+        if (toolResult.success) {
+          self.postMessage({ 
+            type: 'tool_executed', 
+            payload: { 
+              toolName: advancedTool.id,
+              result: toolResult.result,
+              confidence: 0.9,
+              executionTime: toolResult.executionTime,
+            },
+            meta,
+          });
+        } else {
+          throw new Error(toolResult.error || 'Unknown error');
+        }
+      } catch (error) {
+        logger.error('ToolUserWorker', 'Erreur outil avancé', error);
         self.postMessage({ 
           type: 'tool_error', 
-          payload: { error: (error as Error).message } 
+          payload: { error: (error as Error).message, toolName: advancedTool.id },
+          meta,
         });
       }
-    } else if (intent) {
-      logger.debug('ToolUserWorker', 'Outil détecté mais confiance faible', { toolName: intent.toolName, confidence: intent.confidence });
-      self.postMessage({ type: 'no_tool_found' });
     } else {
       logger.debug('ToolUserWorker', 'Aucun outil pertinent trouvé');
-      self.postMessage({ type: 'no_tool_found' });
+      self.postMessage({ type: 'no_tool_found', meta });
     }
   } else if (type === 'init') {
-    logger.info('ToolUserWorker', 'Initialized', { toolCount: Object.keys(TOOL_WHITELIST).length });
+    // Initialiser le Tool Gateway
+    toolGateway = getToolGateway();
+    
+    const totalTools = Object.keys(TOOL_WHITELIST).length + Object.keys(TOOL_REGISTRY).length;
+    
+    logger.info('ToolUserWorker', 'Initialized with Tool Gateway', { 
+      legacyTools: Object.keys(TOOL_WHITELIST).length,
+      advancedTools: Object.keys(TOOL_REGISTRY).length,
+      totalTools,
+    });
+    
     self.postMessage({ type: 'init_complete', payload: { 
       success: true,
-      toolCount: Object.keys(TOOL_WHITELIST).length,
-      tools: Object.keys(TOOL_WHITELIST),
-    } });
+      toolCount: totalTools,
+      legacyTools: Object.keys(TOOL_WHITELIST),
+      advancedTools: Object.keys(TOOL_REGISTRY),
+    }, meta });
   } else if (type === 'list_tools') {
-    const toolList = Object.entries(TOOL_WHITELIST).map(([name, def]) => ({
+    const legacyTools = Object.entries(TOOL_WHITELIST).map(([name, def]) => ({
       name,
       description: def.description,
       examples: def.examples,
+      category: 'legacy',
     }));
     
-    self.postMessage({ type: 'tool_list', payload: { tools: toolList } });
+    const advancedTools = Object.values(TOOL_REGISTRY).map(tool => ({
+      name: tool.id,
+      description: tool.description,
+      examples: tool.examples,
+      category: tool.category,
+      capabilities: tool.capabilities,
+    }));
+    
+    self.postMessage({ 
+      type: 'tool_list', 
+      payload: { 
+        legacyTools,
+        advancedTools,
+        total: legacyTools.length + advancedTools.length,
+      },
+      meta,
+    });
+  } else if (type === 'cleanup') {
+    // Nettoyer le Tool Gateway
+    if (toolGateway) {
+      toolGateway.cleanup();
+      toolGateway = null;
+    }
+    self.postMessage({ type: 'cleanup_complete', meta });
   }
 };
+
+/**
+ * Extrait les arguments pour un outil avancé
+ */
+function extractArgumentsForTool(query: string, toolId: string): unknown[] {
+  // Pour l'instant, une extraction simplifiée
+  // Dans une version complète, on utiliserait un parsing plus sophistiqué
+  
+  const tool = TOOL_REGISTRY[toolId];
+  if (!tool) return [];
+  
+  switch (toolId) {
+    case 'calculator': {
+      const match = query.match(/[0-9+\-*/^().= ]+/);
+      return match ? [match[0].trim()] : [];
+    }
+    
+    case 'converter': {
+      const match = query.match(/(\d+(?:\.\d+)?)\s*(\w+)\s+(?:en|to|vers)\s+(\w+)/i);
+      return match ? [match[1], match[2], match[3]] : [];
+    }
+    
+    case 'dataAnalyzer': {
+      return [query, 'parse']; // Par défaut, parser les données
+    }
+    
+    case 'codeSandbox': {
+      const codeMatch = query.match(/(?:code|fonction|script)[:]\s*(.+)/is);
+      return codeMatch ? [codeMatch[1], 'javascript'] : [query, 'javascript'];
+    }
+    
+    case 'memorySearch': {
+      return [query];
+    }
+    
+    case 'diagramGenerator': {
+      const codeMatch = query.match(/```(\w+)?\s*([\s\S]+?)```/);
+      return codeMatch ? [codeMatch[2], codeMatch[1] || 'mermaid'] : ['', 'mermaid'];
+    }
+    
+    case 'qrGenerator':
+    case 'textToSpeech':
+    case 'imageGenerator': {
+      return [query];
+    }
+    
+    default:
+      return [query];
+  }
+}

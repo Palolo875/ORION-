@@ -66,9 +66,11 @@ export interface LLMErrorPayload {
 
 export const ToolExecutionPayloadSchema = z.object({
   toolName: z.string().min(1),
-  toolInput: z.string(),
-  result: z.string(),
+  toolInput: z.string().optional(),
+  result: z.union([z.string(), z.instanceof(Blob)]),
   confidence: z.number().min(0).max(1).optional(),
+  executionTime: z.number().min(0).optional(),
+  metadata: z.record(z.unknown()).optional(),
 });
 
 /**
@@ -76,9 +78,11 @@ export const ToolExecutionPayloadSchema = z.object({
  */
 export interface ToolExecutionPayload {
   toolName: string;
-  toolInput: string;
-  result: string;
+  toolInput?: string;
+  result: string | Blob;
   confidence?: number;
+  executionTime?: number;
+  metadata?: Record<string, unknown>;
 }
 
 export const ToolErrorPayloadSchema = z.object({
