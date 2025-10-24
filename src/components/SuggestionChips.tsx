@@ -54,20 +54,22 @@ const suggestions = [
 export const SuggestionChips = ({ onSelect }: SuggestionChipsProps) => {
   return (
     <div className="flex flex-wrap gap-3 justify-center px-2 sm:px-4 mb-4 sm:mb-6">
-      {suggestions.map((suggestion) => (
+      {suggestions.map((suggestion, index) => (
         <Button
           key={suggestion.label}
           variant="outline"
           onClick={() => onSelect(suggestion.prompt)}
           className={cn(
-            "rounded-full gap-2 px-5 py-6 h-auto transition-all duration-200",
-            "border-2 border-transparent hover:border-primary/30",
-            "hover:scale-105 active:scale-95",
-            "bg-gradient-to-br shadow-md hover:shadow-lg",
-            suggestion.color
+            "rounded-[2rem] gap-2 px-6 py-6 h-auto smooth-interaction",
+            "border border-[hsl(var(--glass-border))]",
+            "glass-hover shadow-sm",
+            "bg-gradient-to-br backdrop-blur-sm",
+            suggestion.color,
+            "animate-slide-up"
           )}
+          style={{ animationDelay: `${index * 0.05}s` }}
         >
-          <div className={cn("p-2 rounded-full bg-white/50 dark:bg-black/20", suggestion.iconColor)}>
+          <div className={cn("p-2 rounded-full bg-white/60 dark:bg-black/30 shadow-sm", suggestion.iconColor)}>
             <suggestion.icon className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
           <span className="text-sm sm:text-base font-medium">{suggestion.label}</span>

@@ -1,3 +1,6 @@
+/* Import Google Fonts - Design Organique */
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&display=swap');
+
 /* Import des styles d'accessibilité */
 @import './styles/accessibility.css';
 
@@ -7,119 +10,128 @@
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
+Design "Organique & Intuitif" - ORION v2.01
 */
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 15%;
+    /* Palette principale - Design Organique */
+    --background: 30 45% 96%; /* Couleur Lin #FAF0E6 */
+    --foreground: 200 15% 28%; /* Gris Ardoise #36454F */
 
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 15%;
+    --card: 0 0% 99%;
+    --card-foreground: 200 15% 28%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 15%;
+    --popover: 0 0% 99%;
+    --popover-foreground: 200 15% 28%;
 
-    --primary: 250 70% 60%;
+    /* Vert Sauge - Couleur d'accent primaire */
+    --primary: 70 15% 60%; /* Vert Sauge #B2AC88 / #A3B899 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 10% 15%;
+    /* Rose Poudré - Couleur d'accent secondaire */
+    --secondary: 10 40% 87%; /* Rose Poudré #E6C7C2 */
+    --secondary-foreground: 200 15% 28%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 5% 50%;
+    --muted: 30 20% 92%;
+    --muted-foreground: 200 10% 50%;
 
-    --accent: 250 70% 60%;
+    --accent: 70 15% 60%; /* Vert Sauge */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 250 70% 60%;
+    --border: 30 15% 88%;
+    --input: 30 15% 88%;
+    --ring: 70 15% 60%;
 
-    --radius: 2rem;
+    --radius: 2rem; /* Coins très arrondis pour effet organique */
 
-    /* Couleurs pastel organiques */
-    --pastel-linen: 30 45% 92%;
-    --pastel-feather: 210 20% 95%;
-    --pastel-violet: 270 60% 85%;
-    --pastel-rose: 340 75% 90%;
-    --pastel-lavender: 260 50% 88%;
-    --pastel-mint: 150 40% 90%;
-    --pastel-peach: 20 80% 90%;
-    --pastel-sky: 200 60% 88%;
+    /* Couleurs pastel organiques - Design system */
+    --pastel-linen: 30 45% 96%; /* Couleur Lin - fond principal */
+    --pastel-feather: 210 25% 97%; /* Blanc cassé léger */
+    --pastel-violet: 270 55% 85%; /* Violet doux */
+    --pastel-rose: 10 40% 87%; /* Rose Poudré */
+    --pastel-lavender: 260 45% 88%; /* Lavande */
+    --pastel-mint: 150 35% 88%; /* Vert menthe */
+    --pastel-peach: 25 70% 88%; /* Pêche */
+    --pastel-sky: 200 55% 88%; /* Bleu ciel */
+    --pastel-sage: 70 15% 60%; /* Vert Sauge */
 
-    /* Liquid glass effect */
-    --glass-bg: 0 0% 100% / 0.7;
-    --glass-border: 240 6% 90% / 0.5;
-    --glass-shadow: 240 10% 15% / 0.05;
+    /* Liquid glass effect - Effet flottant doux */
+    --glass-bg: 0 0% 100% / 0.75;
+    --glass-border: 30 15% 85% / 0.6;
+    --glass-shadow: 200 20% 30% / 0.08;
 
-    /* Sidebar tokens */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 10% 15%;
-    --sidebar-primary: 250 70% 60%;
+    /* Sidebar tokens - Design flottant */
+    --sidebar-background: 0 0% 99%;
+    --sidebar-foreground: 200 15% 28%;
+    --sidebar-primary: 70 15% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 5% 96%;
-    --sidebar-accent-foreground: 240 10% 15%;
-    --sidebar-border: 240 6% 90%;
-    --sidebar-ring: 250 70% 60%;
+    --sidebar-accent: 30 20% 94%;
+    --sidebar-accent-foreground: 200 15% 28%;
+    --sidebar-border: 30 15% 88%;
+    --sidebar-ring: 70 15% 60%;
   }
 
   .dark {
-    --background: 240 10% 8%;
-    --foreground: 0 0% 95%;
+    /* Palette principale - Design Organique Dark Mode */
+    --background: 200 20% 10%; /* Fond sombre doux */
+    --foreground: 30 20% 88%; /* Texte clair et chaleureux */
 
-    --card: 240 10% 12%;
-    --card-foreground: 0 0% 95%;
+    --card: 200 15% 12%;
+    --card-foreground: 30 20% 88%;
 
-    --popover: 240 10% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 200 15% 12%;
+    --popover-foreground: 30 20% 88%;
 
-    --primary: 250 70% 65%;
-    --primary-foreground: 240 10% 8%;
+    /* Vert Sauge adapté au dark mode */
+    --primary: 70 20% 55%; 
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 10% 15%;
-    --secondary-foreground: 0 0% 95%;
+    /* Rose Poudré adapté au dark mode */
+    --secondary: 10 30% 40%;
+    --secondary-foreground: 30 20% 88%;
 
-    --muted: 240 10% 15%;
-    --muted-foreground: 240 5% 60%;
+    --muted: 200 15% 18%;
+    --muted-foreground: 200 10% 60%;
 
-    --accent: 250 70% 65%;
-    --accent-foreground: 240 10% 8%;
+    --accent: 70 20% 55%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 60% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 10% 20%;
-    --input: 240 10% 20%;
-    --ring: 250 70% 65%;
+    --border: 200 15% 22%;
+    --input: 200 15% 22%;
+    --ring: 70 20% 55%;
 
-    /* Couleurs pastel organiques - dark mode */
-    --pastel-linen: 30 20% 25%;
-    --pastel-feather: 210 15% 22%;
-    --pastel-violet: 270 40% 35%;
-    --pastel-rose: 340 50% 30%;
-    --pastel-lavender: 260 35% 30%;
-    --pastel-mint: 150 25% 28%;
-    --pastel-peach: 20 45% 32%;
-    --pastel-sky: 200 35% 30%;
+    /* Couleurs pastel organiques - dark mode élégant */
+    --pastel-linen: 30 15% 20%;
+    --pastel-feather: 210 15% 15%;
+    --pastel-violet: 270 30% 30%;
+    --pastel-rose: 340 35% 28%;
+    --pastel-lavender: 260 28% 28%;
+    --pastel-mint: 150 25% 25%;
+    --pastel-peach: 20 35% 28%;
+    --pastel-sky: 200 30% 28%;
+    --pastel-sage: 70 20% 40%;
 
-    /* Liquid glass effect - dark mode */
-    --glass-bg: 240 10% 12% / 0.7;
-    --glass-border: 240 10% 20% / 0.5;
-    --glass-shadow: 0 0% 0% / 0.3;
+    /* Liquid glass effect - dark mode élégant */
+    --glass-bg: 200 15% 12% / 0.8;
+    --glass-border: 200 12% 25% / 0.6;
+    --glass-shadow: 0 0% 0% / 0.5;
 
     /* Sidebar tokens */
-    --sidebar-background: 240 10% 10%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 250 70% 65%;
-    --sidebar-primary-foreground: 240 10% 8%;
-    --sidebar-accent: 240 10% 15%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 240 10% 20%;
-    --sidebar-ring: 250 70% 65%;
+    --sidebar-background: 200 15% 11%;
+    --sidebar-foreground: 30 20% 88%;
+    --sidebar-primary: 70 20% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 15% 18%;
+    --sidebar-accent-foreground: 30 20% 88%;
+    --sidebar-border: 200 15% 22%;
+    --sidebar-ring: 70 20% 55%;
   }
 }
 
@@ -131,27 +143,54 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 400;
+    letter-spacing: -0.01em;
   }
 
-  /* Liquid glass utility classes */
+  /* Typographie Serif pour les titres - Design éditorial */
+  h1, h2, .font-serif {
+    font-family: 'Lora', Georgia, serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  /* Liquid glass utility classes - Effet organique flottant */
   .glass {
     @apply bg-[hsl(var(--glass-bg))] backdrop-blur-xl border border-[hsl(var(--glass-border))];
-    box-shadow: 0 8px 32px 0 hsl(var(--glass-shadow));
+    box-shadow: 
+      0 8px 32px 0 hsl(var(--glass-shadow)),
+      0 2px 8px -2px hsl(var(--glass-shadow));
   }
 
   .glass-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:shadow-primary/10;
+    @apply transition-all duration-500 ease-out;
+  }
+
+  .glass-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 12px 40px 0 hsl(var(--glass-shadow)),
+      0 4px 12px -2px hsl(var(--primary) / 0.15);
   }
 
   .glass-subtle {
     background: linear-gradient(
-      to bottom,
-      transparent 0%,
-      hsl(var(--background) / 0.5) 50%,
-      hsl(var(--background) / 0.9) 100%
+      135deg,
+      hsl(var(--pastel-feather) / 0.5) 0%,
+      hsl(var(--background) / 0.8) 50%,
+      hsl(var(--background) / 0.95) 100%
     );
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Effet flottant pour sidebar et modales */
+  .floating-panel {
+    box-shadow: 
+      0 20px 60px -10px hsl(var(--glass-shadow)),
+      0 8px 24px -8px hsl(var(--primary) / 0.1),
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.5);
+    border-radius: 1.5rem;
   }
 
   /* Mobile safe area */
@@ -166,7 +205,7 @@ All colors MUST be HSL.
     }
   }
 
-  /* Animations */
+  /* Animations organiques - Douces et naturelles */
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -179,16 +218,29 @@ All colors MUST be HSL.
   @keyframes slide-in-right {
     from {
       transform: translateX(100%);
+      opacity: 0;
     }
     to {
       transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
     }
   }
 
   @keyframes scale-in {
     from {
       opacity: 0;
-      transform: scale(0.95);
+      transform: scale(0.92);
     }
     to {
       opacity: 1;
@@ -196,16 +248,76 @@ All colors MUST be HSL.
     }
   }
 
+  @keyframes float-gentle {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% {
+      opacity: 0.6;
+      filter: blur(20px);
+    }
+    50% {
+      opacity: 0.8;
+      filter: blur(30px);
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   .animate-fade-in {
-    animation: fade-in 0.2s ease-out;
+    animation: fade-in 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .animate-slide-in-right {
-    animation: slide-in-right 0.3s ease-out;
+    animation: slide-in-right 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .animate-scale-in {
-    animation: scale-in 0.3s ease-out;
+    animation: scale-in 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .animate-float-gentle {
+    animation: float-gentle 3s ease-in-out infinite;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2.5s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Micro-interactions douces */
+  .smooth-interaction {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .smooth-interaction:hover {
+    transform: translateY(-1px);
+  }
+
+  .smooth-interaction:active {
+    transform: translateY(0px);
   }
 
   /* Custom scrollbar */

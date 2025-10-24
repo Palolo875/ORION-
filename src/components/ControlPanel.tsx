@@ -193,58 +193,60 @@ export const ControlPanel = ({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop - Effet d'assombrissement doux */}
       <div
-        className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 animate-fade-in"
+        className="fixed inset-0 bg-background/90 backdrop-blur-md z-40 animate-fade-in"
         onClick={onClose}
       />
 
-      {/* Panel */}
-      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-full sm:max-w-md z-50 glass border-l border-[hsl(var(--glass-border))] animate-slide-in-right overflow-y-auto">
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border sticky top-0 glass z-10">
-            <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              <h2 className="text-xl sm:text-2xl font-semibold">Panneau de Contrôle</h2>
+      {/* Panel - Fenêtre flottante centrale */}
+      <div className="fixed inset-4 sm:inset-8 md:inset-16 lg:inset-20 z-50 animate-scale-in">
+        <div className="w-full h-full max-w-4xl mx-auto floating-panel glass border border-[hsl(var(--glass-border))] overflow-hidden flex flex-col">
+          {/* Header - Design organique */}
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[hsl(var(--glass-border))] bg-gradient-to-r from-[hsl(var(--pastel-sage))]/10 via-[hsl(var(--pastel-feather))]/5 to-[hsl(var(--pastel-rose))]/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-[1rem] bg-gradient-to-br from-[hsl(var(--pastel-sage))]/20 to-[hsl(var(--pastel-mint))]/10">
+                <Activity className="h-5 w-5 text-primary" />
+              </div>
+              <h2 className="text-xl sm:text-2xl font-serif font-semibold">Panneau de Contrôle</h2>
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="rounded-full hover:bg-accent/50 h-8 w-8 sm:h-10 sm:w-10"
+              className="rounded-[1.25rem] hover:bg-[hsl(var(--pastel-feather))]/50 h-10 w-10 smooth-interaction"
             >
-              <X className="h-4 w-4 sm:h-5 sm:w-5" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          {/* Content - Avec scroll organique */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin">
             <Tabs defaultValue="performance" className="w-full">
-              <TabsList className="grid w-full grid-cols-6 glass rounded-xl p-1">
-                <TabsTrigger value="performance" className="rounded-lg text-xs sm:text-sm">
+              <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 gap-2 glass rounded-[1.5rem] p-2 bg-gradient-to-br from-[hsl(var(--pastel-feather))]/50 to-transparent">
+                <TabsTrigger value="performance" className="rounded-[1.25rem] text-xs sm:text-sm smooth-interaction data-[state=active]:bg-gradient-to-br data-[state=active]:from-[hsl(var(--pastel-sage))]/30 data-[state=active]:to-[hsl(var(--pastel-mint))]/20 data-[state=active]:shadow-sm">
                   <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                  Perf.
+                  <span className="hidden sm:inline">Perf.</span>
                 </TabsTrigger>
-                <TabsTrigger value="context" className="rounded-lg text-xs sm:text-sm">
+                <TabsTrigger value="context" className="rounded-[1.25rem] text-xs sm:text-sm smooth-interaction data-[state=active]:bg-gradient-to-br data-[state=active]:from-[hsl(var(--pastel-sage))]/30 data-[state=active]:to-[hsl(var(--pastel-mint))]/20 data-[state=active]:shadow-sm">
                   <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                  Ctx.
+                  <span className="hidden sm:inline">Ctx.</span>
                 </TabsTrigger>
-                <TabsTrigger value="agents" className="rounded-lg text-xs sm:text-sm">
+                <TabsTrigger value="agents" className="rounded-[1.25rem] text-xs sm:text-sm smooth-interaction data-[state=active]:bg-gradient-to-br data-[state=active]:from-[hsl(var(--pastel-sage))]/30 data-[state=active]:to-[hsl(var(--pastel-mint))]/20 data-[state=active]:shadow-sm">
                   <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                  Agents
+                  <span className="hidden sm:inline">Agents</span>
                 </TabsTrigger>
-                <TabsTrigger value="debate" className="rounded-lg text-xs sm:text-sm">
+                <TabsTrigger value="debate" className="rounded-[1.25rem] text-xs sm:text-sm smooth-interaction data-[state=active]:bg-gradient-to-br data-[state=active]:from-[hsl(var(--pastel-sage))]/30 data-[state=active]:to-[hsl(var(--pastel-mint))]/20 data-[state=active]:shadow-sm">
                   <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                  Débat
+                  <span className="hidden sm:inline">Débat</span>
                 </TabsTrigger>
-                <TabsTrigger value="memory" className="rounded-lg text-xs sm:text-sm">
+                <TabsTrigger value="memory" className="rounded-[1.25rem] text-xs sm:text-sm smooth-interaction data-[state=active]:bg-gradient-to-br data-[state=active]:from-[hsl(var(--pastel-sage))]/30 data-[state=active]:to-[hsl(var(--pastel-mint))]/20 data-[state=active]:shadow-sm">
                   <Database className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                  Mém.
+                  <span className="hidden sm:inline">Mém.</span>
                 </TabsTrigger>
-                <TabsTrigger value="audit" className="rounded-lg text-xs sm:text-sm">
+                <TabsTrigger value="audit" className="rounded-[1.25rem] text-xs sm:text-sm smooth-interaction data-[state=active]:bg-gradient-to-br data-[state=active]:from-[hsl(var(--pastel-sage))]/30 data-[state=active]:to-[hsl(var(--pastel-mint))]/20 data-[state=active]:shadow-sm">
                   <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                  Audit
+                  <span className="hidden sm:inline">Audit</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -260,11 +262,11 @@ export const ControlPanel = ({
                   </p>
                 </div>
 
-                <div className="glass rounded-2xl p-4 sm:p-6 space-y-4">
+                <div className="glass rounded-[1.5rem] p-4 sm:p-6 space-y-4 border border-[hsl(var(--glass-border))]">
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Profil Actif</Label>
                     <Select value={selectedProfile} onValueChange={handleProfileChange}>
-                      <SelectTrigger className="w-full rounded-xl">
+                      <SelectTrigger className="w-full rounded-[1.25rem] smooth-interaction">
                         <SelectValue placeholder="Sélectionner un profil" />
                       </SelectTrigger>
                       <SelectContent>
@@ -303,14 +305,14 @@ export const ControlPanel = ({
 
                 {/* Model Selection */}
                 {currentModel && onModelChange && (
-                  <div className="glass rounded-2xl p-4 sm:p-6 space-y-3">
+                  <div className="glass rounded-[1.5rem] p-4 sm:p-6 space-y-3 border border-[hsl(var(--glass-border))]">
                     <div className="flex items-center gap-2">
-                      <Brain className="h-4 w-4" />
+                      <Brain className="h-4 w-4 text-primary" />
                       <h4 className="text-sm font-semibold">Modèle d'IA Local</h4>
                     </div>
                     <Button 
                       variant="outline" 
-                      className="w-full rounded-xl justify-between"
+                      className="w-full rounded-[1.25rem] justify-between smooth-interaction"
                       onClick={() => {
                         // Open settings panel to change model
                         toast({
@@ -326,56 +328,59 @@ export const ControlPanel = ({
                 )}
 
                 {/* Metrics */}
-                <div className="glass rounded-2xl p-4 sm:p-6 space-y-4">
-                  <h4 className="text-sm font-semibold">Métriques en Temps Réel</h4>
+                <div className="glass rounded-[1.5rem] p-4 sm:p-6 space-y-4 border border-[hsl(var(--glass-border))]">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    Métriques en Temps Réel
+                  </h4>
                   
                   <div className="grid grid-cols-2 gap-3">
                     {/* Souvenirs */}
-                    <div className="glass-subtle rounded-xl p-3 border border-primary/10">
+                    <div className="glass rounded-[1.25rem] p-3 border border-[hsl(var(--pastel-sage))]/20 bg-gradient-to-br from-[hsl(var(--pastel-sage))]/10 to-[hsl(var(--pastel-mint))]/5 smooth-interaction hover:shadow-md">
                       <div className="flex items-center gap-2 mb-1">
                         <Database className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs text-muted-foreground">Souvenirs</span>
+                        <span className="text-xs text-muted-foreground font-medium">Souvenirs</span>
                       </div>
-                      <div className="text-xl font-bold">{memoryStats?.totalMemories || 0}</div>
+                      <div className="text-xl font-bold text-primary">{memoryStats?.totalMemories || 0}</div>
                     </div>
                     
                     {/* Temps d'inférence */}
-                    <div className="glass-subtle rounded-xl p-3 border border-accent/10">
+                    <div className="glass rounded-[1.25rem] p-3 border border-[hsl(var(--pastel-rose))]/20 bg-gradient-to-br from-[hsl(var(--pastel-rose))]/10 to-[hsl(var(--pastel-peach))]/5 smooth-interaction hover:shadow-md">
                       <div className="flex items-center gap-2 mb-1">
-                        <Zap className="h-3.5 w-3.5 text-accent" />
-                        <span className="text-xs text-muted-foreground">Latence moy.</span>
+                        <Zap className="h-3.5 w-3.5 text-[hsl(var(--pastel-rose))]" />
+                        <span className="text-xs text-muted-foreground font-medium">Latence moy.</span>
                       </div>
                       <div className="text-xl font-bold">{memoryStats?.avgInferenceTime || 0}<span className="text-xs text-muted-foreground ml-1">ms</span></div>
                     </div>
                     
                     {/* Cache size */}
-                    <div className="glass-subtle rounded-xl p-3 border border-blue-500/10">
+                    <div className="glass rounded-[1.25rem] p-3 border border-[hsl(var(--pastel-sky))]/20 bg-gradient-to-br from-[hsl(var(--pastel-sky))]/10 to-[hsl(var(--pastel-feather))]/5 smooth-interaction hover:shadow-md">
                       <div className="flex items-center gap-2 mb-1">
-                        <Database className="h-3.5 w-3.5 text-blue-600" />
-                        <span className="text-xs text-muted-foreground">Cache</span>
+                        <Database className="h-3.5 w-3.5 text-[hsl(var(--pastel-sky))]" />
+                        <span className="text-xs text-muted-foreground font-medium">Cache</span>
                       </div>
-                      <div className="text-xl font-bold text-blue-600">{cacheStats?.size || 0}</div>
+                      <div className="text-xl font-bold text-[hsl(var(--pastel-sky))]">{cacheStats?.size || 0}</div>
                     </div>
                     
                     {/* Cache hit rate */}
-                    <div className="glass-subtle rounded-xl p-3 border border-purple-500/10">
+                    <div className="glass rounded-[1.25rem] p-3 border border-[hsl(var(--pastel-lavender))]/20 bg-gradient-to-br from-[hsl(var(--pastel-lavender))]/10 to-[hsl(var(--pastel-violet))]/5 smooth-interaction hover:shadow-md">
                       <div className="flex items-center gap-2 mb-1">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-purple-600" />
-                        <span className="text-xs text-muted-foreground">Hit Rate</span>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--pastel-lavender))]" />
+                        <span className="text-xs text-muted-foreground font-medium">Hit Rate</span>
                       </div>
-                      <div className="text-xl font-bold text-purple-600">{cacheStats ? (cacheStats.hitRate * 100).toFixed(0) : 0}%</div>
+                      <div className="text-xl font-bold text-[hsl(var(--pastel-lavender))]">{cacheStats ? (cacheStats.hitRate * 100).toFixed(0) : 0}%</div>
                     </div>
                   </div>
                   
                   {/* Taux de satisfaction */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-muted-foreground">Taux de satisfaction global</span>
-                      <span className="text-sm font-semibold">{feedbackPercentage}%</span>
+                      <span className="text-xs text-muted-foreground font-medium">Taux de satisfaction global</span>
+                      <span className="text-sm font-bold text-primary">{feedbackPercentage}%</span>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all" 
+                        className="h-full bg-gradient-to-r from-[hsl(var(--pastel-sage))] to-[hsl(var(--pastel-mint))] transition-all duration-500 smooth-interaction rounded-full" 
                         style={{ width: `${feedbackPercentage}%` }} 
                       />
                     </div>
@@ -416,7 +421,7 @@ export const ControlPanel = ({
                   </p>
                 </div>
 
-                <div className="glass rounded-2xl p-4 sm:p-6">
+                <div className="glass rounded-[1.5rem] p-4 sm:p-6 border border-[hsl(var(--glass-border))]">
                   <DebateModeSelector
                     currentMode={currentDebateMode}
                     onModeChange={(mode) => {
@@ -454,7 +459,7 @@ export const ControlPanel = ({
                   </p>
                 </div>
 
-                <div className="glass rounded-2xl p-4 sm:p-6 space-y-4">
+                <div className="glass rounded-[1.5rem] p-4 sm:p-6 space-y-4 border border-[hsl(var(--glass-border))]">
                   <div className="space-y-2">
                     <h4 className="text-sm font-semibold">Statistiques</h4>
                     <div className="space-y-2 text-xs sm:text-sm">
@@ -481,7 +486,7 @@ export const ControlPanel = ({
                     {/* Export Conversation */}
                     <Button 
                       variant="outline" 
-                      className="w-full rounded-xl justify-start gap-2"
+                      className="w-full rounded-[1.25rem] justify-start gap-2 smooth-interaction"
                       onClick={handleExportConversation}
                     >
                       <FileJson className="h-4 w-4" />
@@ -499,7 +504,7 @@ export const ControlPanel = ({
                       />
                       <Button 
                         variant="outline" 
-                        className="w-full rounded-xl justify-start gap-2"
+                        className="w-full rounded-[1.25rem] justify-start gap-2 smooth-interaction"
                         onClick={() => document.getElementById('import-conversation')?.click()}
                       >
                         <Upload className="h-4 w-4" />
@@ -507,12 +512,12 @@ export const ControlPanel = ({
                       </Button>
                     </div>
 
-                    <Separator />
+                    <Separator className="my-4" />
 
                     {/* Export Cache */}
                     <Button 
                       variant="outline" 
-                      className="w-full rounded-xl justify-start gap-2"
+                      className="w-full rounded-[1.25rem] justify-start gap-2 smooth-interaction"
                       onClick={handleExportCache}
                     >
                       <Download className="h-4 w-4" />
@@ -530,7 +535,7 @@ export const ControlPanel = ({
                       />
                       <Button 
                         variant="outline" 
-                        className="w-full rounded-xl justify-start gap-2"
+                        className="w-full rounded-[1.25rem] justify-start gap-2 smooth-interaction"
                         onClick={() => document.getElementById('import-cache')?.click()}
                       >
                         <Upload className="h-4 w-4" />
@@ -538,12 +543,12 @@ export const ControlPanel = ({
                       </Button>
                     </div>
 
-                    <Separator />
+                    <Separator className="my-4" />
 
                     {/* Export Memory */}
                     <Button 
                       variant="outline" 
-                      className="w-full rounded-xl justify-start gap-2"
+                      className="w-full rounded-[1.25rem] justify-start gap-2 smooth-interaction"
                       onClick={handleExportMemory}
                     >
                       <Download className="h-4 w-4" />
@@ -561,7 +566,7 @@ export const ControlPanel = ({
                       />
                       <Button 
                         variant="outline" 
-                        className="w-full rounded-xl justify-start gap-2"
+                        className="w-full rounded-[1.25rem] justify-start gap-2 smooth-interaction"
                         onClick={() => document.getElementById('import-memory')?.click()}
                       >
                         <Upload className="h-4 w-4" />
@@ -569,12 +574,12 @@ export const ControlPanel = ({
                       </Button>
                     </div>
 
-                    <Separator />
+                    <Separator className="my-4" />
 
                     {/* Purge Memory - Danger zone */}
-                    <Alert variant="destructive" className="bg-destructive/5">
+                    <Alert variant="destructive" className="bg-destructive/5 rounded-[1.25rem] border-destructive/20">
                       <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Zone Dangereuse</AlertTitle>
+                      <AlertTitle className="font-semibold">Zone Dangereuse</AlertTitle>
                       <AlertDescription className="text-xs">
                         La purge supprime définitivement toutes les données.
                       </AlertDescription>
@@ -582,7 +587,7 @@ export const ControlPanel = ({
 
                     <Button 
                       variant="destructive" 
-                      className="w-full rounded-xl justify-start gap-2"
+                      className="w-full rounded-[1.25rem] justify-start gap-2 smooth-interaction"
                       onClick={handlePurgeMemory}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -604,16 +609,16 @@ export const ControlPanel = ({
                   </p>
                 </div>
 
-                <div className="glass rounded-2xl p-4 sm:p-6">
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="glass rounded-[1.5rem] p-4 sm:p-6 border border-[hsl(var(--glass-border))]">
+                  <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
                     {auditLog.map((log, index) => (
                       <div 
                         key={index} 
                         className={cn(
-                          "flex items-start gap-3 p-3 rounded-lg border",
-                          log.status === "success" && "bg-green-500/5 border-green-500/20",
-                          log.status === "warning" && "bg-yellow-500/5 border-yellow-500/20",
-                          log.status === "error" && "bg-red-500/5 border-red-500/20"
+                          "flex items-start gap-3 p-3 rounded-[1rem] border smooth-interaction",
+                          log.status === "success" && "bg-[hsl(var(--pastel-sage))]/10 border-[hsl(var(--pastel-sage))]/20",
+                          log.status === "warning" && "bg-[hsl(var(--pastel-peach))]/10 border-[hsl(var(--pastel-peach))]/20",
+                          log.status === "error" && "bg-destructive/5 border-destructive/20"
                         )}
                       >
                         <div className="mt-0.5">
