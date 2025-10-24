@@ -3,15 +3,41 @@
   "version": "1.0.0",
   "last_updated": "2025-10-22",
   "models": {
+    "neural-router": {
+      "id": "MobileBERT-uncased",
+      "name": "MobileBERT Router",
+      "type": "classification",
+      "size_mb": 95,
+      "quality": "ultra",
+      "speed": "very-fast",
+      "description": "Routeur neuronal ultra-rapide pour classification d'intention zero-shot",
+      "capabilities": ["intent-classification", "zero-shot", "routing"],
+      "min_ram_gb": 1,
+      "prompt_format": null,
+      "urls": {
+        "base": "https://huggingface.co/google/mobilebert-uncased",
+        "shards": null
+      },
+      "config": {
+        "max_sequence_length": 512,
+        "quantization": "int8"
+      },
+      "optimization": {
+        "strategy": "immediate_load",
+        "quantization": "none",
+        "sharding": false,
+        "reasoning": "Petit modèle (~95Mo) - chargement complet au démarrage pour routage instantané"
+      }
+    },
     "conversation-agent": {
       "id": "Phi-3-mini-4k-instruct-q4f16_1-MLC",
-      "name": "Phi-3 Mini",
+      "name": "Phi-3 Mini Instruct",
       "type": "causal-lm",
-      "size_mb": 2048,
+      "size_mb": 1800,
       "quality": "high",
       "speed": "fast",
-      "description": "Modèle de conversation général de Microsoft",
-      "capabilities": ["chat", "reasoning", "code", "multilingual"],
+      "description": "Généraliste polyvalent - Conversation, raisonnement, rédaction (Microsoft)",
+      "capabilities": ["chat", "reasoning", "writing", "code", "multilingual"],
       "min_ram_gb": 4,
       "prompt_format": {
         "system_prefix": "<|system|>\n",
@@ -27,43 +53,59 @@
         "max_tokens": 4096,
         "temperature": 0.7,
         "top_p": 0.9
+      },
+      "optimization": {
+        "strategy": "progressive_sharding",
+        "quantization": "q4",
+        "quantization_options": ["q2", "q3", "q4"],
+        "sharding": true,
+        "shard_size_mb": 100,
+        "reasoning": "Modèle le plus utilisé - sharding + quantification agressive pour chargement rapide"
       }
     },
     "code-agent": {
-      "id": "CodeGemma-2b-q4f16_1-MLC",
-      "name": "CodeGemma 2B",
+      "id": "CodeGemma-2b-it-q4f16_1-MLC",
+      "name": "CodeGemma 2B Instruct",
       "type": "causal-lm",
-      "size_mb": 1600,
+      "size_mb": 1100,
       "quality": "high",
       "speed": "fast",
-      "description": "Modèle spécialisé pour la programmation de Google",
-      "capabilities": ["code", "debugging", "code-generation", "code-explanation"],
+      "description": "Spécialiste du code - Génération, analyse et débogage (Google)",
+      "capabilities": ["code", "debugging", "code-generation", "code-explanation", "code-analysis"],
       "min_ram_gb": 4,
       "prompt_format": {
-        "system_prefix": "<|system|>\n",
-        "user_prefix": "<|user|>\n",
-        "assistant_prefix": "<|assistant|>\n",
-        "eos_token": "<|endoftext|>"
+        "system_prefix": "<start_of_turn>system\n",
+        "user_prefix": "<start_of_turn>user\n",
+        "assistant_prefix": "<start_of_turn>model\n",
+        "eos_token": "<end_of_turn>"
       },
       "urls": {
-        "base": "https://huggingface.co/google/codegemma-2b",
+        "base": "https://huggingface.co/google/codegemma-2b-it",
         "shards": null
       },
       "config": {
         "max_tokens": 8192,
         "temperature": 0.2,
         "top_p": 0.95
+      },
+      "optimization": {
+        "strategy": "progressive_sharding",
+        "quantization": "q3",
+        "quantization_options": ["q3", "q4"],
+        "sharding": true,
+        "shard_size_mb": 100,
+        "reasoning": "Code sensible à la précision - q3 minimum, sharding pour réactivité"
       }
     },
     "vision-agent": {
-      "id": "llava-1.5-7b-hf-q4f16_1-MLC",
-      "name": "LLaVA 7B Vision",
+      "id": "llava-v1.5-7b-q4f16_1-MLC",
+      "name": "LLaVA v1.5 7B",
       "type": "vision-language",
-      "size_mb": 4200,
+      "size_mb": 4000,
       "quality": "ultra",
       "speed": "moderate",
-      "description": "Modèle multimodal pour analyse d'images",
-      "capabilities": ["chat", "vision", "image-understanding", "multimodal", "advanced-reasoning"],
+      "description": "Analyste visuel - Compréhension d'images et questions-réponses visuelles",
+      "capabilities": ["chat", "vision", "image-understanding", "multimodal", "advanced-reasoning", "visual-qa"],
       "min_ram_gb": 6,
       "min_gpu": "RTX 3060 ou équivalent",
       "prompt_format": {
@@ -80,6 +122,25 @@
         "max_tokens": 4096,
         "temperature": 0.5,
         "top_p": 0.9
+      },
+      "optimization": {
+        "strategy": "complete_on_demand",
+        "quantization": "q4",
+        "quantization_options": ["q3", "q4"],
+        "sharding": false,
+        "reasoning": "Modèle vision sensible - q4 minimum, chargement complet avec barre de progression. Encoder d'images doit être chargé entièrement, LLM peut être shardé"
+      },
+      "architecture": {
+        "image_encoder": {
+          "name": "CLIP ViT-L/14",
+          "size_mb": 600,
+          "load_priority": "high"
+        },
+        "llm": {
+          "name": "Vicuna 7B",
+          "size_mb": 3400,
+          "load_priority": "progressive"
+        }
       }
     },
     "logical-agent": {
@@ -136,16 +197,108 @@
       }
     },
     "multilingual-agent": {
-      "id": "gemma-2b-it-q4f16_1-MLC",
-      "name": "Gemma 2B",
+      "id": "Qwen2-1.5B-Instruct-q4f16_1-MLC",
+      "name": "Qwen2 1.5B Instruct",
       "type": "causal-lm",
-      "size_mb": 1500,
+      "size_mb": 800,
       "quality": "high",
-      "speed": "fast",
-      "description": "Modèle multilingue compact de Google",
-      "capabilities": ["chat", "reasoning", "code", "multilingual"],
+      "speed": "very-fast",
+      "description": "Polyglotte - Traduction et assistance dans multiples langues (Alibaba)",
+      "capabilities": ["chat", "translation", "multilingual", "reasoning"],
+      "min_ram_gb": 3,
+      "languages": ["en", "fr", "es", "de", "it", "pt", "zh", "ja", "ko", "ar", "ru", "hi", "th", "vi"],
+      "prompt_format": {
+        "system_prefix": "<|im_start|>system\n",
+        "user_prefix": "<|im_start|>user\n",
+        "assistant_prefix": "<|im_start|>assistant\n",
+        "eos_token": "<|im_end|>"
+      },
+      "urls": {
+        "base": "https://huggingface.co/Qwen/Qwen2-1.5B-Instruct",
+        "shards": null
+      },
+      "config": {
+        "max_tokens": 4096,
+        "temperature": 0.7,
+        "top_p": 0.9
+      },
+      "optimization": {
+        "strategy": "progressive_sharding",
+        "quantization": "q3",
+        "quantization_options": ["q2", "q3", "q4"],
+        "sharding": true,
+        "shard_size_mb": 100,
+        "reasoning": "Modèle compact multilingue - quantification agressive possible, valider performance égale entre langues"
+      }
+    },
+    "speech-to-text-agent": {
+      "id": "whisper-tiny",
+      "name": "Whisper Tiny",
+      "type": "speech-recognition",
+      "size_mb": 150,
+      "quality": "high",
+      "speed": "very-fast",
+      "description": "L'Oreille - Transcription audio ultra-rapide (OpenAI)",
+      "capabilities": ["speech-to-text", "multilingual", "audio-translation"],
+      "min_ram_gb": 2,
+      "languages": ["en", "fr", "es", "de", "it", "pt", "zh", "ja", "ko", "ar", "ru", "hi", "th"],
+      "prompt_format": null,
+      "urls": {
+        "base": "https://huggingface.co/openai/whisper-tiny",
+        "shards": null
+      },
+      "config": {
+        "sample_rate": 16000,
+        "language": "auto",
+        "task": "transcribe"
+      },
+      "optimization": {
+        "strategy": "immediate_load",
+        "quantization": "int8",
+        "sharding": false,
+        "reasoning": "Très petit modèle (~150Mo) - chargement complet et immédiat, pas besoin de sharding"
+      }
+    },
+    "image-generation-agent": {
+      "id": "stable-diffusion-2-1-base",
+      "name": "Stable Diffusion 2.1",
+      "type": "text-to-image",
+      "size_mb": 1300,
+      "quality": "ultra",
+      "speed": "slow",
+      "description": "L'Artiste - Génération d'images à partir de descriptions textuelles (Stability AI)",
+      "capabilities": ["text-to-image", "image-generation", "creative"],
       "min_ram_gb": 4,
-      "languages": ["en", "fr", "es", "de", "it", "pt", "zh", "ja", "ko", "ar"],
+      "min_gpu": "GPU recommandé (WebGPU)",
+      "prompt_format": null,
+      "urls": {
+        "base": "https://huggingface.co/stabilityai/stable-diffusion-2-1-base",
+        "shards": null
+      },
+      "config": {
+        "num_inference_steps": 25,
+        "guidance_scale": 7.5,
+        "width": 512,
+        "height": 512
+      },
+      "optimization": {
+        "strategy": "complete_on_demand",
+        "quantization": "q4",
+        "sharding": false,
+        "reasoning": "Modèle de diffusion très sensible - q4 minimum pour qualité d'image, chargement complet car UNet nécessite l'ensemble du modèle à chaque étape"
+      }
+    },
+    "hybrid-developer": {
+      "id": "ORION-Dev-Polyglot-v1-q4f16_1-MLC",
+      "name": "ORION Dev Polyglot v1",
+      "type": "causal-lm",
+      "size_mb": 1200,
+      "quality": "very-high",
+      "speed": "fast",
+      "description": "Agent hybride fusionné (CodeGemma + Qwen2) - Expert en code ET multilingue",
+      "capabilities": ["code", "code-generation", "code-explanation", "debugging", "multilingual", "chat", "reasoning", "translation"],
+      "min_ram_gb": 4,
+      "languages": ["en", "fr", "es", "de", "it", "pt", "zh", "ja", "ko", "ar", "ru"],
       "prompt_format": {
         "system_prefix": "<start_of_turn>system\n",
         "user_prefix": "<start_of_turn>user\n",
@@ -153,68 +306,46 @@
         "eos_token": "<end_of_turn>"
       },
       "urls": {
-        "base": "https://huggingface.co/google/gemma-2b-it",
-        "shards": null
+        "base": "/models/ORION-Dev-Polyglot-v1-q4/",
+        "shards": [
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00001-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00002-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00003-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00004-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00005-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00006-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00007-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00008-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00009-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00010-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00011-of-00012.bin",
+          "/models/ORION-Dev-Polyglot-v1-q4/shard-00012-of-00012.bin"
+        ]
       },
       "config": {
-        "max_tokens": 8192,
-        "temperature": 0.7,
-        "top_p": 0.9
-      }
-    },
-    "speech-to-text-agent": {
-      "id": "whisper-base",
-      "name": "Whisper Base",
-      "type": "speech-recognition",
-      "size_mb": 140,
-      "quality": "high",
-      "speed": "very-fast",
-      "description": "Modèle de transcription audio d'OpenAI",
-      "capabilities": ["speech-to-text", "multilingual", "translation"],
-      "min_ram_gb": 2,
-      "languages": ["en", "fr", "es", "de", "it", "pt", "zh", "ja", "ko", "ar", "ru"],
-      "prompt_format": null,
-      "urls": {
-        "base": "https://huggingface.co/openai/whisper-base",
-        "shards": null
+        "max_tokens": 6144,
+        "temperature": 0.4,
+        "top_p": 0.92
       },
-      "config": {
-        "sample_rate": 16000,
-        "language": "auto"
-      }
-    },
-    "hybrid-developer": {
-      "id": "ORION-Dev-Polyglot-v1-q4f16_1-MLC",
-      "name": "ORION Dev Polyglot",
-      "type": "causal-lm",
-      "size_mb": 1200,
-      "quality": "very-high",
-      "speed": "fast",
-      "description": "Agent hybride fusionné (CodeGemma + Qwen2) - Expert en code multilingue",
-      "capabilities": ["code", "code-generation", "code-explanation", "debugging", "multilingual", "chat", "reasoning"],
-      "min_ram_gb": 4,
-      "languages": ["en", "fr", "es", "de", "it", "pt", "zh", "ja", "ko", "ar"],
-      "prompt_format": {
-        "system_prefix": "<|system|>\n",
-        "user_prefix": "<|user|>\n",
-        "assistant_prefix": "<|assistant|>\n",
-        "eos_token": "<|end|>"
-      },
-      "urls": {
-        "base": "/models/ORION-Dev-Polyglot-v1-q4f16_1/",
-        "shards": null
-      },
-      "config": {
-        "max_tokens": 4096,
-        "temperature": 0.5,
-        "top_p": 0.9
+      "optimization": {
+        "strategy": "progressive_sharding",
+        "quantization": "q4",
+        "sharding": true,
+        "shard_size_mb": 100,
+        "reasoning": "Modèle fusionné custom - remplace 2 agents (CodeAgent + MultilingualAgent) par 1, économise RAM"
       },
       "metadata": {
         "fusion": {
           "method": "slerp",
-          "sources": ["google/codegemma-2b", "Qwen/Qwen2-1.5B-Instruct"],
+          "sources": [
+            "google/codegemma-2b-it",
+            "Qwen/Qwen2-1.5B-Instruct"
+          ],
           "ratio": 0.4,
-          "created_by": "ORION Model Foundry"
+          "description": "60% CodeGemma (expertise code) + 40% Qwen2 (multilingue)",
+          "created_by": "ORION Model Foundry",
+          "created_at": "2025-10-23",
+          "version": "1.0.0"
         }
       }
     }

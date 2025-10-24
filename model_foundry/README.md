@@ -1,402 +1,327 @@
-# 🏭 ORION Model Foundry
+# ORION Model Foundry 🔨
 
-**Fonderie de Modèles AI pour ORION** - Créez, fusionnez et optimisez vos propres modèles d'IA
+> Pipeline de création, fusion et optimisation de modèles pour l'écosystème ORION
 
-## 📋 Vue d'ensemble
+## 🎯 Vue d'ensemble
 
-La Model Foundry est un environnement dédié pour créer des agents AI hybrides en fusionnant des modèles existants. Elle permet de combiner les forces de plusieurs modèles pour créer des agents uniques et optimisés pour des tâches spécifiques.
-
-### Pourquoi fusionner des modèles ?
-
-- **Combiner des expertises** : Créez un agent qui excelle en code ET en multilingue
-- **Réduire la complexité** : Un seul modèle au lieu de deux agents séparés
-- **Optimiser les ressources** : Moins de RAM, moins de temps de chargement
-- **Personnaliser** : Ajustez le ratio pour privilégier certaines capacités
+La **Model Foundry** (Fonderie de Modèles) est l'atelier où sont créés, fusionnés et optimisés les modèles IA qui alimentent l'Orion Inference Engine (OIE). C'est un pipeline Python séparé qui transforme des modèles bruts en variants optimisés pour le web.
 
 ## 🏗️ Architecture
 
 ```
 model_foundry/
-├── recipes/              # Recettes de fusion (YAML)
-│   └── dev-polyglot-v1.yml
-├── merged_models/        # Modèles fusionnés (sortie brute)
-├── optimized_models/     # Modèles optimisés pour le web
-├── merge_models.py       # Script de fusion
-├── optimize_for_web.py   # Script d'optimisation
-├── foundry.sh           # Orchestrateur principal
-├── pyproject.toml       # Configuration Poetry
-└── README.md
+├── recipes/                  # Recettes de fusion au format YAML
+│   ├── dev-polyglot-v1.yml  # Agent Développeur Polyglotte
+│   └── ...
+├── merged_models/            # Modèles fusionnés (sortie)
+├── optimized_models/         # Modèles optimisés pour le web
+├── scripts/
+│   ├── merge_models.py      # Fusion de modèles avec mergekit
+│   ├── quantize_model.py    # Quantification ONNX avec optimum
+│   ├── shard_model.py       # Découpage en shards
+│   └── optimize_pipeline.py # Pipeline complet
+├── pyproject.toml           # Configuration Poetry
+├── requirements.txt         # Dépendances Python
+└── Makefile                 # Commandes automatisées
 ```
 
-## 🚀 Démarrage rapide
+## 📦 Installation
 
-### 1. Installation
+### Prérequis
 
-**Prérequis :**
 - Python 3.10+
-- Poetry ([Installation](https://python-poetry.org/docs/#installation))
-- 16 GB RAM minimum (recommandé: 32 GB)
-- GPU optionnel (accélère le processus)
+- Poetry (gestionnaire de dépendances)
+- CUDA (optionnel, pour accélération GPU)
 
-**Initialiser l'environnement :**
+### Installation rapide
 
 ```bash
 cd model_foundry
-./foundry.sh init
+
+# Option 1: Avec Poetry (recommandé)
+poetry install
+
+# Option 2: Avec pip
+pip install -r requirements.txt
 ```
 
-Ceci installera toutes les dépendances nécessaires dans un environnement virtuel isolé.
+## 🚀 Quick Start
 
-### 2. Voir les recettes disponibles
+### 1. Créer un modèle hybride
 
 ```bash
-./foundry.sh list
+# Activer l'environnement Poetry
+poetry shell
+
+# Fusionner deux modèles
+mergekit-yaml recipes/dev-polyglot-v1.yml merged_models/ORION-Dev-Polyglot-v1
 ```
 
-### 3. Créer votre premier agent hybride
-
-**Option A : Pipeline complet (recommandé)**
+### 2. Optimiser pour le web
 
 ```bash
-./foundry.sh pipeline recipes/dev-polyglot-v1.yml
+# Quantifier + Sharder en une commande
+python optimize_pipeline.py \
+  --model_path merged_models/ORION-Dev-Polyglot-v1 \
+  --output_path ../public/models/ORION-Dev-Polyglot-v1-q4 \
+  --quantization q4 \
+  --shard_size 100
 ```
 
-Cette commande effectue automatiquement :
-1. La fusion des modèles
-2. L'optimisation pour le web
-3. La création des métadonnées
+### 3. Utiliser dans l'OIE
 
-**Option B : Étape par étape**
+Le modèle optimisé est automatiquement ajouté à `models.json` et prêt à être utilisé !
 
-```bash
-# 1. Fusionner les modèles
-./foundry.sh merge recipes/dev-polyglot-v1.yml
+## 🧪 Recettes de Fusion
 
-# 2. Optimiser pour le web
-./foundry.sh optimize merged_models/ORION-dev-polyglot-v1
-```
+### Format d'une recette
 
-## 📝 Créer une recette personnalisée
-
-Une recette est un fichier YAML qui décrit comment fusionner des modèles.
-
-### Structure d'une recette
+Les recettes sont des fichiers YAML qui décrivent comment fusionner deux modèles ou plus.
 
 ```yaml
-# recipes/my-custom-agent-v1.yml
-
+# recipes/dev-polyglot-v1.yml
 models:
-  - model: google/codegemma-2b        # Modèle 1
-  - model: Qwen/Qwen2-1.5B-Instruct   # Modèle 2
+  - model: google/codegemma-2b-it
+  - model: Qwen/Qwen2-1.5B-Instruct
 
-merge_method: slerp  # Méthode de fusion
+merge_method: slerp  # Spherical Linear Interpolation
 
 parameters:
-  t: 0.4  # Ratio: 0.0 = 100% modèle 1, 1.0 = 100% modèle 2
+  t: 0.4  # 60% premier modèle, 40% second modèle
 
-dtype: bfloat16  # Précision (bfloat16 recommandé)
-
-metadata:
-  description: "Mon agent personnalisé"
-  capabilities: ["code", "chat"]
+dtype: bfloat16
 ```
 
-### Paramètres de fusion
+### Méthodes de fusion disponibles
 
-- **t = 0.0** : 100% du premier modèle
-- **t = 0.3** : 70% premier modèle + 30% second
-- **t = 0.5** : Équilibre parfait (50/50)
-- **t = 0.7** : 30% premier modèle + 70% second
-- **t = 1.0** : 100% du second modèle
+- **SLERP** (Spherical Linear Interpolation): Interpole les poids sur une sphère
+- **Linear**: Moyenne pondérée simple
+- **Task Arithmetic**: Fusion basée sur des tâches spécifiques
+- **TIES**: Résolution des conflits de fusion
+- **DARE**: Drop And REscale
 
-**Exemple :** Pour un agent qui privilégie le code mais avec un support multilingue :
-- `t: 0.3` → 70% CodeGemma + 30% Qwen2
+## ⚙️ Stratégies d'optimisation
 
-### Exemples de recettes
+### Quantification
 
-**Agent Documentation (Expert en rédaction technique) :**
+Réduit la précision des poids pour diminuer la taille du modèle.
+
+| Niveau | Précision | Taille | Qualité | Cas d'usage |
+|--------|-----------|--------|---------|-------------|
+| **FP16** | 16-bit float | 100% | Excellente | Référence |
+| **q4** | 4-bit int | ~25% | Très bonne | Défaut recommandé |
+| **q3** | 3-bit int | ~19% | Bonne | Modèles robustes |
+| **q2** | 2-bit int | ~12% | Correcte | Ultra-compact |
+
+**Commande:**
+```bash
+python quantize_model.py \
+  --model microsoft/Phi-3-mini-4k-instruct \
+  --output optimized_models/Phi-3-mini-q3 \
+  --quantization q3
+```
+
+### Sharding
+
+Découpe un modèle en plusieurs fichiers pour chargement progressif.
+
+**Avantages:**
+- Chargement partiel du modèle
+- Première inférence plus rapide
+- Hydratation progressive en arrière-plan
+
+**Commande:**
+```bash
+python shard_model.py \
+  --model_path merged_models/ORION-Dev-Polyglot-v1 \
+  --output_path optimized_models/ORION-Dev-Polyglot-v1-sharded \
+  --shard_size 100  # Mo par shard
+```
+
+## 📊 Validation de qualité
+
+Après optimisation, validez que le modèle fonctionne correctement:
+
+```bash
+# Tests automatisés
+python scripts/validate_model.py \
+  --model_path optimized_models/Phi-3-mini-q3 \
+  --benchmark hellaswag,arc
+
+# Test manuel
+python scripts/test_inference.py \
+  --model optimized_models/Phi-3-mini-q3 \
+  --prompt "Écris une fonction Python qui..."
+```
+
+## 🎨 Modèles hybrides ORION
+
+### ORION-Dev-Polyglot v1
+
+**Fusion:** CodeGemma 2B + Qwen2 1.5B (ratio 60/40)
+**Objectif:** Expert en code multilingue
+**Avantages:** 
+- Remplace 2 agents (CodeAgent + MultilingualAgent)
+- Économise ~700 Mo de RAM
+- Performance combinée supérieure
+
+**Création:**
+```bash
+mergekit-yaml recipes/dev-polyglot-v1.yml merged_models/ORION-Dev-Polyglot-v1
+python optimize_pipeline.py \
+  --model_path merged_models/ORION-Dev-Polyglot-v1 \
+  --output_path ../public/models/ORION-Dev-Polyglot-v1-q4 \
+  --quantization q4 \
+  --shard_size 100
+```
+
+## 🔧 Makefile - Commandes rapides
+
+```bash
+# Installer les dépendances
+make install
+
+# Créer tous les modèles hybrides
+make build-all
+
+# Créer un modèle spécifique
+make build-dev-polyglot
+
+# Nettoyer les fichiers temporaires
+make clean
+
+# Tests de validation
+make test
+
+# Afficher l'aide
+make help
+```
+
+## 📝 Workflow de développement
+
+### 1. Concevoir une recette
+
+Créez une nouvelle recette dans `recipes/my-model-v1.yml`:
 
 ```yaml
 models:
-  - model: google/gemma-2b-it
-  - model: mistralai/Mistral-7B-Instruct-v0.2
+  - model: base/model-1
+  - model: base/model-2
 
 merge_method: slerp
 parameters:
-  t: 0.6  # Favorise Mistral pour la créativité
+  t: 0.5
 
-metadata:
-  description: "Expert en documentation technique"
+dtype: bfloat16
 ```
 
-**Agent Analyse de Données (Code + Maths) :**
-
-```yaml
-models:
-  - model: google/codegemma-2b
-  - model: meta-llama/Llama-3.2-3B-Instruct
-
-merge_method: slerp
-parameters:
-  t: 0.5  # Équilibre code/raisonnement
-
-metadata:
-  description: "Analyse de données et visualisation"
-```
-
-## 🔧 Utilisation avancée
-
-### Scripts Python directement
-
-**Fusion avec options personnalisées :**
+### 2. Tester la fusion
 
 ```bash
-poetry run python merge_models.py \
-  --recipe recipes/dev-polyglot-v1.yml \
-  --output merged_models/my-custom-name
+mergekit-yaml recipes/my-model-v1.yml merged_models/my-model-v1 --copy-tokenizer
 ```
 
-**Optimisation avec quantification :**
+### 3. Valider la qualité
 
 ```bash
-poetry run python optimize_for_web.py \
-  --model merged_models/ORION-dev-polyglot-v1 \
-  --output optimized_models/custom-output \
-  --quantization q4f16_1 \
-  --name "ORION-Custom-Agent-v1"
+python scripts/validate_model.py --model_path merged_models/my-model-v1
 ```
 
-### Types de quantification
+### 4. Optimiser pour production
 
-- `q4f16_1` : Quantification 4-bit (recommandé, ~70% de réduction)
-- `q8` : Quantification 8-bit (~50% de réduction)
-- `fp16` : Float 16-bit (~50% de réduction)
-- `fp32` : Float 32-bit (aucune compression)
+```bash
+python optimize_pipeline.py \
+  --model_path merged_models/my-model-v1 \
+  --output_path ../public/models/my-model-v1-q4 \
+  --quantization q4 \
+  --shard_size 100
+```
 
-## 🔗 Intégration dans ORION
+### 5. Intégrer dans ORION
 
-Une fois votre modèle créé et optimisé :
-
-### 1. Ajouter au model registry
-
-Éditez `/workspace/models.json` :
+Ajoutez l'entrée dans `models.json`:
 
 ```json
 {
-  "models": {
-    "hybrid-developer": {
-      "id": "ORION-Dev-Polyglot-v1-q4f16_1-MLC",
-      "name": "ORION Dev Polyglot",
-      "type": "causal-lm",
-      "size_mb": 1200,
-      "quality": "high",
-      "speed": "fast",
-      "description": "Agent hybride code + multilingue",
-      "capabilities": ["code", "multilingual", "chat", "reasoning"],
-      "min_ram_gb": 4,
-      "prompt_format": {
-        "system_prefix": "<|system|>\n",
-        "user_prefix": "<|user|>\n",
-        "assistant_prefix": "<|assistant|>\n",
-        "eos_token": "<|end|>"
-      },
-      "urls": {
-        "base": "/models/ORION-Dev-Polyglot-v1-q4f16_1/",
-        "shards": null
-      },
-      "config": {
-        "max_tokens": 4096,
-        "temperature": 0.5,
-        "top_p": 0.9
+  "my-custom-agent": {
+    "id": "my-model-v1-q4",
+    "name": "My Custom Model",
+    "size_mb": 1200,
+    "urls": {
+      "base": "/models/my-model-v1-q4/"
+    },
+    "metadata": {
+      "fusion": {
+        "method": "slerp",
+        "sources": ["base/model-1", "base/model-2"],
+        "created_by": "ORION Model Foundry"
       }
     }
   }
 }
 ```
 
-### 2. Créer l'agent correspondant
+## 🛡️ Bonnes pratiques
 
-Créez `/workspace/src/oie/agents/hybrid-developer.ts` :
+1. **Versionnez vos recettes** - Utilisez git pour tracker les changements
+2. **Testez avant de fusionner** - Validez chaque modèle parent individuellement
+3. **Documentez les ratios** - Notez pourquoi vous avez choisi un ratio spécifique
+4. **Benchmarkez** - Mesurez la performance avant/après fusion
+5. **Gardez les métadonnées** - Tracez l'origine de chaque modèle fusionné
 
-```typescript
-/**
- * Agent Hybrid Developer - Expert en code + multilingue
- * Modèle fusionné: CodeGemma 2B + Qwen2 1.5B
- */
+## 🔬 Expérimentation
 
-import { BaseAgent } from './base-agent';
-import { AgentInput, AgentOutput } from '../types/agent.types';
-import { OPTIMIZATION_PRESETS } from '../types/optimization.types';
-import { ProgressiveLoader } from '../utils/progressive-loader';
+### Tester différents niveaux de quantification
 
-export class HybridDeveloperAgent extends BaseAgent {
-  private engine: any = null;
-  
-  constructor() {
-    super({
-      id: 'hybrid-developer',
-      name: 'Hybrid Developer',
-      capabilities: ['code_generation', 'multilingual', 'chat'],
-      modelSize: 1200,
-      priority: 9,
-      modelId: 'ORION-Dev-Polyglot-v1-q4f16_1-MLC'
-    });
-  }
-  
-  protected async loadModel(): Promise<void> {
-    console.log(`[HybridDeveloper] Chargement du modèle hybride...`);
-    
-    const result = await ProgressiveLoader.loadModel(
-      this.metadata.modelId,
-      { enabled: true, numShards: 4, initialShards: 1 },
-      (progress) => {
-        console.log(`[HybridDeveloper] ${(progress.progress * 100).toFixed(1)}%`);
-      }
-    );
-    
-    this.engine = result.engine;
-  }
-  
-  protected async unloadModel(): Promise<void> {
-    if (this.engine) {
-      this.engine = null;
-    }
-  }
-  
-  protected async processInternal(input: AgentInput): Promise<AgentOutput> {
-    const messages = [
-      {
-        role: 'system',
-        content: `Tu es un développeur expert polyglotte. Tu maitrises:
-- Programmation: Python, JavaScript, TypeScript, et plus
-- Langues: Français, Anglais, Espagnol, Chinois, et plus
-Fournis des réponses précises et bien structurées.`
-      },
-      {
-        role: 'user',
-        content: input.content
-      }
-    ];
-    
-    const response = await this.engine.chat.completions.create({
-      messages,
-      temperature: input.temperature || 0.5,
-      max_tokens: input.maxTokens || 2000
-    });
-    
-    return {
-      agentId: this.metadata.id,
-      content: response.choices[0].message.content,
-      confidence: 85,
-      processingTime: 0
-    };
-  }
-}
-```
-
-### 3. Enregistrer l'agent
-
-Éditez `/workspace/src/oie/agents/index.ts` :
-
-```typescript
-export { HybridDeveloperAgent } from './hybrid-developer';
-```
-
-## 📊 Métriques et statistiques
-
-### Tailles typiques
-
-| Modèle | Original | Fusionné | Optimisé (q4) | Gain |
-|--------|----------|----------|---------------|------|
-| CodeGemma 2B | 2.5 GB | - | - | - |
-| Qwen2 1.5B | 1.8 GB | - | - | - |
-| **Dev Polyglot** | - | 4.3 GB | **1.2 GB** | **72%** |
-
-### Performance
-
-- **Temps de fusion** : 10-30 minutes (selon CPU/GPU)
-- **Temps d'optimisation** : 5-15 minutes
-- **Chargement dans le navigateur** : ~3-5 secondes (avec sharding)
-
-## 🔬 Cas d'usage avancés
-
-### 1. Agent spécialisé domaine
-
-Fusionnez un modèle général avec un modèle spécialisé (médical, juridique, etc.)
-
-### 2. Amélioration progressive
-
-Créez des versions itératives (v1, v2, v3) en ajustant le ratio
-
-### 3. Multi-fusion
-
-Fusionnez plus de 2 modèles en chaîne :
 ```bash
-# Fusion A + B = AB
-./foundry.sh merge recipes/step1-ab.yml
+# Créer plusieurs variants
+for quant in q2 q3 q4; do
+  python quantize_model.py \
+    --model my-model \
+    --output my-model-$quant \
+    --quantization $quant
+done
 
-# Fusion AB + C = ABC
-./foundry.sh merge recipes/step2-abc.yml
+# Comparer les performances
+python scripts/benchmark_variants.py my-model-*
 ```
 
-## ⚠️ Limitations et considérations
+### Trouver le ratio optimal
 
-1. **Compatibilité architecturale** : Les modèles doivent avoir des architectures compatibles
-2. **Qualité variable** : La fusion ne garantit pas toujours de meilleurs résultats
-3. **Taille** : Le modèle fusionné peut être plus gros que les parents
-4. **Licence** : Respectez les licences des modèles sources
-5. **Ressources** : La fusion nécessite beaucoup de RAM (2-3x la taille des modèles)
-
-## 🐛 Dépannage
-
-### Erreur : "Out of memory"
-
-- **Solution** : Utilisez un serveur avec plus de RAM ou activez le swap
-- Fermez les applications gourmandes en mémoire
-- Utilisez `dtype: fp16` au lieu de `fp32`
-
-### Erreur : "Model architectures incompatible"
-
-- **Solution** : Vérifiez que les deux modèles ont des architectures similaires
-- Privilégiez les modèles de la même famille (ex: Gemma + CodeGemma)
-
-### Les modèles ne se téléchargent pas
-
-- **Solution** : Vérifiez votre connexion internet
-- Configurez votre token Hugging Face : `huggingface-cli login`
-- Certains modèles nécessitent une acceptation de licence
+```bash
+# Tester plusieurs ratios
+for ratio in 0.3 0.4 0.5 0.6 0.7; do
+  echo "Testing ratio $ratio"
+  # Modifier la recette
+  sed "s/t: .*/t: $ratio/" recipes/base.yml > recipes/test-$ratio.yml
+  # Fusionner
+  mergekit-yaml recipes/test-$ratio.yml merged_models/test-$ratio
+  # Valider
+  python scripts/validate_model.py --model_path merged_models/test-$ratio
+done
+```
 
 ## 📚 Ressources
 
-- [Hugging Face Model Hub](https://huggingface.co/models)
-- [Transformers Documentation](https://huggingface.co/docs/transformers)
-- [Model Merging Guide](https://huggingface.co/blog/mlabonne/merge-models)
-- [ORION Documentation](../README.md)
+- [Mergekit Documentation](https://github.com/cg123/mergekit)
+- [Optimum ONNX Runtime](https://huggingface.co/docs/optimum/onnxruntime/overview)
+- [ONNX Model Zoo](https://github.com/onnx/models)
+- [Model Compression Techniques](https://arxiv.org/abs/2308.07633)
 
 ## 🤝 Contribution
 
-Pour suggérer des améliorations ou partager vos recettes :
+Pour ajouter une nouvelle recette ou améliorer le pipeline:
 
-1. Créez une nouvelle recette dans `recipes/`
-2. Documentez les résultats obtenus
-3. Partagez vos trouvailles avec l'équipe
-
-## 📝 Changelog
-
-### Version 1.0.0 (2025-10-22)
-
-- ✨ Système de fusion par moyenne pondérée (SLERP)
-- ✨ Optimisation automatique pour le web
-- ✨ Support de la quantification multi-niveaux
-- ✨ Sharding automatique pour chargement progressif
-- ✨ Interface CLI avec `foundry.sh`
-- 📝 Recette exemple : Dev Polyglot v1
-- 📚 Documentation complète
+1. Créez une branche: `git checkout -b feature/new-model`
+2. Ajoutez votre recette dans `recipes/`
+3. Testez: `make test`
+4. Documentez dans ce README
+5. Soumettez une PR
 
 ## 📄 Licence
 
-Ce projet fait partie d'ORION et suit la même licence.
+Ce pipeline fait partie du projet ORION. Voir LICENSE à la racine du projet.
 
 ---
 
-**Créé avec ❤️ par l'équipe ORION** 🚀
+**Made with ❤️ by the ORION Team**

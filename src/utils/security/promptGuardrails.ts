@@ -1,464 +1,361 @@
 /**
- * Guardrails pour la défense contre l'injection de prompt
- * Protection contre les manipulations malveillantes des agents IA
+ * Garde-fous pour la sécurité des prompts
+ * Protection contre l'injection de prompt et les tentatives de manipulation
  */
 
 import { logger } from '../logger';
 
+export type ThreatLevel = 'none' | 'low' | 'medium' | 'high' | 'critical';
+export type GuardAction = 'allow' | 'sanitize' | 'block';
+
+export interface ThreatDetection {
+  type: string;
+  level: ThreatLevel;
+  description: string;
+  pattern?: string;
+}
+
 export interface GuardrailResult {
-  isSafe: boolean;
+  action: GuardAction;
+  threats: ThreatDetection[];
   sanitized: string;
-  threats: string[];
   confidence: number;
-  action: 'allow' | 'sanitize' | 'block';
 }
 
 /**
- * Patterns d'injection de prompt connus
+ * Patterns de détection d'injection de prompt
  */
 const INJECTION_PATTERNS = [
-  // Tentatives de réinitialisation des instructions
+  // Tentatives de contournement direct
   {
-    pattern: /ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|directives?)/i,
-    threat: 'Tentative de réinitialisation des instructions',
-    severity: 'high'
+    pattern: /ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?|commands?)/gi,
+    type: 'instruction_override',
+    level: 'critical' as ThreatLevel,
+    description: 'Tentative d\'ignorer les instructions précédentes'
   },
   {
-    pattern: /forget\s+(everything|all|what)\s+(you|we)\s+(said|discussed|talked)/i,
-    threat: 'Tentative d\'effacement du contexte',
-    severity: 'high'
+    pattern: /forget\s+(everything|all|your)\s+(you\s+)?(know|learned|instructions?)/gi,
+    type: 'memory_manipulation',
+    level: 'critical' as ThreatLevel,
+    description: 'Tentative de manipulation de la mémoire du modèle'
   },
   {
-    pattern: /disregard\s+(all\s+)?(previous|prior)\s+(instructions?|commands?)/i,
-    threat: 'Tentative de désactivation des instructions',
-    severity: 'high'
-  },
-  
-  // Tentatives d'extraction d'informations système
-  {
-    pattern: /(tell|show|display|reveal)\s+me\s+(your|the)\s+(system|original|initial)\s+(prompt|instructions?)/i,
-    threat: 'Tentative d\'extraction du prompt système',
-    severity: 'critical'
-  },
-  {
-    pattern: /what\s+(are|were)\s+(your|the)\s+(original|initial|system)\s+(instructions?|prompts?)/i,
-    threat: 'Tentative d\'extraction des instructions',
-    severity: 'critical'
+    pattern: /(disregard|override|bypass)\s+(any|all|your)\s+(rules?|instructions?|guidelines?|safety)/gi,
+    type: 'safety_bypass',
+    level: 'critical' as ThreatLevel,
+    description: 'Tentative de contournement des mesures de sécurité'
   },
   
-  // Tentatives de changement de rôle
+  // Extraction de données système
   {
-    pattern: /(you\s+are\s+now|now\s+you\s+are|from\s+now\s+on|pretend\s+to\s+be)\s+(a|an)\s+\w+/i,
-    threat: 'Tentative de changement de rôle',
-    severity: 'high'
+    pattern: /(show|reveal|display|tell\s+me)\s+(your\s+)?(system\s+)?(prompt|instructions?|rules?|configuration)/gi,
+    type: 'system_prompt_extraction',
+    level: 'high' as ThreatLevel,
+    description: 'Tentative d\'extraction du prompt système'
   },
   {
-    pattern: /act\s+as\s+(if|a|an)\s+\w+/i,
-    threat: 'Tentative de simulation de rôle',
-    severity: 'high' // Élevé à high pour bloquer ces tentatives
-  },
-  
-  // Tentatives de bypass de sécurité
-  {
-    pattern: /bypass\s+(security|safety|filter|protection)/i,
-    threat: 'Tentative de contournement de sécurité',
-    severity: 'critical'
-  },
-  {
-    pattern: /disable\s+(safety|security|protection|filter)/i,
-    threat: 'Tentative de désactivation de protection',
-    severity: 'critical'
+    pattern: /what\s+(are|is)\s+your\s+(hidden|secret|internal)\s+(instructions?|prompt|rules?)/gi,
+    type: 'system_prompt_extraction',
+    level: 'high' as ThreatLevel,
+    description: 'Tentative d\'extraction d\'instructions cachées'
   },
   
-  // Encodage suspect
+  // Escalade de privilèges
   {
-    pattern: /\\x[0-9a-f]{2}/i,
-    threat: 'Encodage hexadécimal suspect',
-    severity: 'medium'
+    pattern: /(you\s+are\s+now|act\s+as|pretend\s+to\s+be)\s+(an?\s+)?(admin|root|developer|engineer|god|jailbreak)/gi,
+    type: 'privilege_escalation',
+    level: 'high' as ThreatLevel,
+    description: 'Tentative d\'escalade de privilèges'
   },
   {
-    pattern: /&#\d+;/,
-    threat: 'Entités HTML suspectes',
-    severity: 'low'
-  },
-  
-  // Commandes système
-  {
-    pattern: /(sudo|rm\s+-rf|exec|eval|system|shell|bash|cmd)/i,
-    threat: 'Commandes système détectées',
-    severity: 'high'
+    pattern: /(enable|activate|unlock)\s+(developer|admin|debug|god)\s+mode/gi,
+    type: 'privilege_escalation',
+    level: 'high' as ThreatLevel,
+    description: 'Tentative d\'activation de mode privilégié'
   },
   
-  // Injection de code
+  // Injection de rôle
   {
-    pattern: /<script[\s\S]*?>[\s\S]*?<\/script>/i,
-    threat: 'Balise script détectée',
-    severity: 'high'
+    pattern: /from\s+now\s+on,?\s+you\s+(are|will\s+be|should\s+be)/gi,
+    type: 'role_injection',
+    level: 'medium' as ThreatLevel,
+    description: 'Tentative de redéfinition du rôle'
   },
   {
-    pattern: /javascript:/i,
-    threat: 'Protocole JavaScript détecté',
-    severity: 'high'
-  },
-  
-  // Tentatives de manipulation émotionnelle de l'IA
-  {
-    pattern: /(grandma|grandmother)\s+(trick|exploit|vulnerability)/i,
-    threat: 'Tentative d\'exploitation émotionnelle',
-    severity: 'medium'
-  },
-  {
-    pattern: /this\s+is\s+(urgent|critical|emergency|life-threatening)/i,
-    threat: 'Tentative de manipulation par urgence',
-    severity: 'low'
+    pattern: /you\s+(must|should|need\s+to)\s+(always\s+)?(respond|answer|say|tell)/gi,
+    type: 'behavior_override',
+    level: 'medium' as ThreatLevel,
+    description: 'Tentative de forcer un comportement spécifique'
   },
   
-  // Meta-instructions suspectes
+  // Encodage et obfuscation
   {
-    pattern: /\[SYSTEM\]|\[ADMIN\]|\[ROOT\]|\[SUDO\]/i,
-    threat: 'Marqueurs système suspects',
-    severity: 'high'
+    pattern: /(base64|hex|rot13|unicode)\s+(encode|decode)/gi,
+    type: 'encoding_obfuscation',
+    level: 'medium' as ThreatLevel,
+    description: 'Utilisation d\'encodage potentiellement malveillant'
   },
   {
-    pattern: /<<<|>>>|{{{|}}}|\[\[\[|\]\]\]/,
-    threat: 'Délimiteurs de prompt suspects',
-    severity: 'medium'
-  }
+    pattern: /\\x[0-9a-f]{2}|\\u[0-9a-f]{4}/gi,
+    type: 'unicode_injection',
+    level: 'low' as ThreatLevel,
+    description: 'Injection de caractères Unicode suspects'
+  },
+  
+  // Délimiteurs de prompt
+  {
+    pattern: /(<\|.*?\|>|\[INST\]|\[\/INST\]|<\/s>|<s>)/g,
+    type: 'prompt_delimiter_injection',
+    level: 'high' as ThreatLevel,
+    description: 'Injection de délimiteurs de prompt'
+  },
+  
+  // Tentatives de boucle infinie / DoS
+  {
+    pattern: /repeat\s+(this|that|the\s+word)\s+\d+\s+times/gi,
+    type: 'resource_exhaustion',
+    level: 'medium' as ThreatLevel,
+    description: 'Tentative d\'épuisement des ressources'
+  },
+  {
+    pattern: /generate\s+\d+\s+(words?|characters?|tokens?)/gi,
+    type: 'resource_exhaustion',
+    level: 'low' as ThreatLevel,
+    description: 'Demande de génération excessive'
+  },
+  
+  // Tokens spéciaux de contrôle
+  {
+    pattern: /(\n\n###|\n\nHuman:|\n\nAssistant:)/g,
+    type: 'conversation_hijack',
+    level: 'high' as ThreatLevel,
+    description: 'Tentative de détournement de conversation'
+  },
 ];
 
 /**
- * Contextes suspects qui augmentent le score de risque
- * Ces patterns sont traités avec une sévérité élevée car ils indiquent souvent une tentative de jailbreak
+ * Mots-clés suspects additionnels
  */
-const SUSPICIOUS_CONTEXTS = [
-  { keyword: 'override', severity: 'high' },
-  { keyword: 'jailbreak', severity: 'critical' },
-  { keyword: 'DAN', severity: 'critical' }, // "Do Anything Now"
-  { keyword: 'unrestricted', severity: 'high' },
-  { keyword: 'no limits', severity: 'high' },
-  { keyword: 'no restrictions', severity: 'high' },
-  { keyword: 'without filters', severity: 'high' },
-  { keyword: 'bypass mode', severity: 'critical' }
+const SUSPICIOUS_KEYWORDS = [
+  'jailbreak',
+  'dan mode', // "Do Anything Now"
+  'evil mode',
+  'unrestricted',
+  'no rules',
+  'no limits',
+  'no restrictions',
+  'no ethics',
+  'no morals',
+  'unfiltered',
 ];
 
 /**
- * Analyse un prompt pour détecter les tentatives d'injection
- */
-export function analyzePrompt(prompt: string): GuardrailResult {
-  const threats: string[] = [];
-  let severityScore = 0;
-  let sanitized = prompt;
-
-  // 1. Détection de patterns malveillants
-  for (const { pattern, threat, severity } of INJECTION_PATTERNS) {
-    if (pattern.test(prompt)) {
-      threats.push(threat);
-      
-      // Calculer le score de sévérité
-      switch (severity) {
-        case 'critical':
-          severityScore += 100;
-          break;
-        case 'high':
-          severityScore += 50;
-          break;
-        case 'medium':
-          severityScore += 25;
-          break;
-        case 'low':
-          severityScore += 10;
-          break;
-      }
-      
-      logger.warn('PromptGuardrails', `Threat detected: ${threat}`, { 
-        severity, 
-        pattern: pattern.toString() 
-      });
-    }
-  }
-
-  // 2. Détection de contextes suspects
-  const lowerPrompt = prompt.toLowerCase();
-  for (const { keyword, severity } of SUSPICIOUS_CONTEXTS) {
-    if (lowerPrompt.includes(keyword.toLowerCase())) {
-      threats.push(`Contexte suspect: "${keyword}"`);
-      
-      // Appliquer le score selon la sévérité
-      switch (severity) {
-        case 'critical':
-          severityScore += 100;
-          break;
-        case 'high':
-          severityScore += 50;
-          break;
-        case 'medium':
-          severityScore += 25;
-          break;
-        case 'low':
-          severityScore += 10;
-          break;
-      }
-    }
-  }
-
-  // 3. Détection de répétitions excessives (technique de bourrage)
-  const words = prompt.split(/\s+/);
-  const wordFrequency = new Map<string, number>();
-  for (const word of words) {
-    const count = wordFrequency.get(word) || 0;
-    wordFrequency.set(word, count + 1);
-  }
-  
-  const maxRepetition = Math.max(...Array.from(wordFrequency.values()));
-  if (maxRepetition > 10 && words.length > 20) {
-    threats.push('Répétitions excessives détectées (possible bourrage)');
-    severityScore += 20;
-  }
-
-  // 4. Détection de longueurs anormales
-  if (prompt.length > 5000) {
-    threats.push('Prompt exceptionnellement long');
-    severityScore += 10;
-  }
-
-  // 5. Détection de caractères non-standard (Unicode suspect)
-  const suspiciousUnicode = /[\u200B-\u200D\uFEFF\u202A-\u202E]/g;
-  if (suspiciousUnicode.test(prompt)) {
-    threats.push('Caractères Unicode invisibles/bidirectionnels détectés');
-    severityScore += 30;
-    sanitized = sanitized.replace(suspiciousUnicode, '');
-  }
-
-  // 6. Calcul de la confiance et de l'action
-  const confidence = Math.min(severityScore / 100, 1);
-  let action: 'allow' | 'sanitize' | 'block' = 'allow';
-  
-  if (severityScore >= 100) {
-    action = 'block';
-  } else if (severityScore >= 50) {
-    action = 'sanitize';
-    // Sanitize agressif: supprimer les parties suspectes
-    for (const { pattern } of INJECTION_PATTERNS) {
-      sanitized = sanitized.replace(pattern, '[CONTENU FILTRÉ]');
-    }
-  }
-
-  const isSafe = severityScore < 50;
-
-  // Logger les résultats
-  if (!isSafe) {
-    logger.warn('PromptGuardrails', 'Unsafe prompt detected', {
-      severityScore,
-      threatsCount: threats.length,
-      action,
-      confidence
-    });
-  }
-
-  return {
-    isSafe,
-    sanitized,
-    threats,
-    confidence,
-    action
-  };
-}
-
-/**
- * Valide et nettoie un prompt avant de l'envoyer à l'IA
- */
-export function guardPrompt(prompt: string, options?: {
-  strictMode?: boolean;
-  logOnly?: boolean;
-}): GuardrailResult {
-  const strictMode = options?.strictMode ?? true;
-  const logOnly = options?.logOnly ?? false;
-
-  const result = analyzePrompt(prompt);
-
-  // En mode strict, bloquer même les menaces moyennes
-  if (strictMode && result.confidence >= 0.25) {
-    result.action = 'block';
-    result.isSafe = false;
-  }
-
-  // En mode log-only, toujours autoriser mais logger
-  if (logOnly) {
-    result.action = 'allow';
-    result.isSafe = true;
-    
-    if (result.threats.length > 0) {
-      logger.info('PromptGuardrails', '[LOG-ONLY] Threats detected but allowed', {
-        threats: result.threats,
-        confidence: result.confidence
-      });
-    }
-  }
-
-  return result;
-}
-
-/**
- * Vérifie si une réponse de l'IA contient des signes d'injection réussie
- */
-export function validateAIResponse(response: string): {
-  isSafe: boolean;
-  issues: string[];
-} {
-  const issues: string[] = [];
-
-  // Détection de réponses qui suggèrent une injection réussie
-  const compromisedPatterns = [
-    /i('m|\s+am)\s+(now|going\s+to)\s+(ignore|bypass|disable)/i,
-    /my\s+(previous|original)\s+instructions\s+(were|are)/i,
-    /i\s+will\s+no\s+longer\s+follow/i,
-    /i('m|\s+am)\s+in\s+(DAN|unrestricted|jailbreak)\s+mode/i,
-    /\[SYSTEM\]\s*:\s*/i
-  ];
-
-  for (const pattern of compromisedPatterns) {
-    if (pattern.test(response)) {
-      issues.push(`Réponse compromise détectée: ${pattern.toString()}`);
-    }
-  }
-
-  return {
-    isSafe: issues.length === 0,
-    issues
-  };
-}
-
-/**
- * Configuration des guardrails
- */
-export interface GuardrailsConfig {
-  enabled: boolean;
-  strictMode: boolean;
-  logOnly: boolean;
-  customPatterns?: Array<{
-    pattern: RegExp;
-    threat: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
-  }>;
-}
-
-/**
- * Classe de gestion des guardrails
+ * Classe principale des garde-fous
  */
 export class PromptGuardrails {
-  private config: GuardrailsConfig;
-  private customPatterns: Array<{
-    pattern: RegExp;
-    threat: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
-  }> = [];
-
-  constructor(config: Partial<GuardrailsConfig> = {}) {
-    this.config = {
-      enabled: config.enabled ?? true,
-      strictMode: config.strictMode ?? true,
-      logOnly: config.logOnly ?? false,
-      customPatterns: config.customPatterns ?? []
-    };
-
-    if (this.config.customPatterns) {
-      this.customPatterns = this.config.customPatterns;
-    }
-  }
+  private enabledChecks = {
+    injectionPatterns: true,
+    suspiciousKeywords: true,
+    lengthLimit: true,
+    repetitionDetection: true,
+    specialTokens: true,
+  };
 
   /**
-   * Valide un prompt avec les patterns personnalisés
+   * Valide un prompt utilisateur
    */
-  validate(prompt: string): GuardrailResult {
-    if (!this.config.enabled) {
-      return {
-        isSafe: true,
-        sanitized: prompt,
-        threats: [],
-        confidence: 0,
-        action: 'allow'
-      };
+  validate(prompt: string, options?: {
+    strictMode?: boolean;
+    maxLength?: number;
+  }): GuardrailResult {
+    const strictMode = options?.strictMode ?? false;
+    const maxLength = options?.maxLength ?? 10000;
+    const threats: ThreatDetection[] = [];
+    let sanitized = prompt;
+
+    // 1. Vérifier la longueur
+    if (this.enabledChecks.lengthLimit && prompt.length > maxLength) {
+      threats.push({
+        type: 'excessive_length',
+        level: 'low',
+        description: `Prompt trop long (${prompt.length} caractères, max ${maxLength})`,
+      });
+      sanitized = prompt.substring(0, maxLength);
     }
 
-    // Si on a des patterns personnalisés, on les applique en plus
-    const result = guardPrompt(prompt, {
-      strictMode: this.config.strictMode,
-      logOnly: this.config.logOnly
-    });
-    
-    // Appliquer les patterns personnalisés
-    if (this.customPatterns.length > 0) {
-      let customSeverityScore = 0;
-      const customThreats: string[] = [];
-      
-      for (const { pattern, threat, severity } of this.customPatterns) {
-        if (pattern.test(prompt)) {
-          customThreats.push(threat);
-          
-          switch (severity) {
-            case 'critical':
-              customSeverityScore += 100;
-              break;
-            case 'high':
-              customSeverityScore += 50;
-              break;
-            case 'medium':
-              customSeverityScore += 25;
-              break;
-            case 'low':
-              customSeverityScore += 10;
-              break;
+    // 2. Détecter les patterns d'injection
+    if (this.enabledChecks.injectionPatterns) {
+      for (const pattern of INJECTION_PATTERNS) {
+        const matches = prompt.match(pattern.pattern);
+        if (matches) {
+          threats.push({
+            type: pattern.type,
+            level: pattern.level,
+            description: pattern.description,
+            pattern: matches[0],
+          });
+
+          // Sanitizer en mode permissif
+          if (!strictMode && pattern.level !== 'critical') {
+            sanitized = sanitized.replace(pattern.pattern, '[REDACTED]');
           }
         }
       }
-      
-      // Fusionner les résultats
-      if (customThreats.length > 0) {
-        result.threats = [...result.threats, ...customThreats];
-        const totalScore = (result.confidence * 100) + customSeverityScore;
-        result.confidence = Math.min(totalScore / 100, 1);
-        
-        // Recalculer l'action et isSafe
-        if (totalScore >= 100) {
-          result.action = 'block';
-          result.isSafe = false;
-        } else if (totalScore >= 50) {
-          result.action = 'sanitize';
-          result.isSafe = false;
+    }
+
+    // 3. Vérifier les mots-clés suspects
+    if (this.enabledChecks.suspiciousKeywords) {
+      const lowerPrompt = prompt.toLowerCase();
+      for (const keyword of SUSPICIOUS_KEYWORDS) {
+        if (lowerPrompt.includes(keyword)) {
+          threats.push({
+            type: 'suspicious_keyword',
+            level: 'medium',
+            description: `Mot-clé suspect détecté: "${keyword}"`,
+          });
+
+          if (strictMode) {
+            sanitized = sanitized.replace(new RegExp(keyword, 'gi'), '[REDACTED]');
+          }
         }
       }
     }
 
-    return result;
+    // 4. Détecter les répétitions excessives
+    if (this.enabledChecks.repetitionDetection) {
+      const repetitionThreat = this.detectRepetition(prompt);
+      if (repetitionThreat) {
+        threats.push(repetitionThreat);
+      }
+    }
+
+    // 5. Déterminer l'action à prendre
+    const action = this.determineAction(threats, strictMode);
+
+    // 6. Calculer le score de confiance
+    const confidence = this.calculateConfidence(threats);
+
+    // 7. Logger si nécessaire
+    if (threats.length > 0) {
+      logger.warn('PromptGuardrails', `${threats.length} menace(s) détectée(s)`, {
+        action,
+        threats: threats.map(t => ({ type: t.type, level: t.level })),
+        confidence,
+      });
+    }
+
+    return {
+      action,
+      threats,
+      sanitized,
+      confidence,
+    };
   }
 
   /**
-   * Ajoute un pattern personnalisé
+   * Détecte les répétitions excessives (potentiel DoS)
    */
-  addCustomPattern(
-    pattern: RegExp,
-    threat: string,
-    severity: 'low' | 'medium' | 'high' | 'critical'
-  ): void {
-    this.customPatterns.push({ pattern, threat, severity });
+  private detectRepetition(prompt: string): ThreatDetection | null {
+    // Détecter les mots répétés plus de 10 fois
+    const words = prompt.split(/\s+/);
+    const wordCount = new Map<string, number>();
+
+    for (const word of words) {
+      if (word.length > 2) {
+        wordCount.set(word, (wordCount.get(word) || 0) + 1);
+      }
+    }
+
+    for (const [word, count] of wordCount.entries()) {
+      if (count > 10) {
+        return {
+          type: 'excessive_repetition',
+          level: 'medium',
+          description: `Répétition excessive du mot "${word}" (${count} fois)`,
+        };
+      }
+    }
+
+    return null;
   }
 
   /**
-   * Active/désactive les guardrails
+   * Détermine l'action à prendre en fonction des menaces
    */
-  setEnabled(enabled: boolean): void {
-    this.config.enabled = enabled;
-    logger.info('PromptGuardrails', `Guardrails ${enabled ? 'enabled' : 'disabled'}`);
+  private determineAction(threats: ThreatDetection[], strictMode: boolean): GuardAction {
+    if (threats.length === 0) {
+      return 'allow';
+    }
+
+    // En mode strict, bloquer dès qu'il y a une menace
+    if (strictMode) {
+      return 'block';
+    }
+
+    // Chercher le niveau de menace le plus élevé
+    const maxLevel = Math.max(
+      ...threats.map(t => this.threatLevelToNumber(t.level))
+    );
+
+    // Critical => block
+    if (maxLevel >= this.threatLevelToNumber('critical')) {
+      return 'block';
+    }
+
+    // High => block aussi (pour la sécurité)
+    if (maxLevel >= this.threatLevelToNumber('high')) {
+      return 'block';
+    }
+
+    // Medium ou Low => sanitize
+    return 'sanitize';
   }
 
   /**
-   * Active/désactive le mode strict
+   * Convertit un niveau de menace en nombre pour comparaison
    */
-  setStrictMode(strict: boolean): void {
-    this.config.strictMode = strict;
-    logger.info('PromptGuardrails', `Strict mode ${strict ? 'enabled' : 'disabled'}`);
+  private threatLevelToNumber(level: ThreatLevel): number {
+    const levels: Record<ThreatLevel, number> = {
+      none: 0,
+      low: 1,
+      medium: 2,
+      high: 3,
+      critical: 4,
+    };
+    return levels[level] || 0;
+  }
+
+  /**
+   * Calcule un score de confiance (0-1)
+   */
+  private calculateConfidence(threats: ThreatDetection[]): number {
+    if (threats.length === 0) return 1.0;
+
+    // Plus il y a de menaces, moins on est confiant
+    const threatPenalty = Math.min(threats.length * 0.1, 0.5);
+
+    // Les menaces critiques réduisent beaucoup la confiance
+    const criticalCount = threats.filter(t => t.level === 'critical').length;
+    const criticalPenalty = criticalCount * 0.3;
+
+    return Math.max(0, 1.0 - threatPenalty - criticalPenalty);
+  }
+
+  /**
+   * Active/désactive une vérification spécifique
+   */
+  setCheckEnabled(check: keyof typeof this.enabledChecks, enabled: boolean): void {
+    this.enabledChecks[check] = enabled;
+    logger.info('PromptGuardrails', `Check "${check}" ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Obtient l'état des vérifications
+   */
+  getEnabledChecks(): Record<string, boolean> {
+    return { ...this.enabledChecks };
   }
 }
 
-// Export singleton par défaut
+// Export singleton
 export const promptGuardrails = new PromptGuardrails();

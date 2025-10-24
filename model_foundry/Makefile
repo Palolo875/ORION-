@@ -1,146 +1,145 @@
 # ORION Model Foundry - Makefile
-# Commandes utiles pour travailler avec la fonderie
+# Commandes automatisées pour le pipeline de création de modèles
 
-.PHONY: help init install merge optimize pipeline clean test lint format
+.PHONY: help install clean build-all build-dev-polyglot optimize test
 
 # Variables
-PYTHON := poetry run python
-RECIPE ?= recipes/dev-polyglot-v1.yml
-MODEL ?= merged_models/ORION-dev-polyglot-v1
+PYTHON := python3
+POETRY := poetry
+MODELS_DIR := merged_models
+OPTIMIZED_DIR := optimized_models
+PUBLIC_DIR := ../public/models
+RECIPES_DIR := recipes
 
-help:  ## Afficher cette aide
-	@echo "🏭 ORION Model Foundry - Commandes disponibles:"
+# Couleurs pour output
+RED := \033[0;31m
+GREEN := \033[0;32m
+YELLOW := \033[0;33m
+BLUE := \033[0;34m
+NC := \033[0m # No Color
+
+help: ## Afficher cette aide
+	@echo "$(BLUE)ORION Model Foundry - Commandes disponibles:$(NC)"
 	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Variables d'environnement:"
-	@echo "  RECIPE - Chemin de la recette (défaut: $(RECIPE))"
-	@echo "  MODEL  - Chemin du modèle (défaut: $(MODEL))"
 
-init:  ## Initialiser l'environnement Poetry
-	@echo "📦 Installation des dépendances..."
-	poetry install
-	@echo "✅ Environnement prêt!"
+install: ## Installer les dépendances avec Poetry
+	@echo "$(BLUE)Installation des dépendances...$(NC)"
+	$(POETRY) install
+	@echo "$(GREEN)✓ Installation terminée$(NC)"
 
-install: init  ## Alias pour init
+install-pip: ## Installer les dépendances avec pip (alternative)
+	@echo "$(BLUE)Installation des dépendances avec pip...$(NC)"
+	pip install -r requirements.txt
+	@echo "$(GREEN)✓ Installation terminée$(NC)"
 
-merge:  ## Fusionner des modèles selon une recette
-	@echo "🔄 Fusion des modèles avec $(RECIPE)..."
-	$(PYTHON) merge_models.py --recipe $(RECIPE)
+clean: ## Nettoyer les fichiers temporaires
+	@echo "$(YELLOW)Nettoyage des fichiers temporaires...$(NC)"
+	rm -rf $(MODELS_DIR)/*
+	rm -rf $(OPTIMIZED_DIR)/*
+	rm -rf __pycache__
+	rm -rf .pytest_cache
+	rm -rf *.pyc
+	@echo "$(GREEN)✓ Nettoyage terminé$(NC)"
 
-optimize:  ## Optimiser un modèle pour le web
-	@echo "🔧 Optimisation de $(MODEL)..."
-	$(PYTHON) optimize_for_web.py --model $(MODEL)
+build-all: ## Créer tous les modèles hybrides
+	@echo "$(BLUE)Création de tous les modèles hybrides...$(NC)"
+	$(MAKE) build-dev-polyglot
+	@echo "$(GREEN)✓ Tous les modèles créés$(NC)"
 
-pipeline:  ## Pipeline complet (fusion + optimisation)
-	@echo "🏭 Lancement du pipeline complet..."
-	@echo "Recette: $(RECIPE)"
-	@$(MAKE) merge RECIPE=$(RECIPE)
+build-dev-polyglot: ## Créer ORION-Dev-Polyglot-v1
+	@echo "$(BLUE)Création du modèle ORION-Dev-Polyglot-v1...$(NC)"
+	@echo "  - Fusion: CodeGemma 2B + Qwen2 1.5B"
+	@echo "  - Ratio: 60/40"
+	@echo "  - Méthode: SLERP"
+	@mkdir -p $(MODELS_DIR)
+	$(POETRY) run mergekit-yaml \
+		$(RECIPES_DIR)/dev-polyglot-v1.yml \
+		$(MODELS_DIR)/ORION-Dev-Polyglot-v1 \
+		--copy-tokenizer \
+		--allow-crimes
+	@echo "$(GREEN)✓ Modèle fusionné créé$(NC)"
 	@echo ""
-	@echo "Optimisation du modèle fusionné..."
-	@$(MAKE) optimize MODEL=$(shell ls -td merged_models/ORION-* | head -1)
+	@echo "$(BLUE)Optimisation pour le web...$(NC)"
+	$(MAKE) optimize-dev-polyglot
+	@echo "$(GREEN)✓ ORION-Dev-Polyglot-v1 prêt !$(NC)"
 
-list:  ## Lister les recettes disponibles
-	@echo "📋 Recettes disponibles:"
-	@for recipe in recipes/*.yml; do \
-		echo "  - $$(basename $$recipe)"; \
-	done
+optimize-dev-polyglot: ## Optimiser ORION-Dev-Polyglot-v1 (quantification + sharding)
+	@echo "$(BLUE)Optimisation de ORION-Dev-Polyglot-v1...$(NC)"
+	@mkdir -p $(PUBLIC_DIR)
+	$(POETRY) run $(PYTHON) optimize_pipeline.py \
+		--model_path $(MODELS_DIR)/ORION-Dev-Polyglot-v1 \
+		--output_path $(PUBLIC_DIR)/ORION-Dev-Polyglot-v1-q4 \
+		--quantization q4 \
+		--shard_size 100 \
+		--verbose
+	@echo "$(GREEN)✓ Optimisation terminée$(NC)"
 
-clean:  ## Nettoyer les fichiers temporaires
-	@echo "🧹 Nettoyage..."
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
-	find . -type f -name "*.log" -delete
-	@echo "✅ Nettoyage terminé!"
+quantize: ## Quantifier un modèle (usage: make quantize MODEL=path/to/model QUANT=q4)
+	@echo "$(BLUE)Quantification de $(MODEL) en $(QUANT)...$(NC)"
+	@mkdir -p $(OPTIMIZED_DIR)
+	$(POETRY) run $(PYTHON) quantize_model.py \
+		--model $(MODEL) \
+		--output $(OPTIMIZED_DIR)/$(notdir $(MODEL))-$(QUANT) \
+		--quantization $(QUANT)
+	@echo "$(GREEN)✓ Quantification terminée$(NC)"
 
-clean-models:  ## Supprimer tous les modèles (ATTENTION: action destructive!)
-	@echo "⚠️  ATTENTION: Ceci va supprimer tous les modèles fusionnés et optimisés!"
-	@read -p "Êtes-vous sûr? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		rm -rf merged_models/* optimized_models/*; \
-		echo "✅ Modèles supprimés!"; \
-	else \
-		echo "❌ Annulé."; \
-	fi
+shard: ## Découper un modèle en shards (usage: make shard MODEL=path/to/model SIZE=100)
+	@echo "$(BLUE)Sharding de $(MODEL) (taille: $(SIZE)Mo/shard)...$(NC)"
+	@mkdir -p $(OPTIMIZED_DIR)
+	$(POETRY) run $(PYTHON) shard_model.py \
+		--model_path $(MODEL) \
+		--output_path $(OPTIMIZED_DIR)/$(notdir $(MODEL))-sharded \
+		--shard_size $(SIZE)
+	@echo "$(GREEN)✓ Sharding terminé$(NC)"
 
-test:  ## Exécuter les tests (si disponibles)
-	@echo "🧪 Exécution des tests..."
-	$(PYTHON) -m pytest tests/ -v || echo "⚠️  Aucun test trouvé"
+test: ## Lancer les tests de validation
+	@echo "$(BLUE)Lancement des tests...$(NC)"
+	$(POETRY) run pytest tests/ -v
+	@echo "$(GREEN)✓ Tests terminés$(NC)"
 
-lint:  ## Vérifier la qualité du code
-	@echo "🔍 Analyse du code..."
-	poetry run flake8 merge_models.py optimize_for_web.py || true
+validate: ## Valider un modèle (usage: make validate MODEL=path/to/model)
+	@echo "$(BLUE)Validation de $(MODEL)...$(NC)"
+	$(POETRY) run $(PYTHON) scripts/validate_model.py \
+		--model_path $(MODEL) \
+		--benchmark hellaswag,arc
+	@echo "$(GREEN)✓ Validation terminée$(NC)"
 
-format:  ## Formater le code avec Black
-	@echo "✨ Formatage du code..."
-	poetry run black merge_models.py optimize_for_web.py
-	@echo "✅ Code formaté!"
+test-inference: ## Tester l'inférence d'un modèle (usage: make test-inference MODEL=path/to/model)
+	@echo "$(BLUE)Test d'inférence de $(MODEL)...$(NC)"
+	$(POETRY) run $(PYTHON) scripts/test_inference.py \
+		--model $(MODEL) \
+		--prompt "Écris une fonction Python qui trie une liste"
+	@echo "$(GREEN)✓ Test terminé$(NC)"
 
-stats:  ## Afficher les statistiques des modèles
-	@echo "📊 Statistiques des modèles:"
+benchmark: ## Benchmarker tous les modèles optimisés
+	@echo "$(BLUE)Benchmark des modèles...$(NC)"
+	$(POETRY) run $(PYTHON) scripts/benchmark_variants.py $(OPTIMIZED_DIR)/*
+	@echo "$(GREEN)✓ Benchmark terminé$(NC)"
+
+list-models: ## Lister tous les modèles créés
+	@echo "$(BLUE)Modèles fusionnés:$(NC)"
+	@ls -lh $(MODELS_DIR)/ 2>/dev/null || echo "  Aucun modèle fusionné"
 	@echo ""
-	@echo "Modèles fusionnés:"
-	@if [ -d "merged_models" ] && [ "$$(ls -A merged_models 2>/dev/null)" ]; then \
-		for model in merged_models/*; do \
-			if [ -d "$$model" ]; then \
-				size=$$(du -sh "$$model" | cut -f1); \
-				echo "  - $$(basename $$model): $$size"; \
-			fi \
-		done; \
-	else \
-		echo "  Aucun modèle fusionné"; \
-	fi
+	@echo "$(BLUE)Modèles optimisés:$(NC)"
+	@ls -lh $(OPTIMIZED_DIR)/ 2>/dev/null || echo "  Aucun modèle optimisé"
 	@echo ""
-	@echo "Modèles optimisés:"
-	@if [ -d "optimized_models" ] && [ "$$(ls -A optimized_models 2>/dev/null)" ]; then \
-		for model in optimized_models/*; do \
-			if [ -d "$$model" ]; then \
-				size=$$(du -sh "$$model" | cut -f1); \
-				echo "  - $$(basename $$model): $$size"; \
-			fi \
-		done; \
-	else \
-		echo "  Aucun modèle optimisé"; \
-	fi
+	@echo "$(BLUE)Modèles déployés:$(NC)"
+	@ls -lh $(PUBLIC_DIR)/ 2>/dev/null || echo "  Aucun modèle déployé"
 
-validate-recipe:  ## Valider une recette YAML
-	@echo "✓ Validation de $(RECIPE)..."
-	@$(PYTHON) -c "import yaml; yaml.safe_load(open('$(RECIPE)'))" && \
-		echo "✅ Recette valide!" || \
-		echo "❌ Recette invalide!"
+info: ## Afficher les informations sur l'environnement
+	@echo "$(BLUE)Informations sur l'environnement:$(NC)"
+	@echo "  Python: $$($(PYTHON) --version)"
+	@echo "  Poetry: $$($(POETRY) --version)"
+	@echo "  PyTorch: $$($(PYTHON) -c 'import torch; print(torch.__version__)' 2>/dev/null || echo 'Non installé')"
+	@echo "  Transformers: $$($(PYTHON) -c 'import transformers; print(transformers.__version__)' 2>/dev/null || echo 'Non installé')"
+	@echo "  CUDA disponible: $$($(PYTHON) -c 'import torch; print(torch.cuda.is_available())' 2>/dev/null || echo 'N/A')"
 
-# Exemples de recettes prédéfinies
-dev-polyglot:  ## Créer l'agent Dev Polyglot (Code + Multilingue)
-	@$(MAKE) pipeline RECIPE=recipes/dev-polyglot-v1.yml
+# Raccourcis
+dev-polyglot: build-dev-polyglot ## Alias pour build-dev-polyglot
 
-creative-coder:  ## Créer l'agent Creative Coder (Code + Créativité)
-	@$(MAKE) pipeline RECIPE=recipes/creative-coder-v1.yml
-
-data-analyst:  ## Créer l'agent Data Analyst (Code + Raisonnement)
-	@$(MAKE) pipeline RECIPE=recipes/data-analyst-v1.yml
-
-# Installation alternative sans Poetry
-install-pip:  ## Installer avec pip (sans Poetry)
-	@echo "📦 Installation avec pip..."
-	python3 -m venv .venv
-	. .venv/bin/activate && pip install -r requirements.txt
-	@echo "✅ Environnement prêt! Activez-le avec: source .venv/bin/activate"
-
-# Documentation
-docs:  ## Ouvrir la documentation
-	@if command -v xdg-open > /dev/null; then \
-		xdg-open README.md; \
-	elif command -v open > /dev/null; then \
-		open README.md; \
-	else \
-		echo "📖 Consultez README.md"; \
-	fi
-
-version:  ## Afficher la version
-	@echo "ORION Model Foundry v1.0.0"
-	@echo "Poetry: $$(poetry --version 2>/dev/null || echo 'non installé')"
-	@echo "Python: $$(python3 --version)"
-
-.DEFAULT_GOAL := help
+# Valeurs par défaut pour les paramètres
+MODEL ?= merged_models/ORION-Dev-Polyglot-v1
+QUANT ?= q4
+SIZE ?= 100
